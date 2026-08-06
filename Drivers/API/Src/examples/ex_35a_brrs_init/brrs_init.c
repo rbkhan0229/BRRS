@@ -22,15 +22,16 @@
  *           - CPU 기반 pseudo-latency 제거
  *           - SYNC TX/DATA RX RMARKER 기반 signed slot timing error 추가
  *           - DATA timestamp 필드를 예약 슬롯 오프셋으로 명확히 통일
+ *           - 실험 1~4의 SYNC 비컨 프리앰블을 256 symbol로 통일
  *
  *           지원 실험:
  *           - 실험 1: 프리앰블 축소 PER 측정 (DATA_PLEN 변경)
  *           - 실험 2: CIR 수집 (ENABLE_CIR=1)
- *           - 실험 3: RMARKER 및 RX 단계 관측 시각으로 SFD/PHR 오버헤드 측정
+ *           - 실험 3: TX EXTTXE airtime 차분으로 SFD/PHR 오버헤드 측정
  *           - 실험 4: 고정 10 ms 슈퍼프레임에서 축소 프리앰블 TDMA 처리량 측정
  *
  *           TDMA 구조:
- *           - SYNC: 실험 4 PLEN256, 나머지 PLEN512
+ *           - SYNC: 모든 실험에서 PLEN256 비컨 사용
  *           - DATA: DATA_PLEN (가변, 실험 파라미터)
  */
 
