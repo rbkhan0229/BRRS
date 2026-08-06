@@ -682,18 +682,28 @@ static uint8_t current_owned_slot_count = 0U;
 static uint32_t beacon_config_errors = 0U;
 static bool beacon_config_logged = false;
 
-static bool brrs_beacon_matches_build(const brrs_beacon_config_t *config)
+static const char *brrs_beacon_reject_reason(const brrs_beacon_config_t *config)
 {
     uint8_t schedule_bitmap = 0U;
     uint8_t slot;
 
-    if (config->data_preamble_symbols != PREAMBLE_SYMBOLS ||
-        config->data_psdu_bytes != PSDU_BYTES ||
-        config->data_rate != (uint8_t)DWT_BR_6M8 ||
-        config->slot_interval_us == 0U ||
-        config->superframe_period_us == 0U ||
-        config->first_slot_offset_us >= config->superframe_period_us) {
-        return false;
+    if (config->data_preamble_symbols != PREAMBLE_SYMBOLS) {
+        return "data_preamble";
+    }
+    if (config->data_psdu_bytes != PSDU_BYTES) {
+        return "data_psdu";
+    }
+    if (config->data_rate != (uint8_t)DWT_BR_6M8) {
+        return "data_rate";
+    }
+    if (config->slot_interval_us == 0U) {
+        return "slot_interval_zero";
+    }
+    if (config->superframe_period_us == 0U) {
+        return "period_zero";
+    }
+    if (config->first_slot_offset_us >= config->superframe_period_us) {
+        return "first_slot_range";
     }
 
     for (slot = 0U; slot < config->slot_count; slot++) {
@@ -702,23 +712,23 @@ static bool brrs_beacon_matches_build(const brrs_beacon_config_t *config)
 
         if (owner_bit == 0U ||
             (config->active_node_bitmap & owner_bit) == 0U) {
-            return false;
+            return "slot_owner";
         }
         schedule_bitmap |= owner_bit;
     }
 
     if (schedule_bitmap != config->active_node_bitmap) {
-        return false;
+        return "active_bitmap";
     }
 
     if (config->slot_count != 0U &&
         (uint32_t)config->first_slot_offset_us +
             (uint32_t)config->slot_count * config->slot_interval_us >=
             config->superframe_period_us) {
-        return false;
+        return "schedule_range";
     }
 
-    return true;
+    return NULL;
 }
 
 static void brrs_log_beacon_config(const brrs_beacon_config_t *config)
@@ -1166,22 +1176,49 @@ int brrs_normal(void)
                     (msg_type == MSG_TYPE_SYNC || msg_type == MSG_TYPE_END);
 
                 if (is_control_frame) {
-                    brrs_beacon_config_t decoded_config;
-                    bool valid_beacon =
-                        src_node == NODE_INIT && dest_node == NODE_ALL &&
-                        brrs_decode_beacon(rx_buffer, &decoded_config) &&
-                        brrs_beacon_matches_build(&decoded_config);
+                    brrs_beacon_config_t decoded_config = {0};
+                    const char *reject_reason = NULL;
+                    bool decoded = false;
+                    bool valid_beacon;
+
+                    if (src_node != NODE_INIT || dest_node != NODE_ALL) {
+                        reject_reason = "header";
+                    } else if (!brrs_decode_beacon(rx_buffer, &decoded_config)) {
+                        reject_reason = "decode";
+                    } else {
+                        decoded = true;
+                        reject_reason = brrs_beacon_reject_reason(&decoded_config);
+                    }
+                    valid_beacon = (reject_reason == NULL);
 
                     if (!valid_beacon) {
-                        static char error_line[128];
+                        static char error_line[360];
+                        char owners[BRRS_MAX_DATA_SLOTS + 1U] = {0};
+                        uint8_t slot;
+
                         beacon_config_errors++;
+                        if (decoded) {
+                            for (slot = 0U; slot < decoded_config.slot_count; slot++) {
+                                owners[slot] = (char)('0' + decoded_config.slot_owner[slot]);
+                            }
+                        }
                         snprintf(error_line, sizeof(error_line),
-                                 "BRRS_BEACON_REJECT,count=%lu,version=%u,m=%u,psdu=%u,rate=%u",
+                                 "BRRS_BEACON_REJECT,count=%lu,reason=%s,version=%u,m=%u,expected_m=%u,psdu=%u,expected_psdu=%u,rate=%u,expected_rate=%u,active_bitmap=0x%02X,slot_count=%u,slot_owners=%s,first_slot_us=%u,slot_interval_us=%u,period_us=%u",
                                  (unsigned long)beacon_config_errors,
+                                 reject_reason,
                                  rx_buffer[IDX_PROTOCOL_VERSION],
                                  brrs_get_u16_le(&rx_buffer[BRRS_BEACON_IDX_PREAMBLE_SYMBOLS]),
+                                 PREAMBLE_SYMBOLS,
                                  brrs_get_u16_le(&rx_buffer[BRRS_BEACON_IDX_PSDU_BYTES]),
-                                 rx_buffer[BRRS_BEACON_IDX_DATA_RATE]);
+                                 PSDU_BYTES,
+                                 rx_buffer[BRRS_BEACON_IDX_DATA_RATE],
+                                 (unsigned int)DWT_BR_6M8,
+                                 decoded_config.active_node_bitmap,
+                                 decoded_config.slot_count,
+                                 owners,
+                                 decoded_config.first_slot_offset_us,
+                                 decoded_config.slot_interval_us,
+                                 decoded_config.superframe_period_us);
                         test_run_info((unsigned char *)error_line);
                         dwt_forcetrxoff();
                         if (dwt_configure(&config_sync) == DWT_SUCCESS) {
