@@ -16,6 +16,9 @@
  *           [v1.5 변경사항] (2026-08)
  *           - DATA timestamp 필드를 CPU 준비 시각이 아닌 예약 슬롯 오프셋으로 통일
  *           - CPU 기반 pseudo-latency 통계 제거
+ *
+ *           [v1.6 변경사항] (2026-08)
+ *           - 실험 4 DATA 프리앰블을 비컨의 m 필드에서 런타임 적용
  */
 
 #include "deca_probe_interface.h"
@@ -93,31 +96,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v1.5 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v1.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v1.5 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v1.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v1.5 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v1.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v1.5 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v1.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v1.5 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v1.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v1.5 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v1.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v1.5 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v1.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -323,6 +326,46 @@ static dwt_config_t config_data = {
     (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - 8),
     DWT_STS_MODE_OFF, DWT_STS_LEN_64, DWT_PDOA_M0
 };
+
+#if BRRS_EXPERIMENT == 4
+static uint16_t current_data_plen = DATA_PLEN;
+static uint16_t current_data_preamble_symbols = PREAMBLE_SYMBOLS;
+
+static bool brrs_data_plen_from_symbols(uint16_t symbols, uint16_t *plen)
+{
+    switch (symbols) {
+    case 32U:
+        *plen = DWT_PLEN_32;
+        return true;
+    case 64U:
+        *plen = DWT_PLEN_64;
+        return true;
+    case 128U:
+        *plen = DWT_PLEN_128;
+        return true;
+    case 256U:
+        *plen = DWT_PLEN_256;
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool brrs_apply_beacon_data_phy(uint16_t symbols)
+{
+    uint16_t plen;
+
+    if (!brrs_data_plen_from_symbols(symbols, &plen)) {
+        return false;
+    }
+
+    config_data.txPreambLength = plen;
+    config_data.sfdTO = (uint16_t)(symbols + 1U + SFD_SYMBOLS - 8U);
+    current_data_plen = plen;
+    current_data_preamble_symbols = symbols;
+    return true;
+}
+#endif
 
 static dwt_config_t config_sync = {
     9, SYNC_PLEN, DWT_PAC8,
@@ -687,9 +730,19 @@ static const char *brrs_beacon_reject_reason(const brrs_beacon_config_t *config)
     uint8_t schedule_bitmap = 0U;
     uint8_t slot;
 
+#if BRRS_EXPERIMENT == 4
+    {
+        uint16_t ignored_plen;
+        if (!brrs_data_plen_from_symbols(config->data_preamble_symbols,
+                                         &ignored_plen)) {
+            return "unsupported_data_preamble";
+        }
+    }
+#else
     if (config->data_preamble_symbols != PREAMBLE_SYMBOLS) {
         return "data_preamble";
     }
+#endif
     if (config->data_psdu_bytes != PSDU_BYTES) {
         return "data_psdu";
     }
@@ -887,16 +940,15 @@ int brrs_normal(void)
     {
         static char cfg_msg[320];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "EXP4_TX_CONFIG_CSV,%s,seq=%d,sensors=%d,data_plen=%d,psdu_bytes=%d,app_payload_bytes=%d,slot_start_us=%d,slot_us=%d,superframe_us=%d,sync_frame_us=%d,sync_rx_open_offset_us=%d,sync_rx_window_us=%d,max_slots=%d",
-                 APP_NAME, MY_NODE_SEQ, BRRS_SENSOR_NODES,
+                 "EXP4_TX_BOOT_CSV,%s,seq=%d,data_plen_source=beacon,default_m=%d,psdu_bytes=%d,app_payload_bytes=%d,superframe_us=%d,sync_frame_us=%d,sync_rx_open_offset_us=%d,sync_rx_window_us=%d",
+                 APP_NAME, MY_NODE_SEQ,
                  PREAMBLE_SYMBOLS, PSDU_BYTES, BRRS_APP_PAYLOAD_BYTES,
-                 MY_SLOT_START_US, SLOT_INTERVAL_US, BRRS_SUPERFRAME_US,
+                 BRRS_SUPERFRAME_US,
                  SYNC_FRAME_US, BRRS_SUPERFRAME_US - SYNC_RX_EARLY_US,
-                 SYNC_RX_WINDOW_US,
-                 EXP4_MAX_DATA_SLOTS);
+                 SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=7,beacon_protocol=2,slot_owner_schedule=1,sync_rx=delayed_after_data,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=8,beacon_protocol=2,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -928,11 +980,19 @@ int brrs_normal(void)
 
     {
         static char cfg_msg[240];
+#if BRRS_EXPERIMENT == 4
+        snprintf(cfg_msg, sizeof(cfg_msg),
+                 "%s: EXP=%d SEQ=%d SLOT_START=beacon DATA_PLEN=beacon(default=%d/%dsym) SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
+                 APP_NAME, BRRS_EXPERIMENT, MY_NODE_SEQ, DATA_PLEN,
+                 PREAMBLE_SYMBOLS, PERIOD_US, PERIODS_PER_CYCLE,
+                 TARGET_CYCLES, ENABLE_CIR);
+#else
         snprintf(cfg_msg, sizeof(cfg_msg),
                  "%s: EXP=%d SEQ=%d SLOT_START=%dus PRE_US=%d DATA_PLEN=%d(%dsym) SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
                  APP_NAME, BRRS_EXPERIMENT, MY_NODE_SEQ, MY_SLOT_START_US, PREAMBLE_US,
                  DATA_PLEN, PREAMBLE_SYMBOLS, PERIOD_US,
                  PERIODS_PER_CYCLE, TARGET_CYCLES, ENABLE_CIR);
+#endif
         test_run_info((unsigned char *)cfg_msg);
     }
 #if BRRS_EXPERIMENT == 3
@@ -1045,7 +1105,12 @@ int brrs_normal(void)
 
                 static char hdr[80];
                 snprintf(hdr, sizeof(hdr), "\n===== %s FINAL STATS (PLEN=%d, %dsym) =====",
-                         APP_NAME, DATA_PLEN, PREAMBLE_SYMBOLS);
+                         APP_NAME,
+#if BRRS_EXPERIMENT == 4
+                         current_data_plen, current_data_preamble_symbols);
+#else
+                         DATA_PLEN, PREAMBLE_SYMBOLS);
+#endif
                 final_log_info(hdr);
 
 #if BRRS_EXPERIMENT == 4
@@ -1084,7 +1149,7 @@ int brrs_normal(void)
                     final_log_info(s);
                     snprintf(s, sizeof(s),
                              "EXP4_TX_RESULT_CSV,%s,%d,%d,%lu,%lu,%lu,%lu,%lu,%d,%s,%s",
-                             APP_NAME, MY_NODE_SEQ, PREAMBLE_SYMBOLS,
+                             APP_NAME, MY_NODE_SEQ, current_data_preamble_symbols,
                              (unsigned long)exp4_sync_frames_received,
                              (unsigned long)beacon_missed,
                              (unsigned long)total_tx_attempts,
@@ -1096,7 +1161,7 @@ int brrs_normal(void)
                     final_log_info(s);
                     snprintf(s, sizeof(s),
                              "EXP4_TX_DONE,node=%s,plen=%d,beacons=%lu/%d,attempts=%lu,success=%lu,end=%d,schedule=%s,beacon=%s,status=%s",
-                             APP_NAME, PREAMBLE_SYMBOLS,
+                             APP_NAME, current_data_preamble_symbols,
                              (unsigned long)exp4_sync_frames_received,
                              TARGET_CYCLES,
                              (unsigned long)total_tx_attempts,
@@ -1203,7 +1268,7 @@ int brrs_normal(void)
                             }
                         }
                         snprintf(error_line, sizeof(error_line),
-                                 "BRRS_BEACON_REJECT,count=%lu,reason=%s,version=%u,m=%u,expected_m=%u,psdu=%u,expected_psdu=%u,rate=%u,expected_rate=%u,active_bitmap=0x%02X,slot_count=%u,slot_owners=%s,first_slot_us=%u,slot_interval_us=%u,period_us=%u",
+                                 "BRRS_BEACON_REJECT,count=%lu,reason=%s,version=%u,m=%u,build_default_m=%u,psdu=%u,expected_psdu=%u,rate=%u,expected_rate=%u,active_bitmap=0x%02X,slot_count=%u,slot_owners=%s,first_slot_us=%u,slot_interval_us=%u,period_us=%u",
                                  (unsigned long)beacon_config_errors,
                                  reject_reason,
                                  rx_buffer[IDX_PROTOCOL_VERSION],
@@ -1230,9 +1295,28 @@ int brrs_normal(void)
                         continue;
                     }
 
+#if BRRS_EXPERIMENT == 4
+                    if (!brrs_apply_beacon_data_phy(
+                            decoded_config.data_preamble_symbols)) {
+                        beacon_config_errors++;
+                        continue;
+                    }
+#endif
                     current_beacon_config = decoded_config;
                     if (!beacon_config_logged) {
                         brrs_log_beacon_config(&current_beacon_config);
+#if BRRS_EXPERIMENT == 4
+                        {
+                            static char phy_line[180];
+                            snprintf(phy_line, sizeof(phy_line),
+                                     "BRRS_DATA_PHY_APPLIED_CSV,source=beacon,m=%u,plen_code=%u,sfd_to=%u,node=%u",
+                                     current_data_preamble_symbols,
+                                     current_data_plen,
+                                     config_data.sfdTO,
+                                     MY_NODE_SEQ);
+                            test_run_info((unsigned char *)phy_line);
+                        }
+#endif
                         beacon_config_logged = true;
                     }
                     brrs_load_owned_slots(&current_beacon_config);

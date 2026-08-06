@@ -24,8 +24,9 @@ SYNC beacon (PLEN 256)
     -> 500 us SYNC preparation interval
 ```
 
-- Coordinator: sends one PLEN-256 SYNC beacon, then receives every sensor slot
-  with delayed-RX.
+- Coordinator: sends one PLEN-256 SYNC beacon and opens the first DATA slot
+  with delayed-RX. Adjacent DATA slots are received by immediate re-arm before
+  host-side frame processing, so processing latency cannot consume the guard.
 - The first SYNC is immediate; later SYNC beacons use DW3000 delayed-TX at the
   previous scheduled RMARKER plus exactly 10,000 us. MCU work and RTT output do
   not accumulate in the superframe period.
@@ -36,8 +37,8 @@ SYNC beacon (PLEN 256)
 - DATA preamble: 32, 64, 128, or 256 symbols.
 - Application payload: 16 bytes.
 - PSDU: 12-byte experiment header + 16-byte payload + 2-byte FCS = 30 bytes.
-- Default inter-frame guard: 100 us. This includes coordinator time to read one
-  frame and arm the next delayed-RX window; it is a firmware implementation
+- Default inter-frame guard: 100 us. This includes the coordinator's immediate
+  RX re-arm service and receiver turn-on margin; it is a firmware implementation
   overhead and must be reported with the result.
 - Retransmission and ACK: disabled.
 - Run length: 1000 superframes, or 10 seconds at 100 Hz.
@@ -52,9 +53,8 @@ records on RTT channels 0 and 1:
 - `EXP4_NODE_CSV`: per-node expected, received, missed, and RX error counts.
 - `EXP4_TIMING_CSV`: measured SYNC period, total elapsed time, delayed-SYNC
   scheduling failures, and END transmission count.
-- `EXP4_REARM_CSV`: coordinator processing time and remaining time before the
-  next delayed-RX window. It has `count=0` in an S1 run because there is no
-  adjacent sensor slot to re-arm.
+- `EXP4_REARM_CSV`: coordinator immediate-RX re-arm service time and failure
+  count. It has `count=0` in an S1 run because there is no adjacent sensor slot.
 - `BRRS_SLOT_TIMING_CSV`: signed DATA arrival error in ns, calculated from
   DW3000 RMARKER timestamps. Its sample count must equal the accepted RX count.
 - `EXP4_STATUS_CSV`: schedule, UWB timing-sample integrity, and collection
@@ -80,22 +80,26 @@ SFD, PHR, PSDU, guard, beacon buffer, and SYNC preparation time remain.
 
 ## First smoke test in SES
 
+Normal-node firmware now reads DATA preamble length `m` from every valid beacon.
+Build it once per physical node ID; the same N2/N3 image follows a 32, 64, 128,
+or 256-symbol INIT without reflashing.
+
 For the current two-board setup, use the one-sensor (`S1`) configurations:
 
 | DATA preamble | Coordinator | Sensor N2 |
 |---:|---|---|
-| 32 | `Exp4_32_S1_Init` | `Exp4_32_S1_N2` |
-| 64 | `Exp4_64_S1_Init` | `Exp4_64_S1_N2` |
-| 256 | `Exp4_256_S1_Init` | `Exp4_256_S1_N2` |
+| 32 | `Exp4_32_S1_Init` | `Exp4_N2` |
+| 64 | `Exp4_64_S1_Init` | `Exp4_N2` |
+| 256 | `Exp4_256_S1_Init` | `Exp4_N2` |
 
 To validate back-to-back slot re-arming with three boards, use the two-sensor
 (`S2`) configurations:
 
 | DATA preamble | Coordinator | Sensor N2 | Sensor N3 |
 |---:|---|---|---|
-| 32 | `Exp4_32_S2_Init` | `Exp4_32_S2_N2` | `Exp4_32_S2_N3` |
-| 64 | `Exp4_64_S2_Init` | `Exp4_64_S2_N2` | `Exp4_64_S2_N3` |
-| 256 | `Exp4_256_S2_Init` | `Exp4_256_S2_N2` | `Exp4_256_S2_N3` |
+| 32 | `Exp4_32_S2_Init` | `Exp4_N2` | `Exp4_N3` |
+| 64 | `Exp4_64_S2_Init` | `Exp4_N2` | `Exp4_N3` |
+| 256 | `Exp4_256_S2_Init` | `Exp4_N2` | `Exp4_N3` |
 
 1. For S1, Build and Debug N2. For S2, Build and Debug both N2 and N3.
 2. Let every sensor board remain in SYNC wait.
@@ -106,12 +110,15 @@ To validate back-to-back slot re-arming with three boards, use the two-sensor
 6. Check `EXP4_TIMING_CSV`: `period_count=1000`, average approximately
    10,000 us, `sync_delayed_late=0`, and `end_tx=3`.
 7. Check `BRRS_SLOT_TIMING_CSV`: `samples` equals `rx` and `status=PASS`.
+8. Check each sensor for `BRRS_DATA_PHY_APPLIED_CSV`: `m` must match the
+   coordinator configuration.
 
 The one-sensor guard-time test does not validate back-to-back slot processing.
-During the first N2+N3 smoke test, check `delayed late`. If it is nonzero, increase
-`BRRS_SLOT_GUARD_US`; the coordinator did not have enough time to finish one RX
-and arm the next delayed-RX window. After a stable baseline is obtained, sweep
-the guard downward separately to find the minimum multi-slot value.
+During the first N2+N3 smoke test, check `EXP4_REARM_CSV` and `rx-rearm-fail`.
+If re-arm fails or N3 is consistently absent, increase `BRRS_SLOT_GUARD_US` and
+repeat; the coordinator did not re-enable RX before the next preamble. After a
+stable baseline is obtained, sweep the guard downward separately to find the
+minimum multi-slot value.
 
 ## Build any N2-N8 combination
 
@@ -135,9 +142,10 @@ On Linux, set `EMBUILD` if `emBuild` is not on `PATH`:
 EMBUILD="/full/path/to/emBuild" Drivers/API/brrs_exp4_build.sh 32 7
 ```
 
-All devices in a run must use the same preamble and sensor-count build.
-They must also use the same guard build. A non-default guard is stored in a
-separate directory such as `plen32_sensors2_guard50`.
+The generated images remain run-specific for reproducibility. In SES, the
+universal `Exp4_N2` through `Exp4_N8` configurations can instead be reused;
+their DATA preamble and owned slots come from the beacon. A non-default INIT
+guard is stored in a separate directory such as `plen32_sensors2_guard50`.
 
 To flash one generated image and capture RTT channel 1 in one command:
 
@@ -162,11 +170,10 @@ Drivers/API/brrs_exp4_flash_and_log.sh 32 2 N3 /path/to/N3.log 50
 Drivers/API/brrs_exp4_flash_and_log.sh 32 2 init /path/to/init.log 50
 ```
 
-For multiple sensors, the theoretical command deadline requires
-`guard >= lead`. The practical requirement is larger:
+For multiple sensors, the practical requirement is:
 
 ```text
-guard >= 12 us lead + maximum coordinator RX re-arm time + safety margin
+guard >= maximum coordinator immediate-RX re-arm time + receiver safety margin
 ```
 
 Use `EXP4_REARM_CSV` and PER to reduce guard from 100 us. An S1 result cannot
@@ -175,8 +182,8 @@ validate this because it does not contain a back-to-back RX re-arm.
 ## Sparse active-node bitmap validation
 
 The `Exp4_32_S3_B05_Init` coordinator configuration advertises the sparse
-bitmap `0x05`, so N2 and N4 are active while N3 is omitted. Use the existing
-`Exp4_32_S3_N2` and `Exp4_32_S3_N4` sensor configurations. The first schedule
+bitmap `0x05`, so N2 and N4 are active while N3 is omitted. Use `Exp4_N2` and
+`Exp4_N4` on the sensor boards. The first schedule
 line must be:
 
 ```text
