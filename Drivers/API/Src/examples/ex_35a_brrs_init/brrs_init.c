@@ -31,6 +31,10 @@
  *           - 연속 슬롯 RX 재무장을 DW3000 fast command로 단축
  *           - 재무장 SPI 단계별 실행시간 진단 추가
  *
+ *           [v1.8 변경사항] (2026-08)
+ *           - 연속 슬롯 timeout 재설정 제거, RX fast command를 최우선 실행
+ *           - timestamp 읽기와 상태 해제를 RX 재무장 이후로 이동
+ *
  *           지원 실험:
  *           - 실험 1: 프리앰블 축소 PER 측정 (DATA_PLEN 변경)
  *           - 실험 2: CIR 수집 (ENABLE_CIR=1)
@@ -66,7 +70,7 @@ extern void test_run_info(unsigned char *data);
 extern int SEGGER_RTT_ConfigUpBuffer(unsigned BufferIndex, const char* sName, void* pBuffer, unsigned BufferSize, unsigned Flags);
 extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 
-#define APP_NAME "BRRS INIT NODE v1.7 (beacon-scheduled delayed-RX)"
+#define APP_NAME "BRRS INIT NODE v1.8 (beacon-scheduled delayed-RX)"
 
 /* ========== 실험 모드 선택 ========== */
 #ifndef BRRS_EXPERIMENT
@@ -1015,8 +1019,8 @@ static latency_stats_t node_open_to_rmarker[TOTAL_ARRAY_SIZE];
 #if BRRS_EXPERIMENT == 4
 static latency_stats_t exp4_rearm_service_stats;
 static latency_stats_t exp4_rearm_rx_timestamp_stats;
+static latency_stats_t exp4_rearm_header_read_stats;
 static latency_stats_t exp4_rearm_status_clear_stats;
-static latency_stats_t exp4_rearm_timeout_program_stats;
 static latency_stats_t exp4_rearm_rx_enable_stats;
 #endif
 
@@ -1610,7 +1614,14 @@ static bool schedule_delayed_rx(uint32_t sync_tx_ts_high32, uint32_t slot_offset
     last_rx_open_high32 = rx_time_high32;
 
     dwt_setdelayedtrxtime(rx_time_high32);
-    dwt_setrxtimeout(US_TO_UUS(RX_WINDOW_US));  /* 짧은 RX 윈도우 (UUS 단위 변환) */
+#if BRRS_EXPERIMENT == 4
+    /* RX_FWTO and RXWTOE persist across RX commands. Program enough time for
+     * an immediate inter-slot re-arm once, before the first delayed slot. */
+    dwt_setrxtimeout(US_TO_UUS(current_beacon_config.slot_interval_us +
+                               RX_WINDOW_US));
+#else
+    dwt_setrxtimeout(US_TO_UUS(RX_WINDOW_US));
+#endif
 
     int result = dwt_rxenable(DWT_START_RX_DELAYED | DWT_IDLE_ON_DLY_ERR);
     if (result != DWT_SUCCESS) {
@@ -1856,20 +1867,12 @@ static void exp4_schedule_next_slot_after_event(uint32_t event_start_cycles)
     uint8_t next_slot = (current_rx_slot == 0xFF) ? 0xFF : (uint8_t)(current_rx_slot + 1U);
 
     if (next_slot < current_beacon_config.slot_count) {
-        uint32_t timeout_us = current_beacon_config.slot_interval_us + RX_WINDOW_US;
         uint32_t phase_start_cycles;
         uint32_t phase_cycles;
         uint32_t phase_us;
 
         current_rx_slot = next_slot;
         current_rx_open_timing_valid = false;
-
-        phase_start_cycles = dwt_timer_get_cycles();
-        dwt_setrxtimeout(US_TO_UUS(timeout_us));
-        phase_cycles = dwt_timer_get_cycles() - phase_start_cycles;
-        phase_us = (phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
-                   (CPU_FREQ_HZ / 1000000UL);
-        update_node_latency(&exp4_rearm_timeout_program_stats, phase_us);
 
         phase_start_cycles = dwt_timer_get_cycles();
         dwt_writetodevice(BRRS_DW3000_FAST_CMD_RX, 0U, 0U, NULL);
@@ -2132,7 +2135,7 @@ int brrs_init(void)
     {
         static char cfg_msg[240];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "BRRS v1.7: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
+                 "BRRS v1.8: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
                  BRRS_EXPERIMENT, SYNC_PLEN, DATA_PLEN, PREAMBLE_SYMBOLS,
                  PREAMBLE_US, SLOT_INTERVAL_US, RX_WINDOW_US,
                  RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US, PERIOD_US,
@@ -2183,7 +2186,7 @@ int brrs_init(void)
                  EXP4_MAX_DATA_SLOTS);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=9,beacon_protocol=2,slot_owner_schedule=1,data_rx=delayed_first_fastcmd_burst,sync_arm=after_last_slot,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+            "EXP4_FIRMWARE_REV,rev=10,beacon_protocol=2,slot_owner_schedule=1,data_rx=delayed_first_fastcmd_priority,sync_arm=after_last_slot,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -2229,8 +2232,8 @@ int brrs_init(void)
 #if BRRS_EXPERIMENT == 4
     exp4_rearm_service_stats.min_us = 0xFFFFFFFF;
     exp4_rearm_rx_timestamp_stats.min_us = 0xFFFFFFFF;
+    exp4_rearm_header_read_stats.min_us = 0xFFFFFFFF;
     exp4_rearm_status_clear_stats.min_us = 0xFFFFFFFF;
-    exp4_rearm_timeout_program_stats.min_us = 0xFFFFFFFF;
     exp4_rearm_rx_enable_stats.min_us = 0xFFFFFFFF;
 #endif
 
@@ -2418,16 +2421,16 @@ int brrs_init(void)
 
                     {
                         latency_stats_t *phase_stats[] = {
+                            &exp4_rearm_rx_enable_stats,
                             &exp4_rearm_rx_timestamp_stats,
-                            &exp4_rearm_status_clear_stats,
-                            &exp4_rearm_timeout_program_stats,
-                            &exp4_rearm_rx_enable_stats
+                            &exp4_rearm_header_read_stats,
+                            &exp4_rearm_status_clear_stats
                         };
                         const char *phase_names[] = {
-                            "rx_timestamp_read",
-                            "status_clear",
-                            "timeout_program",
-                            "rx_enable"
+                            "rx_enable_critical",
+                            "rx_timestamp_read_post_rearm",
+                            "data_header_read_post_rearm",
+                            "status_clear_post_rearm"
                         };
                         uint8_t phase;
 
@@ -2968,21 +2971,8 @@ int brrs_init(void)
                 bool rx_open_timing_valid = current_rx_open_timing_valid;
                 bool exp4_rearm_needed = exp4_has_next_slot();
 
-                /* The first slot is delayed-RX. Contiguous later slots are
-                 * re-armed immediately before reading or validating the
-                 * completed frame, so host processing cannot consume the
-                 * short inter-slot guard. */
-                exp4_phase_start_cycles = dwt_timer_get_cycles();
-                dwt_writesysstatuslo(DWT_INT_RXFCG_BIT_MASK);
-                exp4_phase_cycles =
-                    dwt_timer_get_cycles() - exp4_phase_start_cycles;
-                exp4_phase_us =
-                    (exp4_phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
-                    (CPU_FREQ_HZ / 1000000UL);
-                if (exp4_rearm_needed) {
-                    update_node_latency(&exp4_rearm_status_clear_stats,
-                                        exp4_phase_us);
-                }
+                /* The first slot is delayed-RX. For contiguous slots, issue
+                 * CMD_RX before every previous-frame SPI housekeeping step. */
                 exp4_schedule_next_slot_after_event(exp4_event_start_cycles);
 
                 /* RX_TIME remains the completed frame's value until another
@@ -2998,6 +2988,33 @@ int brrs_init(void)
                     update_node_latency(&exp4_rearm_rx_timestamp_stats,
                                         exp4_phase_us);
                 }
+
+                /* Exp4 validates only the protocol header. Avoid copying the
+                 * unused payload while the next slot is already receiving. */
+                memset(rx_buffer, 0, sizeof(rx_buffer));
+                exp4_phase_start_cycles = dwt_timer_get_cycles();
+                dwt_readrxdata(rx_buffer, IDX_DATA_PAYLOAD, 0);
+                exp4_phase_cycles =
+                    dwt_timer_get_cycles() - exp4_phase_start_cycles;
+                exp4_phase_us =
+                    (exp4_phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
+                    (CPU_FREQ_HZ / 1000000UL);
+                if (exp4_rearm_needed) {
+                    update_node_latency(&exp4_rearm_header_read_stats,
+                                        exp4_phase_us);
+                }
+
+                exp4_phase_start_cycles = dwt_timer_get_cycles();
+                dwt_writesysstatuslo(DWT_INT_RXFCG_BIT_MASK);
+                exp4_phase_cycles =
+                    dwt_timer_get_cycles() - exp4_phase_start_cycles;
+                exp4_phase_us =
+                    (exp4_phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
+                    (CPU_FREQ_HZ / 1000000UL);
+                if (exp4_rearm_needed) {
+                    update_node_latency(&exp4_rearm_status_clear_stats,
+                                        exp4_phase_us);
+                }
 #else
                 uint32_t rx_ts_high32;
                 uint32_t rx_open_high32;
@@ -3009,8 +3026,10 @@ int brrs_init(void)
                 completed_rx_slot = current_rx_slot;
 #endif
 
+#if BRRS_EXPERIMENT != 4
                 memset(rx_buffer, 0, sizeof(rx_buffer));
                 dwt_readrxdata(rx_buffer, sizeof(tx_msg), 0);
+#endif
 
                 uint8_t msg_type = rx_buffer[IDX_MSG_TYPE];
                 uint8_t src_node = rx_buffer[IDX_SOURCE];
@@ -3144,6 +3163,7 @@ int brrs_init(void)
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = dwt_timer_get_cycles();
                 bool exp4_rearm_needed = exp4_has_next_slot();
+                exp4_schedule_next_slot_after_event(exp4_event_start_cycles);
 #endif
 #if BRRS_EXPERIMENT == 3 && EXP3_RX_STAGE_DIAG
                 exp3_trace_cancel();
@@ -3176,7 +3196,6 @@ int brrs_init(void)
                                             phase_us);
                     }
                 }
-                exp4_schedule_next_slot_after_event(exp4_event_start_cycles);
 #else
                 dwt_forcetrxoff();
                 dwt_writesysstatuslo(0xFFFFFFFF);
@@ -3195,6 +3214,7 @@ int brrs_init(void)
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = dwt_timer_get_cycles();
                 bool exp4_rearm_needed = exp4_has_next_slot();
+                exp4_schedule_next_slot_after_event(exp4_event_start_cycles);
 #endif
 #if BRRS_EXPERIMENT == 3 && EXP3_RX_STAGE_DIAG
                 exp3_trace_cancel();
@@ -3232,7 +3252,6 @@ int brrs_init(void)
                                             phase_us);
                     }
                 }
-                exp4_schedule_next_slot_after_event(exp4_event_start_cycles);
 #else
                 dwt_writesysstatuslo(SYS_STATUS_ALL_RX_ERR);
                 dwt_forcetrxoff();

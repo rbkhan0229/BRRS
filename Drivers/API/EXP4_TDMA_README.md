@@ -57,10 +57,11 @@ records on RTT channels 0 and 1:
   `count=0` in an S1 run because there is no adjacent sensor slot. The
   `delayed_schedule_late` field applies to delayed scheduling of the first slot,
   not to the immediate re-arm burst itself.
-- `EXP4_REARM_PHASE_CSV`: SPI service time split into RX status clear, frame
-  timeout programming, RX fast-command, and RX timestamp read phases. Timestamp
-  reads occur after the critical re-arm and are therefore not part of the
-  `EXP4_REARM_CSV` deadline.
+- `EXP4_REARM_PHASE_CSV`: SPI service time split into the critical RX fast
+  command and post-rearm RX timestamp, 12-byte DATA header read, and status
+  operations. Frame timeout is programmed with the first delayed slot and
+  persists across the immediate RX commands. Post-rearm operations are not part
+  of the `EXP4_REARM_CSV` deadline.
 - `BRRS_SLOT_TIMING_CSV`: signed DATA arrival error in ns, calculated from
   DW3000 RMARKER timestamps. Its sample count must equal the accepted RX count.
 - `EXP4_STATUS_CSV`: schedule, UWB timing-sample integrity, and collection

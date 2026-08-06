@@ -22,6 +22,9 @@
  *
  *           [v1.7 변경사항] (2026-08)
  *           - 비컨 기반 DATA 프리앰블 적용을 실험 1~4 전체로 확장
+ *
+ *           [v1.8 변경사항] (2026-08)
+ *           - coordinator fast-command-priority 연속 슬롯 RX와 릴리스 동기화
  */
 
 #include "deca_probe_interface.h"
@@ -99,31 +102,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v1.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v1.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v1.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v1.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v1.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v1.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v1.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v1.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v1.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v1.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v1.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v1.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v1.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v1.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -943,7 +946,7 @@ int brrs_normal(void)
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=9,beacon_protocol=2,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=10,beacon_protocol=2,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
