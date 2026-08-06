@@ -1,0 +1,338 @@
+{"kind":"deck","id":"pr/08rl8h","name":"Deck"}
+{"kind":"layout","layoutId":"43ce5723-a5d9-44ac-af3d-925640c28c80","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"b2625bc6-ba9b-411d-8771-964dafee5b5e","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/0za8d4","slide":1,"title":"BRRS delayed-RX","textShapes":6}
+{"kind":"textbox","id":"sh/fil0rqd4","slide":1,"text":"BRRS delayed-RX","textPreview":"BRRS delayed-RX","textChars":15,"textLines":1,"bbox":[54,62,500,52]}
+{"kind":"textbox","id":"sh/83itgfml","slide":1,"text":"짧은 프리앰블에서\nlead margin이 중요한 이유","textPreview":"짧은 프리앰블에서 | lead margin이 중요한 이유","textChars":29,"textLines":2,"bbox":[54,154,760,190]}
+{"kind":"textbox","id":"sh/xobm58z2","slide":1,"text":"tail margin 배제, accumCount 재분석, PAC8 주기성 기반 해석","textPreview":"tail margin 배제, accumCount 재분석, PAC8 주기성 기반 해석","textChars":46,"textLines":1,"bbox":[58,374,800,42]}
+{"kind":"shape","id":"sh/m94fu18j","slide":1,"bbox":[880,96,294,430]}
+{"kind":"textbox","id":"sh/fu18jqh0","slide":1,"text":"핵심 주장","textPreview":"핵심 주장","textChars":5,"textLines":1,"bbox":[914,132,220,28]}
+{"kind":"textbox","id":"sh/4fu18jqh","slide":1,"text":"프레임이 늦게 도착해서 실패한 것이 아니라,\nRX가 실제로 청취를 시작하기 전의 공백과\nPAC8 정렬이 짧은 프리앰블을 잠식한 것으로 보인다.","textPreview":"프레임이 늦게 도착해서 실패한 것이 아니라, | RX가 실제로 청취를 시작하기 전의 공백과 | PAC8 정렬이 짧은 프리앰블을 잠식한 것으로 보인다.","textChars":79,"textLines":3,"bbox":[914,186,224,210]}
+{"kind":"textbox","id":"sh/x0nuxc3y","slide":1,"text":"2026.07.08","textPreview":"2026.07.08","textChars":10,"textLines":1,"bbox":[54,650,220,28]}
+{"kind":"notes","id":"nt/0za8d4","slide":1,"text":""}
+{"kind":"slide","id":"sl/folcpo","slide":2,"title":"BRRS delayed-RX 분석","textShapes":10}
+{"kind":"textbox","id":"sh/jqh0fepk","slide":2,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/8bat47y1","slide":2,"text":"확인하려는 질문은 하나다","textPreview":"확인하려는 질문은 하나다","textChars":13,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/1w7mp0bi","slide":2,"bbox":[54,138,1172,0]}
+{"kind":"shape","id":"sh/qh0fepkz","slide":2,"bbox":[70,172,350,320]}
+{"kind":"textbox","id":"sh/j2t83itg","slide":2,"text":"관찰","textPreview":"관찰","textChars":2,"textLines":1,"bbox":[92,190,306,28]}
+{"kind":"textbox","id":"sh/8nqxs72x","slide":2,"text":"32sym은 조건에 따라 PER이 크게 흔들리고, 64sym 이상은 비교적 안정적이었다.","textPreview":"32sym은 조건에 따라 PER이 크게 흔들리고, 64sym 이상은 비교적 안정적이었다.","textChars":49,"textLines":1,"bbox":[92,228,306,250]}
+{"kind":"shape","id":"sh/18jqh0fe","slide":2,"bbox":[465,172,350,320]}
+{"kind":"textbox","id":"sh/ulwval87","slide":2,"text":"가설","textPreview":"가설","textChars":2,"textLines":1,"bbox":[487,190,306,28]}
+{"kind":"textbox","id":"sh/j6tovaho","slide":2,"text":"프리앰블 길이 자체보다 실제 청취 시작 위치와 PAC grid 위상이 성능을 결정한다.","textPreview":"프리앰블 길이 자체보다 실제 청취 시작 위치와 PAC grid 위상이 성능을 결정한다.","textChars":48,"textLines":1,"bbox":[487,228,306,250]}
+{"kind":"shape","id":"sh/j2t83itg","slide":2,"bbox":[860,172,350,320]}
+{"kind":"textbox","id":"sh/qh0fepkz","slide":2,"text":"검증","textPreview":"검증","textChars":2,"textLines":1,"bbox":[882,190,306,28]}
+{"kind":"textbox","id":"sh/18jqh0fe","slide":2,"text":"tail margin 문제가 아니라 lead margin과 accumCount 변화로 설명되는지 확인한다.","textPreview":"tail margin 문제가 아니라 lead margin과 accumCount 변화로 설명되는지 확인한다.","textChars":59,"textLines":1,"bbox":[882,228,306,250]}
+{"kind":"textbox","id":"sh/8nqxs72x","slide":2,"text":"이번 자료의 결론은 ‘lead를 크게 주자’가 아니라, 왜 lead가 필요한지와 어디까지 줄일 수 있는지를 설명하는 것이다.","textPreview":"이번 자료의 결론은 ‘lead를 크게 주자’가 아니라, 왜 lead가 필요한지와 어디까지 줄일 수 있는지를 설명하는 것이다.","textChars":69,"textLines":1,"bbox":[86,566,1110,62]}
+{"kind":"textbox","id":"sh/jqh0fepk","slide":2,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"notes","id":"nt/folcpo","slide":2,"text":""}
+{"kind":"slide","id":"sl/39nos1","slide":3,"title":"BRRS delayed-RX 분석","textShapes":8}
+{"kind":"textbox","id":"sh/3m94fu18","slide":3,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/s72x4nap","slide":3,"text":"수신 창은 RMARKER 기준으로 앞당겨 예약한다","textPreview":"수신 창은 RMARKER 기준으로 앞당겨 예약한다","textChars":27,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/lszqtcj6","slide":3,"bbox":[54,138,1172,0]}
+{"kind":"textbox","id":"sh/adsji5sn","slide":3,"text":"코드 기준 시간 정의","textPreview":"코드 기준 시간 정의","textChars":11,"textLines":1,"bbox":[70,168,340,28]}
+{"kind":"shape","id":"sh/3ylc7u54","slide":3,"bbox":[70,208,540,320]}
+{"kind":"textbox","id":"sh/sji5snel","slide":3,"text":"MY_SLOT_START_US = SYNC_BUFFER_US + (seq - 1) * SLOT_INTERVAL_US\n\n32sym N2 기준:\nMY_SLOT_START_US = 3000 + (2 - 1) * 717 = 3717 us\n\nRX_ON 예약:\nslot_offset_us = 3000 + 1 * 717 - RX_EARLY_US\nRX_EARLY_US = PREAMBLE_US + SFD_US + lead","textPreview":"MY_SLOT_START_US = SYNC_BUFFER_US + (seq - 1) * SLOT_INTERVAL_US |  | 32sym N2 기준: | MY_SLOT_START_US = 3000 + (2 - 1) * 717 = 3717 us | ...","textChars":227,"textLines":8,"bbox":[96,238,488,260]}
+{"kind":"textbox","id":"sh/h4byhgn2","slide":3,"text":"해석 포인트","textPreview":"해석 포인트","textChars":6,"textLines":1,"bbox":[680,168,320,28]}
+{"kind":"textbox","id":"sh/ap4r65wj","slide":3,"text":"• RMARKER는 데이터 프레임의 기준 시각이다.\n• RX는 RMARKER에 딱 맞춰 켜는 것이 아니라, preamble/SFD를 잡기 위해 그보다 일찍 켠다.\n• lead margin은 RX_ON 예약 시각을 더 앞으로 당긴다.\n• tail margin은 이미 검출이 시작된 뒤, 뒤쪽을 더 오래 열어두는 역할이다.","textPreview":"• RMARKER는 데이터 프레임의 기준 시각이다. | • RX는 RMARKER에 딱 맞춰 켜는 것이 아니라, preamble/SFD를 잡기 위해 그보다 일찍 켠다. | • lead margin은 RX_ON 예약 시각을 더 앞으로 당긴다. | •...","textChars":178,"textLines":4,"bbox":[680,214,500,230]}
+{"kind":"textbox","id":"sh/za1gvy90","slide":3,"text":"따라서 32sym 실패 원인을 보려면 ‘늦게 닫혔는가’보다 ‘충분히 일찍 듣기 시작했는가’를 먼저 봐야 한다.","textPreview":"따라서 32sym 실패 원인을 보려면 ‘늦게 닫혔는가’보다 ‘충분히 일찍 듣기 시작했는가’를 먼저 봐야 한다.","textChars":61,"textLines":1,"bbox":[680,502,500,84]}
+{"kind":"textbox","id":"sh/z61032ls","slide":3,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"notes","id":"nt/39nos1","slide":3,"text":""}
+{"kind":"slide","id":"sl/xuzc6g","slide":4,"title":"BRRS delayed-RX 분석","textShapes":21}
+{"kind":"textbox","id":"sh/zqtcj6to","slide":4,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/obm58z25","slide":4,"text":"tail margin은 이번 실패의 주 원인으로 보이지 않는다","textPreview":"tail margin은 이번 실패의 주 원인으로 보이지 않는다","textChars":34,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/hwfyxobm","slide":4,"bbox":[54,138,1172,0]}
+{"kind":"shape","id":"sh/6xkf6dcb","slide":4,"bbox":[70,176,760,66]}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":4,"text":"근거","textPreview":"근거","textChars":2,"textLines":1,"bbox":[80,184,154.8,54]}
+{"kind":"shape","id":"sh/oza1gvy9","slide":4,"bbox":[244.8,176,0,66]}
+{"kind":"textbox","id":"sh/hk3q5o7q","slide":4,"text":"관찰값","textPreview":"관찰값","textChars":3,"textLines":1,"bbox":[254.8,184,170,54]}
+{"kind":"shape","id":"sh/al87ed8b","slide":4,"bbox":[434.8,176,0,66]}
+{"kind":"textbox","id":"sh/z61032ls","slide":4,"text":"의미","textPreview":"의미","textChars":2,"textLines":1,"bbox":[444.8,184,375.2,54]}
+{"kind":"shape","id":"sh/za1gvy90","slide":4,"bbox":[70,242,760,66]}
+{"kind":"textbox","id":"sh/ap4r65wj","slide":4,"text":"UWB offset","textPreview":"UWB offset","textChars":10,"textLines":1,"bbox":[80,250,154.8,54]}
+{"kind":"shape","id":"sh/hgn29gr2","slide":4,"bbox":[244.8,242,0,66]}
+{"kind":"textbox","id":"sh/svu9knih","slide":4,"text":"3717us min=max=avg","textPreview":"3717us min=max=avg","textChars":18,"textLines":1,"bbox":[254.8,250,170,54]}
+{"kind":"shape","id":"sh/zidonyd0","slide":4,"bbox":[434.8,242,0,66]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":4,"text":"DATA RMARKER 도착 시각이 흔들리지 않음","textPreview":"DATA RMARKER 도착 시각이 흔들리지 않음","textChars":27,"textLines":1,"bbox":[444.8,250,375.2,54]}
+{"kind":"shape","id":"sh/hoza1gvy","slide":4,"bbox":[70,308,760,66]}
+{"kind":"textbox","id":"sh/s36hcrmh","slide":4,"text":"tail-only","textPreview":"tail-only","textChars":9,"textLines":1,"bbox":[80,316,154.8,54]}
+{"kind":"shape","id":"sh/3m94fu18","slide":4,"bbox":[244.8,308,0,66]}
+{"kind":"textbox","id":"sh/a5gbq1or","slide":4,"text":"PER 100%, fwto=1000","textPreview":"PER 100%, fwto=1000","textChars":19,"textLines":1,"bbox":[254.8,316,170,54]}
+{"kind":"shape","id":"sh/yxobm58z","slide":4,"bbox":[434.8,308,0,66]}
+{"kind":"textbox","id":"sh/nih4byhg","slide":4,"text":"뒤쪽 부족이 아니라 시작 전 검출 실패","textPreview":"뒤쪽 부족이 아니라 시작 전 검출 실패","textChars":21,"textLines":1,"bbox":[444.8,316,375.2,54]}
+{"kind":"shape","id":"sh/g3ex0nux","slide":4,"bbox":[70,374,760,66]}
+{"kind":"textbox","id":"sh/5o7qpg3e","slide":4,"text":"lead-only","textPreview":"lead-only","textChars":9,"textLines":1,"bbox":[80,382,154.8,54]}
+{"kind":"shape","id":"sh/ylc7u54z","slide":4,"bbox":[244.8,374,0,66]}
+{"kind":"textbox","id":"sh/r65wjudg","slide":4,"text":"PER 0.20%","textPreview":"PER 0.20%","textChars":9,"textLines":1,"bbox":[254.8,382,170,54]}
+{"kind":"shape","id":"sh/gr2p8nqx","slide":4,"bbox":[434.8,374,0,66]}
+{"kind":"textbox","id":"sh/9cvixcze","slide":4,"text":"앞쪽 margin만 줘도 32sym 생존","textPreview":"앞쪽 margin만 줘도 32sym 생존","textChars":22,"textLines":1,"bbox":[444.8,382,375.2,54]}
+{"kind":"shape","id":"sh/yd0z6103","slide":4,"bbox":[70,440,760,66]}
+{"kind":"textbox","id":"sh/rytsvu9k","slide":4,"text":"FCE","textPreview":"FCE","textChars":3,"textLines":1,"bbox":[80,448,154.8,54]}
+{"kind":"shape","id":"sh/d4vmtwra","slide":4,"bbox":[244.8,440,0,66]}
+{"kind":"textbox","id":"sh/oj2t83it","slide":4,"text":"관측되지 않음","textPreview":"관측되지 않음","textChars":7,"textLines":1,"bbox":[254.8,448,170,54]}
+{"kind":"shape","id":"sh/vy90je9c","slide":4,"bbox":[434.8,440,0,66]}
+{"kind":"textbox","id":"sh/6dcbulwv","slide":4,"text":"프레임 후반부가 잘린 흔적은 약함","textPreview":"프레임 후반부가 잘린 흔적은 약함","textChars":18,"textLines":1,"bbox":[444.8,448,375.2,54]}
+{"kind":"shape","id":"sh/dsji5sne","slide":4,"bbox":[880,176,304,330]}
+{"kind":"textbox","id":"sh/o7qpg3ex","slide":4,"text":"판단","textPreview":"판단","textChars":2,"textLines":1,"bbox":[910,206,160,30]}
+{"kind":"textbox","id":"sh/vmtwra5g","slide":4,"text":"tail margin이 부족했다면 RX가 프레임을 어느 정도 잡은 뒤 CRC/FCE 쪽 문제가 보여야 한다.\n\n하지만 관찰된 실패는 대부분 FWTO, 즉 프레임 시작 자체를 못 본 쪽에 가깝다.","textPreview":"tail margin이 부족했다면 RX가 프레임을 어느 정도 잡은 뒤 CRC/FCE 쪽 문제가 보여야 한다. |  | 하지만 관찰된 실패는 대부분 FWTO, 즉 프레임 시작 자체를 못 본 쪽에 가깝다.","textChars":108,"textLines":3,"bbox":[910,260,244,190]}
+{"kind":"textbox","id":"sh/61032lsz","slide":4,"text":"정리: 이 실험의 핵심 변수는 tail보다 lead다.","textPreview":"정리: 이 실험의 핵심 변수는 tail보다 lead다.","textChars":30,"textLines":1,"bbox":[82,566,1080,50]}
+{"kind":"textbox","id":"sh/dg7adsji","slide":4,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"notes","id":"nt/xuzc6g","slide":4,"text":""}
+{"kind":"slide","id":"sl/rfugdn","slide":5,"title":"BRRS delayed-RX 분석","textShapes":26}
+{"kind":"textbox","id":"sh/8bat47y1","slide":5,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/jqh0fepk","slide":5,"text":"신버전에서는 시간 계산을 코드 기준으로 정리했다","textPreview":"신버전에서는 시간 계산을 코드 기준으로 정리했다","textChars":26,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/q5o7qpg3","slide":5,"bbox":[54,138,1172,0]}
+{"kind":"shape","id":"sh/18jqh0fe","slide":5,"bbox":[70,170,520,230]}
+{"kind":"textbox","id":"sh/8nqxs72x","slide":5,"text":"PREAMBLE_US = ceil(Npre * 1.0177 us)\nSFD_US      = ceil(8 * 1.0177 us)\nRX_EARLY_US = PREAMBLE_US + SFD_US + lead\nRX_WINDOW_US = RX_EARLY_US + PHR_PSDU_US + tail","textPreview":"PREAMBLE_US = ceil(Npre * 1.0177 us) | SFD_US      = ceil(8 * 1.0177 us) | RX_EARLY_US = PREAMBLE_US + SFD_US + lead | RX_WINDOW_US = RX_...","textChars":160,"textLines":4,"bbox":[96,202,468,164]}
+{"kind":"shape","id":"sh/j2t83itg","slide":5,"bbox":[640,172,540,51.2]}
+{"kind":"textbox","id":"sh/qh0fepkz","slide":5,"text":"plen","textPreview":"plen","textChars":4,"textLines":1,"bbox":[650,180,66.4,39.2]}
+{"kind":"shape","id":"sh/1cfa9w3m","slide":5,"bbox":[726.4,172,0,51.2]}
+{"kind":"textbox","id":"sh/crmhk3q5","slide":5,"text":"실제 PRE+SFD","textPreview":"실제 PRE+SFD","textChars":10,"textLines":1,"bbox":[736.4,180,115,39.2]}
+{"kind":"shape","id":"sh/2t83itgf","slide":5,"bbox":[861.4,172,0,51.2]}
+{"kind":"textbox","id":"sh/re1w7mp0","slide":5,"text":"코드 PRE+SFD","textPreview":"코드 PRE+SFD","textChars":10,"textLines":1,"bbox":[871.4,180,115,39.2]}
+{"kind":"shape","id":"sh/kzupwb2h","slide":5,"bbox":[996.4,172,0,51.2]}
+{"kind":"textbox","id":"sh/9knih4by","slide":5,"text":"효과","textPreview":"효과","textChars":2,"textLines":1,"bbox":[1006.4,180,163.6,39.2]}
+{"kind":"shape","id":"sh/25kb6xkf","slide":5,"bbox":[640,223.2,540,51.2]}
+{"kind":"textbox","id":"sh/rqd4vmtw","slide":5,"text":"32","textPreview":"32","textChars":2,"textLines":1,"bbox":[650,231.2,66.4,39.2]}
+{"kind":"shape","id":"sh/kb6xkf6d","slide":5,"bbox":[726.4,223.2,0,51.2]}
+{"kind":"textbox","id":"sh/9w3m94fu","slide":5,"text":"40.71us","textPreview":"40.71us","textChars":7,"textLines":1,"bbox":[736.4,231.2,115,39.2]}
+{"kind":"shape","id":"sh/2hwfyxob","slide":5,"bbox":[861.4,223.2,0,51.2]}
+{"kind":"textbox","id":"sh/r2p8nqxs","slide":5,"text":"42us","textPreview":"42us","textChars":4,"textLines":1,"bbox":[871.4,231.2,115,39.2]}
+{"kind":"shape","id":"sh/j2t83itg","slide":5,"bbox":[996.4,223.2,0,51.2]}
+{"kind":"textbox","id":"sh/qh0fepkz","slide":5,"text":"약 1.29us 일찍 예약","textPreview":"약 1.29us 일찍 예약","textChars":14,"textLines":1,"bbox":[1006.4,231.2,163.6,39.2]}
+{"kind":"shape","id":"sh/18jqh0fe","slide":5,"bbox":[640,274.4,540,51.2]}
+{"kind":"textbox","id":"sh/8nqxs72x","slide":5,"text":"64","textPreview":"64","textChars":2,"textLines":1,"bbox":[650,282.4,66.4,39.2]}
+{"kind":"shape","id":"sh/jqh0fepk","slide":5,"bbox":[726.4,274.4,0,51.2]}
+{"kind":"textbox","id":"sh/q5o7qpg3","slide":5,"text":"73.27us","textPreview":"73.27us","textChars":7,"textLines":1,"bbox":[736.4,282.4,115,39.2]}
+{"kind":"shape","id":"sh/1w7mp0bi","slide":5,"bbox":[861.4,274.4,0,51.2]}
+{"kind":"textbox","id":"sh/8bat47y1","slide":5,"text":"75us","textPreview":"75us","textChars":4,"textLines":1,"bbox":[871.4,282.4,115,39.2]}
+{"kind":"shape","id":"sh/ji5snelo","slide":5,"bbox":[996.4,274.4,0,51.2]}
+{"kind":"textbox","id":"sh/uxc3ylc7","slide":5,"text":"약 1.73us 일찍 예약","textPreview":"약 1.73us 일찍 예약","textChars":14,"textLines":1,"bbox":[1006.4,282.4,163.6,39.2]}
+{"kind":"shape","id":"sh/4vmtwra5","slide":5,"bbox":[640,325.6,540,51.2]}
+{"kind":"textbox","id":"sh/tgfmlkjm","slide":5,"text":"128","textPreview":"128","textChars":3,"textLines":1,"bbox":[650,333.6,66.4,39.2]}
+{"kind":"shape","id":"sh/mp0bi9s3","slide":5,"bbox":[726.4,325.6,0,51.2]}
+{"kind":"textbox","id":"sh/bat47y1k","slide":5,"text":"138.41us","textPreview":"138.41us","textChars":8,"textLines":1,"bbox":[736.4,333.6,115,39.2]}
+{"kind":"shape","id":"sh/47y1kre1","slide":5,"bbox":[861.4,325.6,0,51.2]}
+{"kind":"textbox","id":"sh/tsvu9kni","slide":5,"text":"140us","textPreview":"140us","textChars":5,"textLines":1,"bbox":[871.4,333.6,115,39.2]}
+{"kind":"shape","id":"sh/m1cfa9w3","slide":5,"bbox":[996.4,325.6,0,51.2]}
+{"kind":"textbox","id":"sh/bm58z25k","slide":5,"text":"약 1.59us 일찍 예약","textPreview":"약 1.59us 일찍 예약","textChars":14,"textLines":1,"bbox":[1006.4,333.6,163.6,39.2]}
+{"kind":"shape","id":"sh/4byhgn29","slide":5,"bbox":[640,376.8,540,51.2]}
+{"kind":"textbox","id":"sh/twra5gbq","slide":5,"text":"256","textPreview":"256","textChars":3,"textLines":1,"bbox":[650,384.8,66.4,39.2]}
+{"kind":"shape","id":"sh/5o7qpg3e","slide":5,"bbox":[726.4,376.8,0,51.2]}
+{"kind":"textbox","id":"sh/g3ex0nux","slide":5,"text":"268.67us","textPreview":"268.67us","textChars":8,"textLines":1,"bbox":[736.4,384.8,115,39.2]}
+{"kind":"shape","id":"sh/nih4byhg","slide":5,"bbox":[861.4,376.8,0,51.2]}
+{"kind":"textbox","id":"sh/yxobm58z","slide":5,"text":"270us","textPreview":"270us","textChars":5,"textLines":1,"bbox":[871.4,384.8,115,39.2]}
+{"kind":"shape","id":"sh/9cvixcze","slide":5,"bbox":[996.4,376.8,0,51.2]}
+{"kind":"textbox","id":"sh/gr2p8nqx","slide":5,"text":"약 1.33us 일찍 예약","textPreview":"약 1.33us 일찍 예약","textChars":14,"textLines":1,"bbox":[1006.4,384.8,163.6,39.2]}
+{"kind":"textbox","id":"sh/r65wjudg","slide":5,"text":"수정/주의","textPreview":"수정/주의","textChars":5,"textLines":1,"bbox":[72,462,160,28]}
+{"kind":"textbox","id":"sh/ylc7u54z","slide":5,"text":"• 원문 메모의 1076 표기는 코드 기준으로 10177 계열이 맞다.\n• dwt_setrxtimeout은 ms가 아니라 UUS 단위라서 US_TO_UUS 변환을 적용했다.\n• 위 정수 올림 보정은 1~2us 수준이라, 10us대 gap 전체를 설명하지는 못한다.","textPreview":"• 원문 메모의 1076 표기는 코드 기준으로 10177 계열이 맞다. | • dwt_setrxtimeout은 ms가 아니라 UUS 단위라서 US_TO_UUS 변환을 적용했다. | • 위 정수 올림 보정은 1~2us 수준이라, 10us대 gap ...","textChars":147,"textLines":3,"bbox":[72,500,1060,96]}
+{"kind":"textbox","id":"sh/90je9cvi","slide":5,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"notes","id":"nt/rfugdn","slide":5,"text":""}
+{"kind":"slide","id":"sl/jp7bbm","slide":6,"title":"BRRS delayed-RX 분석","textShapes":9}
+{"kind":"textbox","id":"sh/0nuxc3yl","slide":6,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/72x4nap4","slide":6,"text":"기동지연 δ와 h로 lead 효과를 계산한다","textPreview":"기동지연 δ와 h로 lead 효과를 계산한다","textChars":24,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/ih4byhgn","slide":6,"bbox":[54,138,1172,0]}
+{"kind":"textbox","id":"sh/pkzupwb2","slide":6,"text":"정의","textPreview":"정의","textChars":2,"textLines":1,"bbox":[76,166,120,28]}
+{"kind":"shape","id":"sh/0z61032l","slide":6,"bbox":[76,208,530,260]}
+{"kind":"textbox","id":"sh/7ed8bat4","slide":6,"text":"δ = RX_ON 명령 후 실제 청취 시작까지의 공백\n\nh = δ - 1.3us - lead\n\nh > 0 : preamble 시작보다 늦게 듣기 시작\nh = 0 : preamble 시작과 정렬\nh < 0 : preamble 시작 전부터 듣고 있음","textPreview":"δ = RX_ON 명령 후 실제 청취 시작까지의 공백 |  | h = δ - 1.3us - lead |  | h > 0 : preamble 시작보다 늦게 듣기 시작 | h = 0 : preamble 시작과 정렬 | h < 0 : preamble ...","textChars":137,"textLines":7,"bbox":[104,238,476,198]}
+{"kind":"textbox","id":"sh/itgfmlkj","slide":6,"text":"왜 1.3us를 빼나?","textPreview":"왜 1.3us를 빼나?","textChars":12,"textLines":1,"bbox":[676,166,300,28]}
+{"kind":"textbox","id":"sh/pwb2hwfy","slide":6,"text":"현재 코드는 32sym에서 preamble+SFD를 42us로 올림 처리한다.\n\n실제 물리 시간은 약 40.7us라서, 코드가 약 1.3us 더 일찍 RX_ON을 예약하는 효과가 있다.\n\n그래서 실제 늦음 h는 δ에서 1.3us와 lead를 뺀 값으로 본다.","textPreview":"현재 코드는 32sym에서 preamble+SFD를 42us로 올림 처리한다. |  | 실제 물리 시간은 약 40.7us라서, 코드가 약 1.3us 더 일찍 RX_ON을 예약하는 효과가 있다. |  | 그래서 실제 늦음 h는 δ에서 1.3us와 ...","textChars":144,"textLines":5,"bbox":[676,212,470,210]}
+{"kind":"shape","id":"sh/0bi9s36h","slide":6,"bbox":[676,480,470,92]}
+{"kind":"textbox","id":"sh/u18jqh0f","slide":6,"text":"주의","textPreview":"주의","textChars":2,"textLines":1,"bbox":[704,506,90,24]}
+{"kind":"textbox","id":"sh/jm1cfa9w","slide":6,"text":"δ는 직접 측정값이 아니라, lead sweep과 PAC grid 해석으로 역추정한 값이다.","textPreview":"δ는 직접 측정값이 아니라, lead sweep과 PAC grid 해석으로 역추정한 값이다.","textChars":51,"textLines":1,"bbox":[794,502,310,46]}
+{"kind":"textbox","id":"sh/c7u54zid","slide":6,"text":"6","textPreview":"6","textChars":1,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"notes","id":"nt/jp7bbm","slide":6,"text":""}
+{"kind":"slide","id":"sl/y4iplm","slide":7,"title":"BRRS delayed-RX 분석","textShapes":21}
+{"kind":"textbox","id":"sh/bi9s36hc","slide":7,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/032lszqt","slide":7,"text":"h 계산은 전이 구간을 고르기 위한 가설 모델이다","textPreview":"h 계산은 전이 구간을 고르기 위한 가설 모델이다","textChars":27,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/tovahoza","slide":7,"bbox":[54,138,1172,0]}
+{"kind":"shape","id":"sh/i9s36hcr","slide":7,"bbox":[70,170,770,60]}
+{"kind":"textbox","id":"sh/bulwval8","slide":7,"text":"계산","textPreview":"계산","textChars":2,"textLines":1,"bbox":[80,178,149.4,48]}
+{"kind":"shape","id":"sh/0fepkzup","slide":7,"bbox":[239.4,170,0,60]}
+{"kind":"textbox","id":"sh/p0bi9s36","slide":7,"text":"식","textPreview":"식","textChars":1,"textLines":1,"bbox":[249.4,178,180.2,48]}
+{"kind":"shape","id":"sh/idonyd0z","slide":7,"bbox":[439.6,170,0,60]}
+{"kind":"textbox","id":"sh/byhgn29g","slide":7,"text":"의미","textPreview":"의미","textChars":2,"textLines":1,"bbox":[449.6,178,380.4,48]}
+{"kind":"shape","id":"sh/ra5gbq1o","slide":7,"bbox":[70,230,770,60]}
+{"kind":"textbox","id":"sh/2p8nqxs7","slide":7,"text":"남은 preamble","textPreview":"남은 preamble","textChars":11,"textLines":1,"bbox":[80,238,149.4,48]}
+{"kind":"shape","id":"sh/9gr2p8nq","slide":7,"bbox":[239.4,230,0,60]}
+{"kind":"textbox","id":"sh/gvy90je9","slide":7,"text":"32.56 - h","textPreview":"32.56 - h","textChars":9,"textLines":1,"bbox":[249.4,238,180.2,48]}
+{"kind":"shape","id":"sh/r2p8nqxs","slide":7,"bbox":[439.6,230,0,60]}
+{"kind":"textbox","id":"sh/2hwfyxob","slide":7,"text":"h가 커질수록 검출에 쓸 preamble이 줄어듦","textPreview":"h가 커질수록 검출에 쓸 preamble이 줄어듦","textChars":27,"textLines":1,"bbox":[449.6,238,380.4,48]}
+{"kind":"shape","id":"sh/94fu18jq","slide":7,"bbox":[70,290,770,60]}
+{"kind":"textbox","id":"sh/kjm1cfa9","slide":7,"text":"성공 조건","textPreview":"성공 조건","textChars":5,"textLines":1,"bbox":[80,298,149.4,48]}
+{"kind":"shape","id":"sh/rqd4vmtw","slide":7,"bbox":[239.4,290,0,60]}
+{"kind":"textbox","id":"sh/25kb6xkf","slide":7,"text":"h <= 12.2us","textPreview":"h <= 12.2us","textChars":11,"textLines":1,"bbox":[249.4,298,180.2,48]}
+{"kind":"shape","id":"sh/a5gbq1or","slide":7,"bbox":[439.6,290,0,60]}
+{"kind":"textbox","id":"sh/3m94fu18","slide":7,"text":"약 20.4us를 관측해야 한다는 가정","textPreview":"약 20.4us를 관측해야 한다는 가정","textChars":21,"textLines":1,"bbox":[449.6,298,380.4,48]}
+{"kind":"shape","id":"sh/s72x4nap","slide":7,"bbox":[70,350,770,60]}
+{"kind":"textbox","id":"sh/lszqtcj6","slide":7,"text":"lead 하한","textPreview":"lead 하한","textChars":7,"textLines":1,"bbox":[80,358,149.4,48]}
+{"kind":"shape","id":"sh/adsji5sn","slide":7,"bbox":[239.4,350,0,60]}
+{"kind":"textbox","id":"sh/3ylc7u54","slide":7,"text":"lead >= δ - 1.3 - 12.2","textPreview":"lead >= δ - 1.3 - 12.2","textChars":22,"textLines":1,"bbox":[249.4,358,180.2,48]}
+{"kind":"shape","id":"sh/sji5snel","slide":7,"bbox":[439.6,350,0,60]}
+{"kind":"textbox","id":"sh/h4byhgn2","slide":7,"text":"이 값 이상이면 성공 가능 구간","textPreview":"이 값 이상이면 성공 가능 구간","textChars":17,"textLines":1,"bbox":[449.6,358,380.4,48]}
+{"kind":"shape","id":"sh/ap4r65wj","slide":7,"bbox":[70,410,770,60]}
+{"kind":"textbox","id":"sh/za1gvy90","slide":7,"text":"lead 14 해석","textPreview":"lead 14 해석","textChars":10,"textLines":1,"bbox":[80,418,149.4,48]}
+{"kind":"shape","id":"sh/9s36hcrm","slide":7,"bbox":[239.4,410,0,60]}
+{"kind":"textbox","id":"sh/g7adsji5","slide":7,"text":"h = -4 = δ - 1.3 - 14","textPreview":"h = -4 = δ - 1.3 - 14","textChars":21,"textLines":1,"bbox":[249.4,418,180.2,48]}
+{"kind":"shape","id":"sh/rmhk3q5o","slide":7,"bbox":[439.6,410,0,60]}
+{"kind":"textbox","id":"sh/y1kre1w7","slide":7,"text":"PAC 경계 기준이면 δ ≈ 11.3us","textPreview":"PAC 경계 기준이면 δ ≈ 11.3us","textChars":22,"textLines":1,"bbox":[449.6,418,380.4,48]}
+{"kind":"shape","id":"sh/90je9cvi","slide":7,"bbox":[890,170,280,300]}
+{"kind":"textbox","id":"sh/gfmlkjm1","slide":7,"text":"현재 조심할 점","textPreview":"현재 조심할 점","textChars":8,"textLines":1,"bbox":[920,202,200,28]}
+{"kind":"textbox","id":"sh/rytsvu9k","slide":7,"text":"lead 0 실패로 잡는 δ 하한과 lead 14에서 역산한 δ가 완전히 같은 숫자로 닫히지는 않는다.\n\n따라서 δ≈11.3us는 확정값이 아니라 PAC8 위상 설명용 가설로 두는 것이 안전하다.","textPreview":"lead 0 실패로 잡는 δ 하한과 lead 14에서 역산한 δ가 완전히 같은 숫자로 닫히지는 않는다. |  | 따라서 δ≈11.3us는 확정값이 아니라 PAC8 위상 설명용 가설로 두는 것이 안전하다.","textChars":109,"textLines":3,"bbox":[920,254,220,170]}
+{"kind":"textbox","id":"sh/yd0z6103","slide":7,"text":"그래도 이 계산은 왜 2/4/6us를 촘촘히 찍었는지, 그리고 왜 lead가 단순히 클수록 좋은 값이 아닌지를 설명하는 데 필요하다.","textPreview":"그래도 이 계산은 왜 2/4/6us를 촘촘히 찍었는지, 그리고 왜 lead가 단순히 클수록 좋은 값이 아닌지를 설명하는 데 필요하다.","textChars":74,"textLines":1,"bbox":[88,544,1060,52]}
+{"kind":"textbox","id":"sh/9cvixcze","slide":7,"text":"7","textPreview":"7","textChars":1,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"notes","id":"nt/y4iplm","slide":7,"text":""}
+{"kind":"slide","id":"sl/lhv7p4","slide":8,"title":"BRRS delayed-RX 분석","textShapes":24}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":8,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":8,"text":"실패 원인은 카운터로 수신 단계별로 나눠 본다","textPreview":"실패 원인은 카운터로 수신 단계별로 나눠 본다","textChars":25,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/hk3q5o7q","slide":8,"bbox":[54,138,1172,0]}
+{"kind":"shape","id":"sh/65wjudg7","slide":8,"bbox":[56,164,760,64]}
+{"kind":"textbox","id":"sh/zqtcj6to","slide":8,"text":"카운터","textPreview":"카운터","textChars":3,"textLines":1,"bbox":[66,172,94,52]}
+{"kind":"shape","id":"sh/obm58z25","slide":8,"bbox":[170,164,0,64]}
+{"kind":"textbox","id":"sh/hwfyxobm","slide":8,"text":"실패 단계","textPreview":"실패 단계","textChars":5,"textLines":1,"bbox":[180,172,192.8,52]}
+{"kind":"shape","id":"sh/a9w3m94f","slide":8,"bbox":[382.8,164,0,64]}
+{"kind":"textbox","id":"sh/zupwb2hw","slide":8,"text":"이번 실험에서의 해석","textPreview":"이번 실험에서의 해석","textChars":11,"textLines":1,"bbox":[392.8,172,413.2,52]}
+{"kind":"shape","id":"sh/7y1kre1w","slide":8,"bbox":[56,228,760,64]}
+{"kind":"textbox","id":"sh/ed8v6psf","slide":8,"text":"fwto","textPreview":"fwto","textChars":4,"textLines":1,"bbox":[66,236,94,52]}
+{"kind":"shape","id":"sh/p4r65wju","slide":8,"bbox":[170,228,0,64]}
+{"kind":"textbox","id":"sh/wjudg7ad","slide":8,"text":"프레임 시작 대기 실패","textPreview":"프레임 시작 대기 실패","textChars":12,"textLines":1,"bbox":[180,236,192.8,52]}
+{"kind":"shape","id":"sh/7qpg3ex0","slide":8,"bbox":[382.8,228,0,64]}
+{"kind":"textbox","id":"sh/i5sneloj","slide":8,"text":"아예 못 잡음. 단독으로는 안 온 것과 왔는데 못 본 것을 구분 못함","textPreview":"아예 못 잡음. 단독으로는 안 온 것과 왔는데 못 본 것을 구분 못함","textChars":38,"textLines":1,"bbox":[392.8,236,413.2,52]}
+{"kind":"shape","id":"sh/pwb2hwfy","slide":8,"bbox":[56,292,760,64]}
+{"kind":"textbox","id":"sh/0bi9s36h","slide":8,"text":"sfdto","textPreview":"sfdto","textChars":5,"textLines":1,"bbox":[66,300,94,52]}
+{"kind":"shape","id":"sh/7ed8bat4","slide":8,"bbox":[170,292,0,64]}
+{"kind":"textbox","id":"sh/itgfmlkj","slide":8,"text":"SFD 검출 실패","textPreview":"SFD 검출 실패","textChars":9,"textLines":1,"bbox":[180,300,192.8,52]}
+{"kind":"shape","id":"sh/qtcj6tov","slide":8,"bbox":[382.8,292,0,64]}
+{"kind":"textbox","id":"sh/je9cvixc","slide":8,"text":"preamble 후보는 잡았지만 SFD까지 안정적으로 못 감","textPreview":"preamble 후보는 잡았지만 SFD까지 안정적으로 못 감","textChars":33,"textLines":1,"bbox":[392.8,300,413.2,52]}
+{"kind":"shape","id":"sh/8z25kb6x","slide":8,"bbox":[56,356,760,64]}
+{"kind":"textbox","id":"sh/1gvy90je","slide":8,"text":"phe","textPreview":"phe","textChars":3,"textLines":1,"bbox":[66,364,94,52]}
+{"kind":"shape","id":"sh/q1orytsv","slide":8,"bbox":[170,356,0,64]}
+{"kind":"textbox","id":"sh/fmlkjm1c","slide":8,"text":"PHR 해석 실패","textPreview":"PHR 해석 실패","textChars":9,"textLines":1,"bbox":[180,364,192.8,52]}
+{"kind":"shape","id":"sh/87ed8bat","slide":8,"bbox":[382.8,356,0,64]}
+{"kind":"textbox","id":"sh/xs72x4na","slide":8,"text":"SFD 이후 헤더 해석에서 깨짐","textPreview":"SFD 이후 헤더 해석에서 깨짐","textChars":17,"textLines":1,"bbox":[392.8,364,413.2,52]}
+{"kind":"shape","id":"sh/qd4vmtwr","slide":8,"bbox":[56,420,760,64]}
+{"kind":"textbox","id":"sh/fyxobm58","slide":8,"text":"fsl","textPreview":"fsl","textChars":3,"textLines":1,"bbox":[66,428,94,52]}
+{"kind":"shape","id":"sh/5wjudg7a","slide":8,"bbox":[170,420,0,64]}
+{"kind":"textbox","id":"sh/gbq1oryt","slide":8,"text":"동기 유지 실패","textPreview":"동기 유지 실패","textChars":8,"textLines":1,"bbox":[180,428,192.8,52]}
+{"kind":"shape","id":"sh/nuxc3ylc","slide":8,"bbox":[382.8,420,0,64]}
+{"kind":"textbox","id":"sh/y90je9cv","slide":8,"text":"동기 잡은 뒤 프레임 진행 중 sync quality가 무너짐","textPreview":"동기 잡은 뒤 프레임 진행 중 sync quality가 무너짐","textChars":34,"textLines":1,"bbox":[392.8,428,413.2,52]}
+{"kind":"shape","id":"sh/58z25kb6","slide":8,"bbox":[56,484,760,64]}
+{"kind":"textbox","id":"sh/gn29gr2p","slide":8,"text":"fce","textPreview":"fce","textChars":3,"textLines":1,"bbox":[66,492,94,52]}
+{"kind":"shape","id":"sh/n29gr2p8","slide":8,"bbox":[170,484,0,64]}
+{"kind":"textbox","id":"sh/yhgn29gr","slide":8,"text":"CRC 실패","textPreview":"CRC 실패","textChars":6,"textLines":1,"bbox":[180,492,192.8,52]}
+{"kind":"shape","id":"sh/5kb6xkf6","slide":8,"bbox":[382.8,484,0,64]}
+{"kind":"textbox","id":"sh/czed8v6p","slide":8,"text":"payload까지 왔지만 오류. tail 부족이면 이쪽 가능성이 큼","textPreview":"payload까지 왔지만 오류. tail 부족이면 이쪽 가능성이 큼","textChars":37,"textLines":1,"bbox":[392.8,492,413.2,52]}
+{"kind":"shape","id":"sh/k3q5o7qp","slide":8,"bbox":[858,164,330,384]}
+{"kind":"textbox","id":"sh/donyd0z6","slide":8,"text":"lead sweep 읽는 법","textPreview":"lead sweep 읽는 법","textChars":15,"textLines":1,"bbox":[890,196,230,28]}
+{"kind":"textbox","id":"sh/2x4nap4r","slide":8,"text":"0/2/4us: 전부 fwto\n→ 검출 전 단계 실패\n\n6us: sfdto/fsl\n→ SFD 경계 진입\n\n10us: phe/fsl\n→ 검출은 됐지만 헤더/동기 유지가 약함\n\n15us: 다시 혼합 에러\n→ PAC 위상이 불리한 위치","textPreview":"0/2/4us: 전부 fwto | → 검출 전 단계 실패 |  | 6us: sfdto/fsl | → SFD 경계 진입 |  | 10us: phe/fsl | → 검출은 됐지만 헤더/동기 유지가 약함 |  | 15us: 다시 혼합 에러 | → PAC...","textChars":128,"textLines":11,"bbox":[890,246,250,230]}
+{"kind":"textbox","id":"sh/vixczed8","slide":8,"text":"핵심: fce가 거의 없으므로 tail 부족보다는 preamble/SFD 획득 문제가 더 자연스럽다.","textPreview":"핵심: fce가 거의 없으므로 tail 부족보다는 preamble/SFD 획득 문제가 더 자연스럽다.","textChars":56,"textLines":1,"bbox":[90,592,1030,34]}
+{"kind":"textbox","id":"sh/kre1w7mp","slide":8,"text":"8","textPreview":"8","textChars":1,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"notes","id":"nt/lhv7p4","slide":8,"text":""}
+{"kind":"slide","id":"sl/vlpmdk","slide":9,"title":"BRRS delayed-RX 분석","textShapes":27}
+{"kind":"textbox","id":"sh/yhgn29gr","slide":9,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/58z25kb6","slide":9,"text":"accumCount는 검출 소모량이 거의 일정함을 가리킨다","textPreview":"accumCount는 검출 소모량이 거의 일정함을 가리킨다","textChars":32,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/gn29gr2p","slide":9,"bbox":[54,138,1172,0]}
+{"kind":"textbox","id":"sh/nuxc3ylc","slide":9,"text":"정의:  프리앰블 검출 소모량 = Npre - accumCount 최빈값","textPreview":"정의:  프리앰블 검출 소모량 = Npre - accumCount 최빈값","textChars":40,"textLines":1,"bbox":[72,154,760,34]}
+{"kind":"shape","id":"sh/y90je9cv","slide":9,"bbox":[70,210,800,62]}
+{"kind":"textbox","id":"sh/5wjudg7a","slide":9,"text":"plen","textPreview":"plen","textChars":4,"textLines":1,"bbox":[80,218,108,50]}
+{"kind":"shape","id":"sh/gbq1oryt","slide":9,"bbox":[198,210,0,62]}
+{"kind":"textbox","id":"sh/nqxs72x4","slide":9,"text":"CIR_CSV n","textPreview":"CIR_CSV n","textChars":9,"textLines":1,"bbox":[208,218,156,50]}
+{"kind":"shape","id":"sh/u54zidon","slide":9,"bbox":[374,210,0,62]}
+{"kind":"textbox","id":"sh/cbulwval","slide":9,"text":"accumCount 최빈값","textPreview":"accumCount 최빈값","textChars":14,"textLines":1,"bbox":[384,218,236,50]}
+{"kind":"shape","id":"sh/5sneloj2","slide":9,"bbox":[630,210,0,62]}
+{"kind":"textbox","id":"sh/u54zidon","slide":9,"text":"검출 소모량","textPreview":"검출 소모량","textChars":6,"textLines":1,"bbox":[640,218,220,50]}
+{"kind":"shape","id":"sh/nqxs72x4","slide":9,"bbox":[70,272,800,62]}
+{"kind":"textbox","id":"sh/czed8v6p","slide":9,"text":"32","textPreview":"32","textChars":2,"textLines":1,"bbox":[80,280,108,50]}
+{"kind":"shape","id":"sh/5kb6xkf6","slide":9,"bbox":[198,272,0,62]}
+{"kind":"textbox","id":"sh/ytsvu9kn","slide":9,"text":"64","textPreview":"64","textChars":2,"textLines":1,"bbox":[208,280,156,50]}
+{"kind":"shape","id":"sh/neloj2t8","slide":9,"bbox":[374,272,0,62]}
+{"kind":"textbox","id":"sh/gn29gr2p","slide":9,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[384,280,236,50]}
+{"kind":"shape","id":"sh/58z25kb6","slide":9,"bbox":[630,272,0,62]}
+{"kind":"textbox","id":"sh/tcj6tova","slide":9,"text":"20 sym","textPreview":"20 sym","textChars":6,"textLines":1,"bbox":[640,280,220,50]}
+{"kind":"shape","id":"sh/0rqd4vmt","slide":9,"bbox":[70,334,800,62]}
+{"kind":"textbox","id":"sh/b6xkf6dc","slide":9,"text":"64","textPreview":"64","textChars":2,"textLines":1,"bbox":[80,342,108,50]}
+{"kind":"shape","id":"sh/il0rqd4v","slide":9,"bbox":[198,334,0,62]}
+{"kind":"textbox","id":"sh/t47y1kre","slide":9,"text":"96","textPreview":"96","textChars":2,"textLines":1,"bbox":[208,342,156,50]}
+{"kind":"shape","id":"sh/0je9cvix","slide":9,"bbox":[374,334,0,62]}
+{"kind":"textbox","id":"sh/byhgn29g","slide":9,"text":"45","textPreview":"45","textChars":2,"textLines":1,"bbox":[384,342,236,50]}
+{"kind":"shape","id":"sh/idonyd0z","slide":9,"bbox":[630,334,0,62]}
+{"kind":"textbox","id":"sh/p0bi9s36","slide":9,"text":"19 sym","textPreview":"19 sym","textChars":6,"textLines":1,"bbox":[640,342,220,50]}
+{"kind":"shape","id":"sh/0fepkzup","slide":9,"bbox":[70,396,800,62]}
+{"kind":"textbox","id":"sh/e9cvixcz","slide":9,"text":"128","textPreview":"128","textChars":3,"textLines":1,"bbox":[80,404,108,50]}
+{"kind":"shape","id":"sh/3q5o7qpg","slide":9,"bbox":[198,396,0,62]}
+{"kind":"textbox","id":"sh/wb2hwfyx","slide":9,"text":"84","textPreview":"84","textChars":2,"textLines":1,"bbox":[208,404,156,50]}
+{"kind":"shape","id":"sh/lwval87e","slide":9,"bbox":[374,396,0,62]}
+{"kind":"textbox","id":"sh/ex0nuxc3","slide":9,"text":"109","textPreview":"109","textChars":3,"textLines":1,"bbox":[384,404,236,50]}
+{"kind":"shape","id":"sh/3itgfmlk","slide":9,"bbox":[630,396,0,62]}
+{"kind":"textbox","id":"sh/w3m94fu1","slide":9,"text":"19 sym","textPreview":"19 sym","textChars":6,"textLines":1,"bbox":[640,404,220,50]}
+{"kind":"shape","id":"sh/loj2t83i","slide":9,"bbox":[70,458,800,62]}
+{"kind":"textbox","id":"sh/at47y1kr","slide":9,"text":"256","textPreview":"256","textChars":3,"textLines":1,"bbox":[80,466,108,50]}
+{"kind":"shape","id":"sh/3ex0nuxc","slide":9,"bbox":[198,458,0,62]}
+{"kind":"textbox","id":"sh/nap4r65w","slide":9,"text":"72","textPreview":"72","textChars":2,"textLines":1,"bbox":[208,466,156,50]}
+{"kind":"shape","id":"sh/upwb2hwf","slide":9,"bbox":[374,458,0,62]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":9,"text":"236","textPreview":"236","textChars":3,"textLines":1,"bbox":[384,466,236,50]}
+{"kind":"shape","id":"sh/cvixczed","slide":9,"bbox":[630,458,0,62]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":9,"text":"20 sym","textPreview":"20 sym","textChars":6,"textLines":1,"bbox":[640,466,220,50]}
+{"kind":"shape","id":"sh/udg7adsj","slide":9,"bbox":[920,210,250,310]}
+{"kind":"textbox","id":"sh/54zidony","slide":9,"text":"중요한 단서","textPreview":"중요한 단서","textChars":6,"textLines":1,"bbox":[950,238,180,28]}
+{"kind":"textbox","id":"sh/cj6tovah","slide":9,"text":"plen이 커져도\nNpre - accumMode는\n19~20sym.\n\n검출 비용이 거의 고정비처럼 보임.","textPreview":"plen이 커져도 | Npre - accumMode는 | 19~20sym. |  | 검출 비용이 거의 고정비처럼 보임.","textChars":58,"textLines":5,"bbox":[950,292,190,150]}
+{"kind":"textbox","id":"sh/judg7ads","slide":9,"text":"주의: raw CIR_CSV가 1000개가 아니라 64~96개만 저장되어 있어, 이 표는 예비 결과로 표시하는 것이 안전하다.","textPreview":"주의: raw CIR_CSV가 1000개가 아니라 64~96개만 저장되어 있어, 이 표는 예비 결과로 표시하는 것이 안전하다.","textChars":70,"textLines":1,"bbox":[80,578,1080,34]}
+{"kind":"textbox","id":"sh/u9knih4b","slide":9,"text":"9","textPreview":"9","textChars":1,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"notes","id":"nt/vlpmdk","slide":9,"text":""}
+{"kind":"slide","id":"sl/dvv4o0","slide":10,"title":"BRRS delayed-RX 분석","textShapes":8}
+{"kind":"textbox","id":"sh/rqd4vmtw","slide":10,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/kb6xkf6d","slide":10,"text":"32sym은 고정 검출 비용과 turn-on gap을 감당할 여유가 작다","textPreview":"32sym은 고정 검출 비용과 turn-on gap을 감당할 여유가 작다","textChars":40,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/9w3m94fu","slide":10,"bbox":[54,138,1172,0]}
+{"kind":"shape","id":"sh/2t83itgf","slide":10,"bbox":[80,170,520,330]}
+{"kind":"textbox","id":"sh/re1w7mp0","slide":10,"text":"간단 모델","textPreview":"간단 모델","textChars":5,"textLines":1,"bbox":[110,200,200,28]}
+{"kind":"textbox","id":"sh/kzupwb2h","slide":10,"text":"유효 누산 구간\n≈ Npre - 검출 소모량 - 늦게 들어간 심볼\n\n검출 소모량이 약 20sym으로 고정이면,\n32sym은 남는 preamble이 매우 작아진다.\n\n64sym부터는 같은 비용을 치러도 뒤쪽에 충분한 preamble이 남는다.","textPreview":"유효 누산 구간 | ≈ Npre - 검출 소모량 - 늦게 들어간 심볼 |  | 검출 소모량이 약 20sym으로 고정이면, | 32sym은 남는 preamble이 매우 작아진다. |  | 64sym부터는 같은 비용을 치러도 뒤쪽에 충분한 pream...","textChars":134,"textLines":7,"bbox":[110,252,452,206]}
+{"kind":"shape","id":"sh/9knih4by","slide":10,"bbox":[660,170,500,330]}
+{"kind":"textbox","id":"sh/2p8nqxs7","slide":10,"text":"실험에서 보인 현상","textPreview":"실험에서 보인 현상","textChars":10,"textLines":1,"bbox":[692,200,260,28]}
+{"kind":"textbox","id":"sh/ra5gbq1o","slide":10,"text":"• lead 2/4us: 전부 FWTO, 검출 자체 실패\n• lead 6us: 수신 프레임 등장, accum=8\n• lead 12/20us: PER 0%, accum=14\n• lead 14us: accum 8/16 양봉 가능성","textPreview":"• lead 2/4us: 전부 FWTO, 검출 자체 실패 | • lead 6us: 수신 프레임 등장, accum=8 | • lead 12/20us: PER 0%, accum=14 | • lead 14us: accum 8/16 양봉 가능성","textChars":126,"textLines":4,"bbox":[692,254,410,166]}
+{"kind":"textbox","id":"sh/3m94fu18","slide":10,"text":"그래서 32sym 실패는 “preamble이 아예 안 왔다”가 아니라 “너무 늦게 듣기 시작해서 검출에 필요한 앞부분을 잃었다”로 보는 것이 더 자연스럽다.","textPreview":"그래서 32sym 실패는 “preamble이 아예 안 왔다”가 아니라 “너무 늦게 듣기 시작해서 검출에 필요한 앞부분을 잃었다”로 보는 것이 더 자연스럽다.","textChars":87,"textLines":1,"bbox":[92,566,1080,60]}
+{"kind":"textbox","id":"sh/a5gbq1or","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"notes","id":"nt/dvv4o0","slide":10,"text":""}
+{"kind":"slide","id":"sl/t6lgqf","slide":11,"title":"BRRS delayed-RX 분석","textShapes":5}
+{"kind":"textbox","id":"sh/y90je9cv","slide":11,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/5wjudg7a","slide":11,"text":"초기 시간축 그림은 lead가 만드는 여유를 보여준다","textPreview":"초기 시간축 그림은 lead가 만드는 여유를 보여준다","textChars":29,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/gbq1oryt","slide":11,"bbox":[54,138,1172,0]}
+{"kind":"shape","id":"sh/yhgn29gr","slide":11,"bbox":[888,160,292,390]}
+{"kind":"textbox","id":"sh/58z25kb6","slide":11,"text":"이 그림의 역할","textPreview":"이 그림의 역할","textChars":8,"textLines":1,"bbox":[918,192,190,28]}
+{"kind":"textbox","id":"sh/gn29gr2p","slide":11,"text":"1. 32sym, lead=0은 검출 비용을 치르기 전에 preamble이 부족하다.\n\n2. 32sym, lead=20us는 RX가 먼저 켜져 누산 구간이 생긴다.\n\n3. 64sym은 preamble 길이 자체가 버퍼가 된다.","textPreview":"1. 32sym, lead=0은 검출 비용을 치르기 전에 preamble이 부족하다. |  | 2. 32sym, lead=20us는 RX가 먼저 켜져 누산 구간이 생긴다. |  | 3. 64sym은 preamble 길이 자체가 버퍼가 된다.","textChars":126,"textLines":5,"bbox":[918,244,230,210]}
+{"kind":"textbox","id":"sh/neloj2t8","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"image","id":"im/idonyd0z","slide":11,"name":"","alt":"initial delayed-RX timeline intuition","bbox":[52,150,800,470]}
+{"kind":"notes","id":"nt/t6lgqf","slide":11,"text":""}
+{"kind":"slide","id":"sl/fizwr9","slide":12,"title":"BRRS delayed-RX 분석","textShapes":6}
+{"kind":"textbox","id":"sh/3q5o7qpg","slide":12,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/wb2hwfyx","slide":12,"text":"lead sweep에서는 PAC8 주기성이 보인다","textPreview":"lead sweep에서는 PAC8 주기성이 보인다","textChars":27,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/lwval87e","slide":12,"bbox":[54,138,1172,0]}
+{"kind":"shape","id":"sh/3itgfmlk","slide":12,"bbox":[860,162,310,440]}
+{"kind":"textbox","id":"sh/w3m94fu1","slide":12,"text":"읽는 법","textPreview":"읽는 법","textChars":4,"textLines":1,"bbox":[890,194,180,28]}
+{"kind":"textbox","id":"sh/loj2t83i","slide":12,"text":"1. lead 0~4us는 FWTO 1000회로 전멸.\n\n2. lead 6us부터 수신 프레임이 생김.\n\n3. accumCount는 8.14us 근처 주기로 다시 낮아짐.","textPreview":"1. lead 0~4us는 FWTO 1000회로 전멸. |  | 2. lead 6us부터 수신 프레임이 생김. |  | 3. accumCount는 8.14us 근처 주기로 다시 낮아짐.","textChars":95,"textLines":5,"bbox":[890,246,250,260]}
+{"kind":"textbox","id":"sh/at47y1kr","slide":12,"text":"해석: lead는 RX_ON뿐 아니라 PAC grid와 preamble의 상대 위상도 바꾼다.","textPreview":"해석: lead는 RX_ON뿐 아니라 PAC grid와 preamble의 상대 위상도 바꾼다.","textChars":52,"textLines":1,"bbox":[890,528,240,58]}
+{"kind":"textbox","id":"sh/3ex0nuxc","slide":12,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"image","id":"im/fepkzupw","slide":12,"name":"","alt":"accumCount vs lead graph","bbox":[58,152,756,476]}
+{"kind":"notes","id":"nt/fizwr9","slide":12,"text":""}
+{"kind":"slide","id":"sl/ppwpf9","slide":13,"title":"BRRS delayed-RX 분석","textShapes":5}
+{"kind":"textbox","id":"sh/svu9knih","slide":13,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/za1gvy90","slide":13,"text":"PAC grid는 실제 listen start에 정렬되는 것으로 보인다","textPreview":"PAC grid는 실제 listen start에 정렬되는 것으로 보인다","textChars":39,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/ap4r65wj","slide":13,"bbox":[54,138,1172,0]}
+{"kind":"shape","id":"sh/s36hcrmh","slide":13,"bbox":[970,164,240,432]}
+{"kind":"textbox","id":"sh/zidonyd0","slide":13,"text":"핵심 해석","textPreview":"핵심 해석","textChars":5,"textLines":1,"bbox":[1000,196,150,28]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":13,"text":"listen start\n= RX_ON 명령 + δ\n\nδ ≈ 11.3us\n\nlead가 grid를 밀면서 첫 PAC의 유효/무효가 바뀐다.\n\nlead 10us: t=0 근처\nlead 14us: PAC 경계","textPreview":"listen start | = RX_ON 명령 + δ |  | δ ≈ 11.3us |  | lead가 grid를 밀면서 첫 PAC의 유효/무효가 바뀐다. |  | lead 10us: t=0 근처 | lead 14us: PAC 경계","textChars":112,"textLines":9,"bbox":[1000,250,180,300]}
+{"kind":"textbox","id":"sh/lszqtcj6","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"image","id":"im/0bi9s36h","slide":13,"name":"","alt":"delayed-RX PAC grid timeline","bbox":[46,154,888,486]}
+{"kind":"notes","id":"nt/ppwpf9","slide":13,"text":""}
+{"kind":"slide","id":"sl/lp5pfi","slide":14,"title":"BRRS delayed-RX 분석","textShapes":9}
+{"kind":"textbox","id":"sh/65wjudg7","slide":14,"text":"BRRS delayed-RX 분석","textPreview":"BRRS delayed-RX 분석","textChars":18,"textLines":1,"bbox":[54,34,360,24]}
+{"kind":"textbox","id":"sh/hwfyxobm","slide":14,"text":"결론: tail보다 lead와 PAC 정렬이 핵심이다","textPreview":"결론: tail보다 lead와 PAC 정렬이 핵심이다","textChars":29,"textLines":1,"bbox":[54,64,1080,74]}
+{"kind":"shape","id":"sh/obm58z25","slide":14,"bbox":[54,138,1172,0]}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":14,"text":"보고 가능한 결론","textPreview":"보고 가능한 결론","textChars":9,"textLines":1,"bbox":[76,166,320,30]}
+{"kind":"textbox","id":"sh/6xkf6dcb","slide":14,"text":"• UWB offset이 고정되어 있어 프레임 도착 지터는 작았다.\n• tail-only가 아니라 lead-only에서 32sym이 살아났다.\n• accumCount는 검출 소모량이 약 20sym으로 거의 일정하다는 예비 증거를 준다.\n• lead sweep은 PAC8 주기성과 turn-on gap이 32sym 성능을 좌우한다는 해석을 뒷받침한다.","textPreview":"• UWB offset이 고정되어 있어 프레임 도착 지터는 작았다. | • tail-only가 아니라 lead-only에서 32sym이 살아났다. | • accumCount는 검출 소모량이 약 20sym으로 거의 일정하다는 예비 증거를 준다. |...","textChars":195,"textLines":4,"bbox":[76,214,700,210]}
+{"kind":"textbox","id":"sh/hk3q5o7q","slide":14,"text":"아직 조심할 부분","textPreview":"아직 조심할 부분","textChars":9,"textLines":1,"bbox":[820,166,280,30]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":14,"text":"• Exp2 raw CSV는 1000개 재수집 필요\n• detection ~20sym은 실측 기반 모델이지 공식 고정값은 아님\n• digital acquisition 6us는 후보 설명으로만 사용\n• 다른 환경에서 재현성 확인 필요","textPreview":"• Exp2 raw CSV는 1000개 재수집 필요 | • detection ~20sym은 실측 기반 모델이지 공식 고정값은 아님 | • digital acquisition 6us는 후보 설명으로만 사용 | • 다른 환경에서 재현성 확인 필요","textChars":129,"textLines":4,"bbox":[820,214,340,210]}
+{"kind":"shape","id":"sh/z61032ls","slide":14,"bbox":[86,500,1080,84]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":14,"text":"다음 액션","textPreview":"다음 액션","textChars":5,"textLines":1,"bbox":[116,528,160,26]}
+{"kind":"textbox","id":"sh/k3q5o7qp","slide":14,"text":"lead=100/tail=100 Exp2를 raw CIR_CSV 1000개 PASS 기준으로 재수집하고, lead 14us는 accum histogram으로 8/16 양봉 가설을 확인한다.","textPreview":"lead=100/tail=100 Exp2를 raw CIR_CSV 1000개 PASS 기준으로 재수집하고, lead 14us는 accum histogram으로 8/16 양봉 가설을 확인한다.","textChars":105,"textLines":1,"bbox":[278,524,850,34]}
+{"kind":"textbox","id":"sh/donyd0z6","slide":14,"text":"14","textPreview":"14","textChars":2,"textLines":1,"bbox":[1190,668,40,24]}
+{"kind":"notes","id":"nt/lp5pfi","slide":14,"text":""}

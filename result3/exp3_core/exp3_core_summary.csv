@@ -1,0 +1,4 @@
+variant,sfd_symbols,phr_rate,theory_us,measured_min_us,measured_max_us,measured_mean_us,tx_attempts,tx_success,tx_captures,invalid_captures,rx_expected,rx_received,per_percent,phe
+A,8,STD,217.124,216.625,217.188,216.881,1000,1000,1000,0,1000,996,0.40,4
+B,16,STD,225.265,224.750,225.375,225.029,1000,1000,1000,0,1000,1000,0.00,0
+C,8,DTA,198.278,197.875,198.438,198.150,1000,1000,1000,0,1000,999,0.10,1

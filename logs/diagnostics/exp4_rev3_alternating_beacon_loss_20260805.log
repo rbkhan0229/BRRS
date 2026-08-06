@@ -1,0 +1,56 @@
+STATUS: INVALID_DIAGNOSTIC_RUN
+NOTE: Rev3 fixed the coordinator stall, but N2 received approximately every other beacon. Rev4 changes N2 beacon reacquisition to delayed-RX scheduled from the received SYNC RMARKER.
+
+--- INIT ---
+BRRS INIT NODE v1.2 (delayed-RX)
+BRRS v1.2: EXP=4 SYNC_PLEN=31 DATA_PLEN=3(32sym) PRE_US=33 SLOT=201us RX_WIN=113us LEAD=12us TAIL=0us PERIOD=10000us CIR=0
+EXP4_CONFIG_CSV,sensors=1,data_plen=32,psdu_bytes=30,app_payload_bytes=16,sync_plen=256,superframe_us=10000,sync_rmarker_offset_us=269,sync_buffer_us=3000,frame_airtime_us=101,slot_us=201,guard_us=100,lead_us=12,tail_us=0,rearm_budget_us=88,max_slots=31
+EXP4_FIRMWARE_REV,rev=3,sync_arm=after_last_slot,tx_wait=bounded
+Startup grace: 10000 ms before first SYNC
+EXP4_RUN_START,superframes=1000,fixed_period_us=10000,cycle_logs=off
+EXP4_SYNC_PROGRESS,seq=2,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=100,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=200,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=300,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=400,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=500,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=600,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=700,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=800,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=900,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=1000,delayed_late=0,tx_wait_timeout=0
+
+===== BRRS FINAL STATS (PLEN=3, 32 sym) =====
+Superframes: total=1000 all-nodes-ok=499 fail=501 success=49.90%
+Aggregate: rx=499/1000 PER=50.100% app_goodput=45297 bps offered=90776 bps elapsed=1410063us
+TDMA validation: wrong-slot=0 wrong-superframe=0 rx-delayed-late=0 sync-delayed-late=0
+EXP4_TIMING_CSV,period_count=1000,min_x1000_us=9999993,max_x1000_us=10000250,avg_x1000_us=9999997,elapsed_us=1410063,sync_delayed_late=0,tx_wait_timeout=0,end_tx=3
+EXP4_REARM_CSV,count=0,service_min_us=0,service_max_us=0,service_avg_x1000_us=0,slack_min_us=0,slack_max_us=0,slack_avg_x1000_us=0
+EXP4_STATUS_CSV,schedule=PASS,collection=PASS,link=MEASURED
+EXP4_SUMMARY_CSV,32,1,30,16,201,100,31,1000,1000,499,501000,45297,90776,1410063,0,0,PASS
+EXP4_DONE,plen=32,sensors=1,superframes=1000,expected=1000,rx=499,status=PASS
+--- PER per node ---
+N2: rx=499 expected=1000 miss=501 PER=50.10% err=0
+EXP4_NODE_CSV,N2,32,1000,499,501,0
+RX timeouts=501 (fwto=501 pto=0)  RX errors=0 (sfdto=0 phe=0 fce=0 fsl=0)  delayed late=0
+--- Ipatov accumCount (of PLEN) ---
+--- accum histogram ---
+--- RX-open to RMARKER (expect pre+SFD+lead) ---
+N2: min=54us max=54us avg=54us (n=499)
+--- Latency per node ---
+N2: min=17us max=57us avg=31us (n=499)
+--- RX offset from SYNC ---
+N2: min=3017us max=3057us avg=3031us (n=499)
+--- UWB RX offset from SYNC TX ---
+N2: min=3000us max=3000us avg=3000us (n=499)
+===== END STATS =====
+
+--- N2 ---
+===== BRRS NODE 2 v1.2 (delayed-TX) FINAL STATS (PLEN=3, 32sym) =====
+My TX: success=499 attempts=499 delayed_late=0
+Beacon RX: received=499 expected=1000 miss=501 gaps=500 duplicates=0 end=1
+EXP4_TX_RESULT_CSV,BRRS NODE 2 v1.2 (delayed-TX),2,32,499,501,499,499,0,1,PASS,LOSS
+EXP4_TX_DONE,node=BRRS NODE 2 v1.2 (delayed-TX),plen=32,beacons=499/1000,attempts=499,success=499,end=1,schedule=PASS,beacon=LOSS,status=PASS
+SYNC loss: 2 timeouts  RX errors=2
+--- Latency per node ---
+===== END STATS =====

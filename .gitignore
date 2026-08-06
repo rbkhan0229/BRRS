@@ -1,0 +1,32 @@
+# macOS and editor metadata
+.DS_Store
+**/.DS_Store
+*.swp
+*.swo
+
+# Python caches
+__pycache__/
+*.py[cod]
+**/.cache/
+**/.matplotlib/
+
+# Machine-local assistant settings
+**/.claude/settings.local.json
+
+# Rebuildable firmware artifacts
+Drivers/API/Build_Platforms/**/Output/
+Drivers/API/Build_Platforms/nRF52840-DK/sdk/
+*.o
+*.d
+*.elf
+*.map
+*.hex
+*.bin
+
+# Bundled vendor SDK. Install it locally beside the tracked project sources.
+SDK/
+
+# Large legacy datasets unrelated to the current BRRS experiments
+Drivers/API/UWB_PROTOCOL_TEST_LOG_1001/
+Drivers/API/AGGREGATED_ACK_LOGS/
+Drivers/API/hopping_test_log_260211/

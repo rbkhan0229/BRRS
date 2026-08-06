@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1180" viewBox="0 0 1700 1180">
+  <defs>
+    <style>
+      .bg { fill: #0f1011; }
+      .ink { fill: #e7e2d4; font-family: "Apple SD Gothic Neo", "Noto Sans CJK KR", "Malgun Gothic", sans-serif; }
+      .muted { fill: #a9a392; font-family: "Apple SD Gothic Neo", "Noto Sans CJK KR", "Malgun Gothic", sans-serif; }
+      .axis { stroke: #8e8a7f; stroke-width: 2; }
+      .tick { stroke: #8e8a7f; stroke-width: 2; }
+      .dash { stroke: #9b9588; stroke-width: 2.2; stroke-dasharray: 7 8; }
+      .boundary { stroke: #d6d0bd; stroke-width: 2; opacity: 0.72; }
+      .preamble { fill: #82b7e8; }
+      .sfd { fill: #2f84d6; }
+      .delta { fill: #ee8d9a; }
+      .discard { fill: #928d8d; opacity: 0.92; }
+      .detect { fill: #fac76d; }
+      .accum { fill: #bfe095; }
+      .listen { fill: #b7b1a4; }
+      .per-red { fill: #ff5b5b; }
+      .per-orange { fill: #ffb33e; }
+      .per-green { fill: #65a832; }
+      .note { fill: #2b2d2f; stroke: #4b4f52; stroke-width: 1.5; rx: 16; }
+      .title { font-size: 35px; font-weight: 850; }
+      .subtitle { font-size: 21px; font-weight: 600; }
+      .section { font-size: 25px; font-weight: 850; }
+      .body { font-size: 22px; font-weight: 600; }
+      .small { font-size: 18px; font-weight: 600; }
+      .tiny { font-size: 15px; font-weight: 600; }
+      .mono { font-family: "SFMono-Regular", Consolas, monospace; }
+      .white { fill: #ffffff; font-family: "Apple SD Gothic Neo", "Noto Sans CJK KR", sans-serif; font-weight: 850; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1700" height="1180"/>
+
+  <text class="ink title" x="82" y="58">Timeline + PAC grid with δ (result2 only, 32sym, 1m office)</text>
+  <text class="muted subtitle" x="82" y="92">t=0 = 실제 preamble 시작. 현재 코드: code preamble+SFD=42us, actual=40.7us → RX_ON command는 lead+1.3us만큼 전단에 예약</text>
+  <text class="muted subtitle" x="82" y="120">도식용 δ≈11.3us: lead=10us에서 listen start가 t≈0에 정렬되도록 잡은 값. 각 row의 분홍색 막대가 δ.</text>
+
+  <!-- Legend -->
+  <g transform="translate(82,150)">
+    <rect class="discard" x="0" y="0" width="30" height="22"/>
+    <text class="ink small" x="44" y="19">discarded PAC</text>
+    <rect class="delta" x="210" y="0" width="30" height="22"/>
+    <text class="ink small" x="254" y="19">δ: RX_ON command → 실제 listen start</text>
+    <rect class="detect" x="630" y="0" width="30" height="22"/>
+    <text class="ink small" x="674" y="19">detection ≈20sym</text>
+    <rect class="accum" x="890" y="0" width="30" height="22"/>
+    <text class="ink small" x="934" y="19">accumulation</text>
+    <line class="boundary" x1="1115" y1="-2" x2="1115" y2="24"/>
+    <text class="ink small" x="1130" y="19">PAC boundary 8sym</text>
+    <text class="listen small" x="1395" y="19">▼ listen start</text>
+  </g>
+
+  <!-- Coordinates: x = 430 + 23*t(sym), t=0 preamble start -->
+  <!-- Packet bar -->
+  <g transform="translate(0,0)">
+    <line class="dash" x1="430" y1="190" x2="430" y2="1060"/>
+    <line class="dash" x1="1166" y1="190" x2="1166" y2="1060"/>
+    <text class="muted small" x="440" y="184">t=0</text>
+    <text class="muted small" x="1110" y="184">preamble end</text>
+    <rect class="preamble" x="430" y="205" width="736" height="42" rx="6"/>
+    <rect class="sfd" x="1166" y="205" width="184" height="42" rx="6"/>
+    <text class="ink body" x="760" y="233">preamble 32sym (32.56us)</text>
+    <text class="white body" x="1235" y="233">SFD</text>
+
+    <!-- PAC boundaries, every 8 symbols -->
+    <g opacity="0.85">
+      <line class="boundary" x1="246" y1="290" x2="246" y2="1005"/>
+      <line class="boundary" x1="430" y1="290" x2="430" y2="1005"/>
+      <line class="boundary" x1="614" y1="290" x2="614" y2="1005"/>
+      <line class="boundary" x1="798" y1="290" x2="798" y2="1005"/>
+      <line class="boundary" x1="982" y1="290" x2="982" y2="1005"/>
+      <line class="boundary" x1="1166" y1="290" x2="1166" y2="1005"/>
+      <line class="boundary" x1="1350" y1="290" x2="1350" y2="1005"/>
+    </g>
+
+    <line class="axis" x1="246" y1="275" x2="1350" y2="275"/>
+    <g class="mono">
+      <line class="tick" x1="246" y1="264" x2="246" y2="286"/><text class="muted tiny" x="232" y="310">-8</text>
+      <line class="tick" x1="430" y1="264" x2="430" y2="286"/><text class="muted tiny" x="424" y="310">0</text>
+      <line class="tick" x1="614" y1="264" x2="614" y2="286"/><text class="muted tiny" x="606" y="310">8</text>
+      <line class="tick" x1="798" y1="264" x2="798" y2="286"/><text class="muted tiny" x="786" y="310">16</text>
+      <line class="tick" x1="982" y1="264" x2="982" y2="286"/><text class="muted tiny" x="970" y="310">24</text>
+      <line class="tick" x1="1166" y1="264" x2="1166" y2="286"/><text class="muted tiny" x="1154" y="310">32</text>
+      <line class="tick" x1="1350" y1="264" x2="1350" y2="286"/><text class="muted tiny" x="1338" y="310">40</text>
+    </g>
+  </g>
+
+  <!-- Row helper comments:
+       lead6 cmd=-7.2sym x=264.9, listen=+3.9sym x=520.4
+       lead10 cmd=-11.1sym x=174.7, listen=0 x=430
+       lead12 cmd=-13.1sym x=129.5, listen=-2.0 x=384.7
+       lead14 cmd=-15.0sym x=84.2, listen=-3.9 x=339.4
+       lead15 cmd=-16.0sym x=61.6, listen=-4.9 x=316.8
+  -->
+
+  <!-- lead 6 -->
+  <g transform="translate(0,350)">
+    <text class="ink section" x="82" y="32">lead 6</text>
+    <text class="listen body" x="476" y="22">▼ +4sym late</text>
+    <rect class="delta" x="265" y="50" width="255" height="38" rx="5"/>
+    <text class="ink small" x="344" y="75">δ≈11.3us</text>
+    <rect class="detect" x="520" y="50" width="460" height="38" rx="5"/>
+    <text class="ink body" x="686" y="76">detection ≈20sym</text>
+    <rect class="accum" x="980" y="50" width="186" height="38" rx="5"/>
+    <text class="ink body" x="1047" y="76">accum 8</text>
+    <text class="per-red section" x="1430" y="78">4.0%</text>
+    <text class="muted small" x="510" y="122">result2: sfdto 34, fsl 6 / accum=8</text>
+  </g>
+
+  <!-- lead 10 -->
+  <g transform="translate(0,525)">
+    <text class="ink section" x="82" y="32">lead 10</text>
+    <text class="listen body" x="350" y="22">▼ aligned (t=0)</text>
+    <rect class="delta" x="175" y="50" width="255" height="38" rx="5"/>
+    <text class="ink small" x="254" y="75">δ≈11.3us</text>
+    <rect class="detect" x="430" y="50" width="460" height="38" rx="5"/>
+    <text class="ink body" x="596" y="76">detection ≈20sym</text>
+    <rect class="accum" x="890" y="50" width="276" height="38" rx="5"/>
+    <text class="ink body" x="997" y="76">accum 12</text>
+    <text class="per-orange section" x="1430" y="78">0.4%</text>
+    <text class="muted small" x="510" y="122">result2: phe 2, fsl 2 / accum=12</text>
+  </g>
+
+  <!-- lead 12 -->
+  <g transform="translate(0,700)">
+    <text class="ink section" x="82" y="32">lead 12</text>
+    <text class="listen body" x="246" y="22">▼ −2sym early</text>
+    <rect class="delta" x="130" y="50" width="255" height="38" rx="5"/>
+    <text class="ink small" x="209" y="75">δ≈11.3us</text>
+    <rect class="detect" x="385" y="50" width="460" height="38" rx="5"/>
+    <text class="ink body" x="542" y="76">detection ≈20sym</text>
+    <rect class="accum" x="845" y="50" width="321" height="38" rx="5"/>
+    <text class="ink body" x="974" y="76">accum 14</text>
+    <text class="per-green section" x="1430" y="78">0.0%</text>
+    <text class="muted small" x="292" y="122">result2: error 0 / 첫 PAC = noise 2sym + preamble 6sym → 안정 성공</text>
+  </g>
+
+  <!-- lead 14 -->
+  <g transform="translate(0,875)">
+    <text class="ink section" x="82" y="32">lead 14</text>
+    <text class="listen body" x="120" y="22">▼ −4sym early</text>
+    <rect class="delta" x="84" y="50" width="255" height="38" rx="5"/>
+    <text class="ink small" x="163" y="75">δ≈11.3us</text>
+
+    <rect class="detect" x="339" y="50" width="460" height="34" rx="5"/>
+    <rect class="accum" x="799" y="50" width="367" height="34" rx="5"/>
+    <text class="ink small" x="918" y="73">PAC 인정 → accum 16</text>
+
+    <rect class="discard" x="339" y="96" width="184" height="34" rx="4"/>
+    <rect class="detect" x="523" y="96" width="460" height="34" rx="5"/>
+    <rect class="accum" x="983" y="96" width="183" height="34" rx="5"/>
+    <text class="ink small" x="1047" y="119">accum 8</text>
+
+    <text class="per-red section" x="1430" y="104">3.9%</text>
+    <text class="per-red small" x="346" y="162">result2: sfdto 36, fsl 3 / accum min=8 max=16 avg=9.4 → bimodal 8/16 가설</text>
+  </g>
+
+  <!-- lead 15 -->
+  <g transform="translate(0,1060)">
+    <text class="ink section" x="82" y="32">lead 15</text>
+    <text class="listen body" x="75" y="22">▼ −5sym early</text>
+    <rect class="delta" x="62" y="50" width="255" height="38" rx="5"/>
+    <text class="ink small" x="141" y="75">δ≈11.3us</text>
+    <rect class="discard" x="317" y="50" width="184" height="38" rx="4"/>
+    <text class="muted tiny" x="340" y="74">discarded PAC</text>
+    <rect class="detect" x="501" y="50" width="460" height="38" rx="5"/>
+    <text class="ink body" x="664" y="76">detection ≈20sym</text>
+    <rect class="accum" x="961" y="50" width="205" height="38" rx="5"/>
+    <text class="ink body" x="1032" y="76">accum 9</text>
+    <text class="per-orange section" x="1430" y="78">0.8%</text>
+    <text class="muted small" x="270" y="122">result2: sfdto 5, phe 1, fsl 2 / discarded PAC 이후 boundary가 밀려 accum 9</text>
+  </g>
+
+  <rect class="note" x="82" y="1110" width="1280" height="54"/>
+  <text class="ink small" x="110" y="1134">주의: 이 그림은 result2의 lead 6/10/12/14/15 결과만 사용한 해석 도식이다. lead 2/4는 result2에서 FWTO 100%였고 PAC grid가 형성되지 않아 행에서 제외했다.</text>
+  <text class="muted small" x="110" y="1157">δ≈11.3us는 lead10 정렬을 기준으로 한 도식용 추정값이며, 실제 δ는 RF 안정화 + digital acquisition chain을 합친 유효 지연으로 해석한다.</text>
+</svg>

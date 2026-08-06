@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "nrfx_timer.h": "c",
+        "nrf_timer.h": "c",
+        "deca_probe_interface.h": "c",
+        "example_selection.h": "c",
+        "nrf_delay.h": "c"
+    }
+}
