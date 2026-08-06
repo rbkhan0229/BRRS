@@ -1012,6 +1012,46 @@ static latency_stats_t exp4_rearm_slack_stats;
  * 구분할 수 없어 값별 빈도를 직접 기록. PAC 양자화 가설 검증용. */
 static uint32_t accum_hist[PREAMBLE_SYMBOLS + 1] = {0};
 
+#if BRRS_EXPERIMENT != 4
+/* Failed receptions may leave CIA diagnostics from an earlier frame.  Keep
+ * values without RXPRD as raw observations, never as valid accumCount data. */
+typedef enum {
+    FAIL_ACCUM_FWTO = 0,
+    FAIL_ACCUM_PTO,
+    FAIL_ACCUM_SFDTO,
+    FAIL_ACCUM_PHE,
+    FAIL_ACCUM_FCE,
+    FAIL_ACCUM_FSL,
+    FAIL_ACCUM_OTHER,
+    FAIL_ACCUM_CAUSE_COUNT
+} fail_accum_cause_t;
+
+#define FAIL_ACCUM_HIST_CAPACITY 16
+
+typedef struct {
+    uint16_t accum;
+    uint32_t count;
+} failed_accum_hist_entry_t;
+
+typedef struct {
+    uint32_t events;
+    uint32_t diag_read_ok;
+    uint32_t valid;
+    uint32_t invalid_no_rxprd;
+    uint32_t invalid_zero;
+    uint32_t invalid_range;
+    uint32_t read_fail;
+    uint32_t valid_hist_overflow;
+    uint32_t invalid_hist_overflow;
+    uint8_t valid_hist_used;
+    uint8_t invalid_hist_used;
+    failed_accum_hist_entry_t valid_hist[FAIL_ACCUM_HIST_CAPACITY];
+    failed_accum_hist_entry_t invalid_raw_hist[FAIL_ACCUM_HIST_CAPACITY];
+} failed_accum_stats_t;
+
+static failed_accum_stats_t failed_accum_stats[TOTAL_ARRAY_SIZE][FAIL_ACCUM_CAUSE_COUNT];
+#endif
+
 /* ========== DWT 사이클 카운터 (MCU 측) ========== */
 #define DWT_CTRL    (*(volatile uint32_t*)0xE0001000)
 #define DWT_CYCCNT  (*(volatile uint32_t*)0xE0001004)
@@ -1589,6 +1629,162 @@ static uint8_t exp4_slot_received[BRRS_MAX_DATA_SLOTS] = {0};
 static uint32_t last_sync_tx_ts_high32 = 0;  /* SYNC TX timestamp 저장 */
 static bool slots_scheduled[BRRS_MAX_DATA_SLOTS] = {false};
 static uint8_t current_rx_slot = 0xFF;  /* 현재 대기 중인 슬롯 (RX 윈도우 안에서) */
+
+#if BRRS_EXPERIMENT != 4
+static const char *failed_accum_cause_name(fail_accum_cause_t cause)
+{
+    static const char *const names[FAIL_ACCUM_CAUSE_COUNT] = {
+        "fwto", "pto", "sfdto", "phe", "fce", "fsl", "other"
+    };
+    return (cause < FAIL_ACCUM_CAUSE_COUNT) ? names[cause] : "other";
+}
+
+static fail_accum_cause_t failed_accum_classify(uint32_t status_reg)
+{
+    if (status_reg & DWT_INT_RXFTO_BIT_MASK) return FAIL_ACCUM_FWTO;
+    if (status_reg & DWT_INT_RXPTO_BIT_MASK) return FAIL_ACCUM_PTO;
+    if (status_reg & DWT_INT_RXSTO_BIT_MASK) return FAIL_ACCUM_SFDTO;
+    if (status_reg & DWT_INT_RXPHE_BIT_MASK) return FAIL_ACCUM_PHE;
+    if (status_reg & DWT_INT_RXFCE_BIT_MASK) return FAIL_ACCUM_FCE;
+    if (status_reg & DWT_INT_RXFSL_BIT_MASK) return FAIL_ACCUM_FSL;
+    return FAIL_ACCUM_OTHER;
+}
+
+static uint8_t failed_accum_owner_index(void)
+{
+    if (current_rx_slot < current_beacon_config.slot_count) {
+        uint8_t owner_seq = current_beacon_config.slot_owner[current_rx_slot];
+        uint8_t owner_idx = (uint8_t)(owner_seq - 1U);
+        if (owner_seq >= 2U && owner_idx < TOTAL_ARRAY_SIZE) {
+            return owner_idx;
+        }
+    }
+    return 0U;
+}
+
+static void failed_accum_hist_add(failed_accum_hist_entry_t *hist,
+                                  uint8_t *used,
+                                  uint32_t *overflow,
+                                  uint16_t accum)
+{
+    uint8_t i;
+
+    for (i = 0U; i < *used; i++) {
+        if (hist[i].accum == accum) {
+            hist[i].count++;
+            return;
+        }
+    }
+
+    if (*used < FAIL_ACCUM_HIST_CAPACITY) {
+        hist[*used].accum = accum;
+        hist[*used].count = 1U;
+        (*used)++;
+    } else {
+        (*overflow)++;
+    }
+}
+
+static void capture_failed_accum(uint32_t status_reg)
+{
+    uint8_t owner_idx = failed_accum_owner_index();
+    fail_accum_cause_t cause = failed_accum_classify(status_reg);
+    failed_accum_stats_t *stats = &failed_accum_stats[owner_idx][cause];
+    dwt_cirdiags_t diag;
+    uint16_t raw_accum;
+
+    stats->events++;
+    memset(&diag, 0, sizeof(diag));
+    if (dwt_readdiagnostics_acc(&diag, DWT_ACC_IDX_IP_M) != DWT_SUCCESS) {
+        stats->read_fail++;
+        return;
+    }
+
+    stats->diag_read_ok++;
+    raw_accum = diag.accumCount;
+
+    if (!(status_reg & DWT_INT_RXPRD_BIT_MASK)) {
+        stats->invalid_no_rxprd++;
+        failed_accum_hist_add(stats->invalid_raw_hist,
+                              &stats->invalid_hist_used,
+                              &stats->invalid_hist_overflow,
+                              raw_accum);
+    } else if (raw_accum == 0U) {
+        stats->invalid_zero++;
+        failed_accum_hist_add(stats->invalid_raw_hist,
+                              &stats->invalid_hist_used,
+                              &stats->invalid_hist_overflow,
+                              raw_accum);
+    } else if (raw_accum > PREAMBLE_SYMBOLS) {
+        stats->invalid_range++;
+        failed_accum_hist_add(stats->invalid_raw_hist,
+                              &stats->invalid_hist_used,
+                              &stats->invalid_hist_overflow,
+                              raw_accum);
+    } else {
+        stats->valid++;
+        failed_accum_hist_add(stats->valid_hist,
+                              &stats->valid_hist_used,
+                              &stats->valid_hist_overflow,
+                              raw_accum);
+    }
+}
+
+static void print_failed_accum_stats(void)
+{
+    uint8_t node_idx;
+    uint8_t cause_idx;
+
+    final_log_info("--- Failed-frame Ipatov accumCount ---");
+    final_log_info("FAIL_ACCUM_NOTE,valid_requires=RXPRD_and_1_to_PLEN,invalid_raw_may_be_stale");
+
+    for (node_idx = 0U; node_idx < TOTAL_ARRAY_SIZE; node_idx++) {
+        for (cause_idx = 0U; cause_idx < FAIL_ACCUM_CAUSE_COUNT; cause_idx++) {
+            failed_accum_stats_t *stats = &failed_accum_stats[node_idx][cause_idx];
+            uint8_t bin;
+            static char line[220];
+
+            if (stats->events == 0U) {
+                continue;
+            }
+
+            snprintf(line, sizeof(line),
+                     "FAIL_ACCUM_SUMMARY_CSV,%s,%s,events=%lu,diag_ok=%lu,valid=%lu,invalid_no_rxprd=%lu,invalid_zero=%lu,invalid_range=%lu,read_fail=%lu,hist_overflow=%lu",
+                     get_slot_description(node_idx),
+                     failed_accum_cause_name((fail_accum_cause_t)cause_idx),
+                     (unsigned long)stats->events,
+                     (unsigned long)stats->diag_read_ok,
+                     (unsigned long)stats->valid,
+                     (unsigned long)stats->invalid_no_rxprd,
+                     (unsigned long)stats->invalid_zero,
+                     (unsigned long)stats->invalid_range,
+                     (unsigned long)stats->read_fail,
+                     (unsigned long)(stats->valid_hist_overflow +
+                                     stats->invalid_hist_overflow));
+            final_log_info(line);
+
+            for (bin = 0U; bin < stats->valid_hist_used; bin++) {
+                snprintf(line, sizeof(line),
+                         "FAIL_ACCUM_HIST_CSV,%s,%s,valid,accum=%u,n=%lu",
+                         get_slot_description(node_idx),
+                         failed_accum_cause_name((fail_accum_cause_t)cause_idx),
+                         stats->valid_hist[bin].accum,
+                         (unsigned long)stats->valid_hist[bin].count);
+                final_log_info(line);
+            }
+            for (bin = 0U; bin < stats->invalid_hist_used; bin++) {
+                snprintf(line, sizeof(line),
+                         "FAIL_ACCUM_HIST_CSV,%s,%s,invalid_raw,accum=%u,n=%lu",
+                         get_slot_description(node_idx),
+                         failed_accum_cause_name((fail_accum_cause_t)cause_idx),
+                         stats->invalid_raw_hist[bin].accum,
+                         (unsigned long)stats->invalid_raw_hist[bin].count);
+                final_log_info(line);
+            }
+        }
+    }
+}
+#endif
 static uint8_t current_active_node_bitmap = 0U;
 
 static bool schedule_rx_slot(uint8_t slot_idx)
@@ -2298,6 +2494,10 @@ int brrs_init(void)
                     }
                 }
 
+#if BRRS_EXPERIMENT != 4
+                print_failed_accum_stats();
+#endif
+
                 /* [DIAG] 창 열림 -> RMARKER: 기대값 = 실제(preamble+SFD) + lead margin */
                 final_log_info("--- RX-open to RMARKER (expect pre+SFD+lead) ---");
                 {
@@ -2837,6 +3037,10 @@ int brrs_init(void)
 #if BRRS_EXPERIMENT == 3 && EXP3_RX_STAGE_DIAG
                 exp3_trace_cancel();
 #endif
+#if BRRS_EXPERIMENT != 4
+                /* Read CIA diagnostics before clearing status or forcing RX off. */
+                capture_failed_accum(status_reg);
+#endif
                 dwt_writesysstatuslo(SYS_STATUS_ALL_RX_TO);
                 total_rx_timeouts++;
                 /* [DIAG] timeout 종류 구분 */
@@ -2864,6 +3068,10 @@ int brrs_init(void)
 #endif
 #if BRRS_EXPERIMENT == 3 && EXP3_RX_STAGE_DIAG
                 exp3_trace_cancel();
+#endif
+#if BRRS_EXPERIMENT != 4
+                /* RXPRD distinguishes current-frame diagnostics from stale raw data. */
+                capture_failed_accum(status_reg);
 #endif
                 total_rx_errors++;
                 /* [DIAG] 에러 종류 구분 */
