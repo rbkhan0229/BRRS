@@ -19,6 +19,9 @@
  *
  *           [v1.6 변경사항] (2026-08)
  *           - 실험 4 DATA 프리앰블을 비컨의 m 필드에서 런타임 적용
+ *
+ *           [v1.7 변경사항] (2026-08)
+ *           - 비컨 기반 DATA 프리앰블 적용을 실험 1~4 전체로 확장
  */
 
 #include "deca_probe_interface.h"
@@ -96,31 +99,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v1.6 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v1.7 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v1.6 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v1.7 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v1.6 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v1.7 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v1.6 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v1.7 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v1.6 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v1.7 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v1.6 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v1.7 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v1.6 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v1.7 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -327,7 +330,6 @@ static dwt_config_t config_data = {
     DWT_STS_MODE_OFF, DWT_STS_LEN_64, DWT_PDOA_M0
 };
 
-#if BRRS_EXPERIMENT == 4
 static uint16_t current_data_plen = DATA_PLEN;
 static uint16_t current_data_preamble_symbols = PREAMBLE_SYMBOLS;
 
@@ -365,7 +367,6 @@ static bool brrs_apply_beacon_data_phy(uint16_t symbols)
     current_data_preamble_symbols = symbols;
     return true;
 }
-#endif
 
 static dwt_config_t config_sync = {
     9, SYNC_PLEN, DWT_PAC8,
@@ -730,7 +731,6 @@ static const char *brrs_beacon_reject_reason(const brrs_beacon_config_t *config)
     uint8_t schedule_bitmap = 0U;
     uint8_t slot;
 
-#if BRRS_EXPERIMENT == 4
     {
         uint16_t ignored_plen;
         if (!brrs_data_plen_from_symbols(config->data_preamble_symbols,
@@ -738,11 +738,6 @@ static const char *brrs_beacon_reject_reason(const brrs_beacon_config_t *config)
             return "unsupported_data_preamble";
         }
     }
-#else
-    if (config->data_preamble_symbols != PREAMBLE_SYMBOLS) {
-        return "data_preamble";
-    }
-#endif
     if (config->data_psdu_bytes != PSDU_BYTES) {
         return "data_psdu";
     }
@@ -948,7 +943,7 @@ int brrs_normal(void)
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=8,beacon_protocol=2,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=9,beacon_protocol=2,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -980,19 +975,11 @@ int brrs_normal(void)
 
     {
         static char cfg_msg[240];
-#if BRRS_EXPERIMENT == 4
         snprintf(cfg_msg, sizeof(cfg_msg),
                  "%s: EXP=%d SEQ=%d SLOT_START=beacon DATA_PLEN=beacon(default=%d/%dsym) SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
                  APP_NAME, BRRS_EXPERIMENT, MY_NODE_SEQ, DATA_PLEN,
                  PREAMBLE_SYMBOLS, PERIOD_US, PERIODS_PER_CYCLE,
                  TARGET_CYCLES, ENABLE_CIR);
-#else
-        snprintf(cfg_msg, sizeof(cfg_msg),
-                 "%s: EXP=%d SEQ=%d SLOT_START=%dus PRE_US=%d DATA_PLEN=%d(%dsym) SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
-                 APP_NAME, BRRS_EXPERIMENT, MY_NODE_SEQ, MY_SLOT_START_US, PREAMBLE_US,
-                 DATA_PLEN, PREAMBLE_SYMBOLS, PERIOD_US,
-                 PERIODS_PER_CYCLE, TARGET_CYCLES, ENABLE_CIR);
-#endif
         test_run_info((unsigned char *)cfg_msg);
     }
 #if BRRS_EXPERIMENT == 3
@@ -1105,12 +1092,8 @@ int brrs_normal(void)
 
                 static char hdr[80];
                 snprintf(hdr, sizeof(hdr), "\n===== %s FINAL STATS (PLEN=%d, %dsym) =====",
-                         APP_NAME,
-#if BRRS_EXPERIMENT == 4
-                         current_data_plen, current_data_preamble_symbols);
-#else
-                         DATA_PLEN, PREAMBLE_SYMBOLS);
-#endif
+                         APP_NAME, current_data_plen,
+                         current_data_preamble_symbols);
                 final_log_info(hdr);
 
 #if BRRS_EXPERIMENT == 4
@@ -1295,28 +1278,25 @@ int brrs_normal(void)
                         continue;
                     }
 
-#if BRRS_EXPERIMENT == 4
                     if (!brrs_apply_beacon_data_phy(
                             decoded_config.data_preamble_symbols)) {
                         beacon_config_errors++;
                         continue;
                     }
-#endif
                     current_beacon_config = decoded_config;
                     if (!beacon_config_logged) {
                         brrs_log_beacon_config(&current_beacon_config);
-#if BRRS_EXPERIMENT == 4
                         {
                             static char phy_line[180];
                             snprintf(phy_line, sizeof(phy_line),
-                                     "BRRS_DATA_PHY_APPLIED_CSV,source=beacon,m=%u,plen_code=%u,sfd_to=%u,node=%u",
+                                     "BRRS_DATA_PHY_APPLIED_CSV,experiment=%d,source=beacon,m=%u,plen_code=%u,sfd_to=%u,node=%u",
+                                     BRRS_EXPERIMENT,
                                      current_data_preamble_symbols,
                                      current_data_plen,
                                      config_data.sfdTO,
                                      MY_NODE_SEQ);
                             test_run_info((unsigned char *)phy_line);
                         }
-#endif
                         beacon_config_logged = true;
                     }
                     brrs_load_owned_slots(&current_beacon_config);

@@ -53,8 +53,14 @@ records on RTT channels 0 and 1:
 - `EXP4_NODE_CSV`: per-node expected, received, missed, and RX error counts.
 - `EXP4_TIMING_CSV`: measured SYNC period, total elapsed time, delayed-SYNC
   scheduling failures, and END transmission count.
-- `EXP4_REARM_CSV`: coordinator immediate-RX re-arm service time and failure
-  count. It has `count=0` in an S1 run because there is no adjacent sensor slot.
+- `EXP4_REARM_CSV`: coordinator immediate-RX re-arm service time. It has
+  `count=0` in an S1 run because there is no adjacent sensor slot. The
+  `delayed_schedule_late` field applies to delayed scheduling of the first slot,
+  not to the immediate re-arm burst itself.
+- `EXP4_REARM_PHASE_CSV`: SPI service time split into RX status clear, frame
+  timeout programming, RX fast-command, and RX timestamp read phases. Timestamp
+  reads occur after the critical re-arm and are therefore not part of the
+  `EXP4_REARM_CSV` deadline.
 - `BRRS_SLOT_TIMING_CSV`: signed DATA arrival error in ns, calculated from
   DW3000 RMARKER timestamps. Its sample count must equal the accepted RX count.
 - `EXP4_STATUS_CSV`: schedule, UWB timing-sample integrity, and collection
@@ -114,11 +120,12 @@ To validate back-to-back slot re-arming with three boards, use the two-sensor
    coordinator configuration.
 
 The one-sensor guard-time test does not validate back-to-back slot processing.
-During the first N2+N3 smoke test, check `EXP4_REARM_CSV` and `rx-rearm-fail`.
-If re-arm fails or N3 is consistently absent, increase `BRRS_SLOT_GUARD_US` and
-repeat; the coordinator did not re-enable RX before the next preamble. After a
-stable baseline is obtained, sweep the guard downward separately to find the
-minimum multi-slot value.
+During the first N2+N3 smoke test, check `EXP4_REARM_CSV`, the four
+`EXP4_REARM_PHASE_CSV` rows, and N3 PER. If the maximum re-arm service time
+exceeds the guard or N3 is consistently absent, increase `BRRS_SLOT_GUARD_US`
+and repeat; the coordinator did not re-enable RX before the next preamble.
+After a stable baseline is obtained, sweep the guard downward separately to
+find the minimum multi-slot value.
 
 ## Build any N2-N8 combination
 
