@@ -1,6 +1,6 @@
 # BRRS IEEE Internet of Things Journal Submission Experiment Plan
 
-Updated: 2026-08-05
+Updated: 2026-08-07
 
 ## 1. Submission Position
 
@@ -47,7 +47,7 @@ A reliable Experiment 4 configuration must satisfy all of the following:
 
 ## 3. Protocol and Firmware Freeze
 
-The submission firmware uses BRRS beacon protocol version 2.
+The submission firmware uses BRRS beacon protocol version 3 and firmware v2.0.
 
 Beacon payload values are transmitted directly rather than through a private
 profile table:
@@ -61,6 +61,11 @@ profile table:
 - superframe period;
 - superframe sequence number.
 - DATA slot count and an explicit slot-owner sequence.
+
+DATA frames echo only the superframe sequence. They do not repeat their slot
+offset. The coordinator derives the physical slot from the DATA RX RMARKER and
+checks its source against the slot-owner sequence. This avoids trusting a
+sender-declared schedule value and reduces the DATA header from 12 to 8 bytes.
 
 The active bitmap is operational. An inactive node remains silent, and active
 nodes are packed in ascending node-ID order. For example, bitmap `0x0D` produces
@@ -435,7 +440,7 @@ Official references:
 
 ## 16. Immediate Execution Order
 
-1. Flash v1.4 INIT/NORMAL and complete the beacon protocol smoke tests.
+1. Flash v2.0/protocol-v3 INIT and NORMAL firmware and complete the beacon protocol smoke tests.
 2. Run Stage 0 lead/tail calibration and freeze the lead value.
 3. Freeze fixtures, environments, scripts, and run manifests.
 4. Collect Experiment 1 and Experiment 2 in the same physical blocks.

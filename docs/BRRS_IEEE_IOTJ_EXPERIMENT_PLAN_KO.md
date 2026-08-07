@@ -1,6 +1,6 @@
 # BRRS IEEE IoT Journal 제출용 실험 실행 계획
 
-작성일: 2026-08-05
+작성일: 2026-08-07
 
 상세 설계와 통계 기준은 `BRRS_IEEE_IOTJ_EXPERIMENT_PLAN.md`를 기준으로 하고,
 이 문서는 실제 재실험 순서와 판단 기준을 빠르게 확인하기 위한 한국어 실행본이다.
@@ -37,6 +37,11 @@ DWM3000에서는 SFD와 PHR을 실제로 제거하지 못한다. 따라서 논�
 - 슈퍼프레임 순번.
 - DATA 슬롯 수와 슬롯별 송신 노드 순서.
 
+제출용 펌웨어는 v2.0, beacon protocol v3를 사용한다. DATA는 슬롯 오프셋을
+다시 싣지 않고 슈퍼프레임 순번만 되돌려 보낸다. 코디네이터는 DATA RX RMARKER로
+실제 슬롯을 계산하고 비컨의 슬롯별 송신 노드와 source ID를 대조한다. 이에 따라
+DATA 프로토콜 헤더는 12바이트에서 8바이트로 줄었다.
+
 `active_node_bitmap`에서 N2~N8은 각각 bit 0~6에 대응한다. 활성 노드는 ID 오름차순으로
 빈 슬롯 없이 배치된다. 예를 들어 `0x0D`이면 N2, N4, N5가 슬롯 0, 1, 2를 사용한다.
 
@@ -50,7 +55,7 @@ SFD 종류와 PHR rate는 송수신 펌웨어의 실험용 빌드 설정으로�
 
 ## 3. 제출 데이터 수집 전 필수 조건
 
-1. INIT와 모든 NORMAL 보드에 동일한 v1.4, beacon protocol v2 펌웨어를 사용한다.
+1. INIT와 모든 NORMAL 보드에 동일한 v2.0, beacon protocol v3 펌웨어를 사용한다.
 2. 2노드 smoke test에서 INIT의 `BRRS_BEACON_CONFIG_CSV`와 NORMAL의
    `BRRS_BEACON_RX_CSV` 값이 일치해야 한다.
 3. `BRRS_BEACON_REJECT=0`, `delayed_late=0`, wrong-slot=0,
@@ -214,7 +219,7 @@ shunt/oscilloscope로 continuous/immediate RX와 beacon-scheduled delayed-RX를 
 
 ## 12. 지금부터의 실행 순서
 
-1. 양쪽 노트북에 v1.4 소스를 맞추고 Exp4 M32/S1 smoke test를 한다.
+1. 양쪽 노트북에 v2.0/protocol-v3 소스를 맞추고 Exp4 M32/S1 smoke test를 한다.
 2. 비컨 송수신 로그 값과 오류 카운터를 확인한다.
 3. 비연속 bitmap 시험으로 참여 제어와 슬롯 압축을 검증한다.
 4. Stage 0을 수행해 lead를 동결한다.

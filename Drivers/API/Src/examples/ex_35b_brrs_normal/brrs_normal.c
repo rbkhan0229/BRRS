@@ -29,6 +29,11 @@
  *           [v1.9 변경사항] (2026-08)
  *           - 비컨 DATA PHY 적용 실패 및 dwt_configure 실패 시 fail-closed 복구
  *           - 실험 4 coordinator continuous RX burst와 릴리스 동기화
+ *
+ *           [v2.0 변경사항] (2026-08)
+ *           - beacon protocol v3 및 8-byte DATA 헤더 적용
+ *           - 중복 슬롯 오프셋 필드 제거, 송신 슬롯은 비컨 스케줄만 사용
+ *           - 잘못된 길이/비제어 프레임 수신 후 SYNC RX 복구 보강
  */
 
 #include "deca_probe_interface.h"
@@ -106,31 +111,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v1.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v2.0 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v1.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v2.0 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v1.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v2.0 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v1.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v2.0 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v1.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v2.0 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v1.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v2.0 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v1.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v2.0 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -218,8 +223,8 @@ static void terminal_log_info(unsigned char *data)
 #ifndef BRRS_APP_PAYLOAD_BYTES
 #define BRRS_APP_PAYLOAD_BYTES 16
 #endif
-#define BRRS_PROTOCOL_HEADER_BYTES 12
-#define IEEE_802154_FCS_BYTES       2
+#define BRRS_PROTOCOL_HEADER_BYTES BRRS_COMMON_HEADER_BYTES
+#define IEEE_802154_FCS_BYTES       BRRS_IEEE_802154_FCS_BYTES
 #define PSDU_BYTES          (BRRS_PROTOCOL_HEADER_BYTES + BRRS_APP_PAYLOAD_BYTES + IEEE_802154_FCS_BYTES)
 #else
 #define PSDU_BYTES          127
@@ -401,14 +406,18 @@ enum {
     IDX_MSG_TYPE      = BRRS_IDX_MSG_TYPE,
     IDX_PROTOCOL_VERSION = BRRS_IDX_PROTOCOL_VERSION,
     IDX_SUPERFRAME_SEQ = BRRS_IDX_SUPERFRAME_SEQ,
-    IDX_DECLARED_SLOT_OFFSET_US = BRRS_IDX_DECLARED_SLOT_OFFSET_US,
     IDX_DATA_PAYLOAD  = BRRS_IDX_DATA_PAYLOAD
 };
 
 #define TX_POWER_INDEX_10dB    40
 #define USE_TX_POWER_INDEX     TX_POWER_INDEX_10dB
 
-static uint8_t tx_msg[PSDU_BYTES] = { 0x41, 0x8C, 0, 0x9A, 0x60, 0, 0, 0, 0, 0, 0, 0, 0, 'D', 'W', 0x10, 0x00, 0, 0, 0, 0, 0 };
+static uint8_t tx_msg[PSDU_BYTES] = {
+    [0] = 0x41,
+    [1] = 0x8C,
+    [BRRS_IDX_DATA_PAYLOAD] = 'D',
+    [BRRS_IDX_DATA_PAYLOAD + 1] = 'W'
+};
 
 #define TX_TO_RX_DELAY_UUS  60
 /* SYNC RX 타임아웃은 길게 (비컨 신뢰성), 그 외엔 짧게 동적 설정.
@@ -730,7 +739,6 @@ static uint16_t exp4_read_superframe_seq(const uint8_t *msg)
 #endif
 
 static brrs_beacon_config_t current_beacon_config;
-static uint32_t current_slot_start_us = 0U;
 static uint32_t current_owned_slot_start_us[BRRS_MAX_DATA_SLOTS];
 static uint8_t current_owned_slot_count = 0U;
 static uint32_t beacon_config_errors = 0U;
@@ -817,15 +825,11 @@ static void brrs_load_owned_slots(const brrs_beacon_config_t *config)
     uint8_t slot;
 
     current_owned_slot_count = 0U;
-    current_slot_start_us = 0U;
     for (slot = 0U; slot < config->slot_count; slot++) {
         if (config->slot_owner[slot] == MY_NODE_SEQ) {
             uint32_t start_us = config->first_slot_offset_us +
                 (uint32_t)slot * config->slot_interval_us;
             current_owned_slot_start_us[current_owned_slot_count++] = start_us;
-            if (current_slot_start_us == 0U) {
-                current_slot_start_us = start_us;
-            }
         }
     }
 }
@@ -954,7 +958,7 @@ int brrs_normal(void)
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=11,beacon_protocol=2,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=12,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -1226,8 +1230,11 @@ int brrs_normal(void)
             uint32_t status_reg = dwt_readsysstatuslo();
 
             if (status_reg & DWT_INT_RXFCG_BIT_MASK) {
+                uint16_t rx_frame_len = dwt_getframelength(0);
                 memset(rx_buffer, 0, sizeof(rx_buffer));
-                dwt_readrxdata(rx_buffer, FRAME_LEN_MAX, 0);
+                if (rx_frame_len > 0U && rx_frame_len <= FRAME_LEN_MAX) {
+                    dwt_readrxdata(rx_buffer, rx_frame_len, 0);
+                }
                 dwt_writesysstatuslo(DWT_INT_RXFCG_BIT_MASK);
 
                 uint8_t msg_type = rx_buffer[IDX_MSG_TYPE];
@@ -1242,7 +1249,9 @@ int brrs_normal(void)
                     bool decoded = false;
                     bool valid_beacon;
 
-                    if (src_node != NODE_INIT || dest_node != NODE_ALL) {
+                    if (rx_frame_len != BRRS_BEACON_PSDU_BYTES) {
+                        reject_reason = "frame_length";
+                    } else if (src_node != NODE_INIT || dest_node != NODE_ALL) {
                         reject_reason = "header";
                     } else if (!brrs_decode_beacon(rx_buffer, &decoded_config)) {
                         reject_reason = "decode";
@@ -1253,7 +1262,7 @@ int brrs_normal(void)
                     valid_beacon = (reject_reason == NULL);
 
                     if (!valid_beacon) {
-                        static char error_line[360];
+                        static char error_line[480];
                         char owners[BRRS_MAX_DATA_SLOTS + 1U] = {0};
                         uint8_t slot;
 
@@ -1264,9 +1273,11 @@ int brrs_normal(void)
                             }
                         }
                         snprintf(error_line, sizeof(error_line),
-                                 "BRRS_BEACON_REJECT,count=%lu,reason=%s,version=%u,m=%u,build_default_m=%u,psdu=%u,expected_psdu=%u,rate=%u,expected_rate=%u,active_bitmap=0x%02X,slot_count=%u,slot_owners=%s,first_slot_us=%u,slot_interval_us=%u,period_us=%u",
+                                 "BRRS_BEACON_REJECT,count=%lu,reason=%s,frame_len=%u,expected_frame_len=%u,version=%u,m=%u,build_default_m=%u,psdu=%u,expected_psdu=%u,rate=%u,expected_rate=%u,active_bitmap=0x%02X,slot_count=%u,slot_owners=%s,first_slot_us=%u,slot_interval_us=%u,period_us=%u",
                                  (unsigned long)beacon_config_errors,
                                  reject_reason,
+                                 rx_frame_len,
+                                 BRRS_BEACON_PSDU_BYTES,
                                  rx_buffer[IDX_PROTOCOL_VERSION],
                                  brrs_get_u16_le(&rx_buffer[BRRS_BEACON_IDX_PREAMBLE_SYMBOLS]),
                                  PREAMBLE_SYMBOLS,
@@ -1327,6 +1338,17 @@ int brrs_normal(void)
                         beacon_config_logged = true;
                     }
                     brrs_load_owned_slots(&current_beacon_config);
+                }
+
+                if (!is_control_frame) {
+                    dwt_forcetrxoff();
+                    if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+                        config_is_sync = true;
+                    }
+                    dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
+                    dwt_writesysstatuslo(0xFFFFFFFF);
+                    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+                    continue;
                 }
 
 #if BRRS_EXPERIMENT == 4
@@ -1427,11 +1449,10 @@ int brrs_normal(void)
                         for (owned_slot = 0U;
                              owned_slot < current_owned_slot_count;
                              owned_slot++) {
-                            uint32_t declared_slot_offset_us =
+                            uint32_t slot_start_us =
                                 current_owned_slot_start_us[owned_slot];
                             int tx_result;
 
-                            current_slot_start_us = declared_slot_offset_us;
                             tx_msg[0] = 0xC5;
                             tx_msg[IDX_MSG_TYPE] = MSG_TYPE_DATA;
                             tx_msg[IDX_SOURCE] = MY_NODE_ID;
@@ -1443,9 +1464,6 @@ int brrs_normal(void)
                             tx_msg[IDX_PROTOCOL_VERSION] = BRRS_PROTOCOL_VERSION;
                             brrs_put_u16_le(&tx_msg[IDX_SUPERFRAME_SEQ],
                                             current_beacon_config.superframe_seq);
-                            brrs_put_u32_le(
-                                &tx_msg[IDX_DECLARED_SLOT_OFFSET_US],
-                                declared_slot_offset_us);
 
                             total_tx_attempts++;
                             dwt_writetxdata(sizeof(tx_msg), tx_msg, 0);
@@ -1456,7 +1474,7 @@ int brrs_normal(void)
 #endif
                             tx_result = schedule_delayed_tx(
                                 last_sync_rx_ts_high32,
-                                current_owned_slot_start_us[owned_slot],
+                                slot_start_us,
                                 0);
 
                             if (tx_result == DWT_SUCCESS) {

@@ -50,6 +50,10 @@ EXTRA_FIELDS = (
     "rearm_slack_min_us",
     "rearm_slack_max_us",
     "rearm_slack_avg_us",
+    "burst_scheduled_end_us",
+    "burst_early_close",
+    "burst_deadline_close",
+    "burst_forced_prep_close",
 )
 
 
@@ -67,6 +71,7 @@ def parse_summary(path: Path):
     summaries = []
     timing = None
     rearm = None
+    burst = None
     with path.open("r", encoding="utf-8", errors="replace") as stream:
         for line in stream:
             marker = line.find("EXP4_SUMMARY_CSV,")
@@ -96,6 +101,10 @@ def parse_summary(path: Path):
             if marker >= 0:
                 rearm = parse_key_values(line[marker:].strip())
 
+            marker = line.find("EXP4_BURST_CSV,")
+            if marker >= 0:
+                burst = parse_key_values(line[marker:].strip())
+
     if not summaries:
         raise ValueError(f"{path}: EXP4_SUMMARY_CSV not found")
     if timing is None:
@@ -119,6 +128,10 @@ def parse_summary(path: Path):
         "rearm_slack_min_us": int(rearm.get("slack_min_us", "0")),
         "rearm_slack_max_us": int(rearm.get("slack_max_us", "0")),
         "rearm_slack_avg_us": int(rearm.get("slack_avg_x1000_us", "0")) / 1000.0,
+        "burst_scheduled_end_us": int(burst["scheduled_end_us"]) if burst else 0,
+        "burst_early_close": int(burst["early_close"]) if burst else 0,
+        "burst_deadline_close": int(burst["deadline_close"]) if burst else 0,
+        "burst_forced_prep_close": int(burst["forced_prep_close"]) if burst else 0,
     })
 
     if row["period_count"] != row["superframes"]:
@@ -139,6 +152,21 @@ def parse_summary(path: Path):
             f"tx_wait_timeout={row['tx_wait_timeout']}, "
             f"end_tx={row['end_tx_count']})"
         )
+    if burst is not None:
+        burst_total = int(burst["total"])
+        counted_total = (row["burst_early_close"] +
+                         row["burst_deadline_close"] +
+                         row["burst_forced_prep_close"])
+        if (burst_total != row["superframes"] or
+                counted_total != burst_total or
+                row["burst_forced_prep_close"] != 0):
+            raise ValueError(
+                f"{path}: invalid DATA-burst completion "
+                f"(early={row['burst_early_close']}, "
+                f"deadline={row['burst_deadline_close']}, "
+                f"forced={row['burst_forced_prep_close']}, "
+                f"total={burst_total}, superframes={row['superframes']})"
+            )
     return row
 
 
@@ -210,6 +238,18 @@ def validate_group_parameters(rows):
         raise SystemExit(
             "FAIL: runs grouped as replicates have different firmware/timing "
             f"parameters ({details})"
+        )
+
+
+def validate_dataset_parameters(rows):
+    shared = {
+        (row["psdu_bytes"], row["app_payload_bytes"], row["superframes"])
+        for row in rows
+    }
+    if len(shared) > 1:
+        raise SystemExit(
+            "FAIL: logs mix incompatible DATA formats or run lengths "
+            f"(psdu_bytes, app_payload_bytes, superframes={sorted(shared)})"
         )
 
 def write_aggregate_csv(rows, output_path: Path):
@@ -362,6 +402,7 @@ def main():
 
     validate_topologies(rows)
     validate_group_parameters(rows)
+    validate_dataset_parameters(rows)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = args.output_dir / f"{args.prefix}_summary.csv"

@@ -41,6 +41,11 @@
  *           - DATA PHY 설정 실패를 명시적으로 기록하고 해당 superframe 수집 중단
  *           - 실험 1 완료 마커 및 collection/link 상태 분리
  *
+ *           [v2.0 변경사항] (2026-08)
+ *           - DATA 헤더의 중복 슬롯 오프셋을 제거하고 RX RMARKER로 슬롯 식별
+ *           - 마지막 DATA 슬롯 처리 시 RX burst 조기 종료, 유실 시 예약 종료
+ *           - beacon protocol v3의 8-byte DATA 헤더와 축소 beacon 레이아웃 적용
+ *
  *           지원 실험:
  *           - 실험 1: 프리앰블 축소 PER 측정 (DATA_PLEN 변경)
  *           - 실험 2: CIR 수집 (ENABLE_CIR=1)
@@ -76,7 +81,7 @@ extern void test_run_info(unsigned char *data);
 extern int SEGGER_RTT_ConfigUpBuffer(unsigned BufferIndex, const char* sName, void* pBuffer, unsigned BufferSize, unsigned Flags);
 extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 
-#define APP_NAME "BRRS INIT NODE v1.9 (beacon-scheduled delayed-RX)"
+#define APP_NAME "BRRS INIT NODE v2.0 (beacon-scheduled delayed-RX)"
 
 /* ========== 실험 모드 선택 ========== */
 #ifndef BRRS_EXPERIMENT
@@ -213,8 +218,8 @@ _Static_assert(BRRS_EXP4_DATA_SLOT_COUNT <= BRRS_MAX_DATA_SLOTS,
 #ifndef BRRS_APP_PAYLOAD_BYTES
 #define BRRS_APP_PAYLOAD_BYTES 16
 #endif
-#define BRRS_PROTOCOL_HEADER_BYTES 12
-#define IEEE_802154_FCS_BYTES       2
+#define BRRS_PROTOCOL_HEADER_BYTES BRRS_COMMON_HEADER_BYTES
+#define IEEE_802154_FCS_BYTES       BRRS_IEEE_802154_FCS_BYTES
 #define PSDU_BYTES          (BRRS_PROTOCOL_HEADER_BYTES + BRRS_APP_PAYLOAD_BYTES + IEEE_802154_FCS_BYTES)
 #else
 #define PSDU_BYTES          127
@@ -312,12 +317,21 @@ _Static_assert(BRRS_SENSOR_NODES == 1 || SLOT_GUARD_US >= RX_LEAD_MARGIN_US,
 #define PERIOD_US           BRRS_SUPERFRAME_US
 #define EXP4_SLOT_BUDGET_US (CONFIG_SWITCH_US - SYNC_BUFFER_US)
 #define EXP4_TIMING_MAX_DATA_SLOTS \
-    (1 + (EXP4_SLOT_BUDGET_US - PHR_PSDU_US) / SLOT_INTERVAL_US)
+    (1 + (EXP4_SLOT_BUDGET_US - PHR_PSDU_US - SLOT_GUARD_US) / \
+         SLOT_INTERVAL_US)
 #define EXP4_MAX_DATA_SLOTS \
     ((EXP4_TIMING_MAX_DATA_SLOTS < BRRS_MAX_DATA_SLOTS) ? \
      EXP4_TIMING_MAX_DATA_SLOTS : BRRS_MAX_DATA_SLOTS)
+#define EXP4_DATA_BURST_END_US \
+    (SYNC_BUFFER_US + \
+     (BRRS_EXP4_DATA_SLOT_COUNT - 1U) * SLOT_INTERVAL_US + \
+     PHR_PSDU_US + SLOT_GUARD_US)
+_Static_assert(BRRS_EXP4_DATA_SLOT_COUNT > 0,
+               "Exp4 requires at least one DATA slot");
 _Static_assert(BRRS_EXP4_DATA_SLOT_COUNT <= EXP4_MAX_DATA_SLOTS,
                "Configured Exp4 DATA slots do not fit in the superframe");
+_Static_assert(EXP4_DATA_BURST_END_US <= CONFIG_SWITCH_US,
+               "Exp4 DATA burst overlaps the next SYNC preparation interval");
 #else
 #define CONFIG_SWITCH_US    (SYNC_BUFFER_US + TOTAL_SLOTS * SLOT_INTERVAL_US + 2000)
 #define PERIOD_US           BRRS_SUPERFRAME_US
@@ -380,14 +394,18 @@ enum {
     IDX_MSG_TYPE      = BRRS_IDX_MSG_TYPE,
     IDX_PROTOCOL_VERSION = BRRS_IDX_PROTOCOL_VERSION,
     IDX_SUPERFRAME_SEQ = BRRS_IDX_SUPERFRAME_SEQ,
-    IDX_DECLARED_SLOT_OFFSET_US = BRRS_IDX_DECLARED_SLOT_OFFSET_US,
     IDX_DATA_PAYLOAD  = BRRS_IDX_DATA_PAYLOAD
 };
 
 #define TX_POWER_INDEX_10dB    40
 #define USE_TX_POWER_INDEX     TX_POWER_INDEX_10dB
 
-static uint8_t tx_msg[PSDU_BYTES] = { 0x41, 0x8C, 0, 0x9A, 0x60, 0, 0, 0, 0, 0, 0, 0, 0, 'D', 'W', 0x10, 0x00, 0, 0, 0, 0, 0 };
+static uint8_t tx_msg[PSDU_BYTES] = {
+    [0] = 0x41,
+    [1] = 0x8C,
+    [BRRS_IDX_DATA_PAYLOAD] = 'D',
+    [BRRS_IDX_DATA_PAYLOAD + 1] = 'W'
+};
 static uint8_t beacon_msg[BRRS_BEACON_PSDU_BYTES];
 
 /* ex_29a 잔재. RESPONSE_EXPECTED 플래그 없이 TX하므로 rx-after-tx 자동 RX는
@@ -996,6 +1014,11 @@ static uint32_t exp4_period_min_x1000_us = 0xFFFFFFFF;
 static uint32_t exp4_period_max_x1000_us = 0;
 static uint64_t exp4_period_sum_x1000_us = 0;
 static uint32_t exp4_period_count = 0;
+static bool exp4_data_burst_active = false;
+static uint32_t exp4_burst_early_close_count = 0;
+static uint32_t exp4_burst_deadline_close_count = 0;
+static uint32_t exp4_burst_forced_prep_close_count = 0;
+static uint32_t exp4_wrong_length_frames = 0;
 #endif
 
 /* ========== 노드별 UWB 타이밍 및 진단 통계 ========== */
@@ -1561,9 +1584,7 @@ static void brrs_prepare_beacon(uint8_t message_type,
 #if BRRS_EXPERIMENT == 4
 static uint16_t exp4_read_superframe_seq(const uint8_t *msg)
 {
-    uint16_t seq;
-    memcpy(&seq, &msg[IDX_SUPERFRAME_SEQ], sizeof(seq));
-    return seq;
+    return brrs_get_u16_le(&msg[IDX_SUPERFRAME_SEQ]);
 }
 
 static uint32_t exp4_future_delta_us(uint32_t now_high32, uint32_t target_high32)
@@ -1867,31 +1888,36 @@ static bool schedule_rx_slot(uint8_t slot_idx)
  * PLL_COMMON write performed by dwt_rxenable(). */
 #define BRRS_DW3000_FAST_CMD_RX 0x02U
 
-static bool exp4_has_next_slot(void)
+static bool exp4_find_slot_by_rx_timestamp(uint32_t rx_ts_high32,
+                                           uint8_t *slot_idx)
 {
-    return current_rx_slot != 0xFF &&
-           (uint8_t)(current_rx_slot + 1U) < current_beacon_config.slot_count;
-}
+    uint32_t first_slot_high32;
+    uint32_t interval_high32;
+    int32_t relative_high32;
+    int32_t candidate;
 
-static bool exp4_find_slot_by_offset(uint32_t declared_slot_offset_us,
-                                     uint8_t *slot_idx)
-{
-    uint32_t relative_us;
-    uint32_t candidate;
-
-    if (current_beacon_config.slot_interval_us == 0U ||
-        declared_slot_offset_us < current_beacon_config.first_slot_offset_us) {
+    if (last_sync_tx_ts_high32 == 0U ||
+        current_beacon_config.slot_interval_us == 0U) {
         return false;
     }
 
-    relative_us = declared_slot_offset_us -
-                  current_beacon_config.first_slot_offset_us;
-    if ((relative_us % current_beacon_config.slot_interval_us) != 0U) {
+    first_slot_high32 = (uint32_t)
+        (US_TO_DWT_TIME(current_beacon_config.first_slot_offset_us) >> 8);
+    interval_high32 = (uint32_t)
+        (US_TO_DWT_TIME(current_beacon_config.slot_interval_us) >> 8);
+    if (interval_high32 == 0U) {
         return false;
     }
 
-    candidate = relative_us / current_beacon_config.slot_interval_us;
-    if (candidate >= current_beacon_config.slot_count) {
+    relative_high32 = (int32_t)
+        ((rx_ts_high32 - last_sync_tx_ts_high32) - first_slot_high32);
+    if (relative_high32 < -(int32_t)(interval_high32 / 2U)) {
+        return false;
+    }
+
+    candidate = (relative_high32 + (int32_t)(interval_high32 / 2U)) /
+                (int32_t)interval_high32;
+    if (candidate < 0 || candidate >= current_beacon_config.slot_count) {
         return false;
     }
 
@@ -1928,8 +1954,9 @@ static uint8_t exp4_slot_from_event_time(void)
 
 static bool exp4_rearm_after_event(uint32_t event_start_cycles)
 {
-    if (exp4_has_next_slot()) {
-        uint8_t next_slot = (uint8_t)(current_rx_slot + 1U);
+    if (exp4_data_burst_active) {
+        uint8_t next_slot = (current_rx_slot == 0xFF) ?
+                            0xFF : (uint8_t)(current_rx_slot + 1U);
         uint32_t phase_start_cycles;
         uint32_t phase_cycles;
         uint32_t phase_us;
@@ -1945,7 +1972,9 @@ static bool exp4_rearm_after_event(uint32_t event_start_cycles)
         phase_us = (phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
                    (CPU_FREQ_HZ / 1000000UL);
         update_node_latency(&exp4_rearm_rx_enable_stats, phase_us);
-        slots_scheduled[next_slot] = true;
+        if (next_slot < current_beacon_config.slot_count) {
+            slots_scheduled[next_slot] = true;
+        }
 
         uint32_t service_cycles = dwt_timer_get_cycles() - event_start_cycles;
         uint32_t service_us = (service_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
@@ -1957,7 +1986,34 @@ static bool exp4_rearm_after_event(uint32_t event_start_cycles)
     return false;
 }
 
-static void exp4_advance_after_event(uint8_t observed_slot)
+typedef enum {
+    EXP4_BURST_CLOSE_LAST_EVENT,
+    EXP4_BURST_CLOSE_DEADLINE,
+    EXP4_BURST_CLOSE_SYNC_PREP
+} exp4_burst_close_reason_t;
+
+static void exp4_close_data_burst(exp4_burst_close_reason_t reason)
+{
+    if (!exp4_data_burst_active) {
+        return;
+    }
+
+    dwt_forcetrxoff();
+    dwt_writesysstatuslo(0xFFFFFFFF);
+    exp4_data_burst_active = false;
+    current_rx_slot = 0xFF;
+
+    if (reason == EXP4_BURST_CLOSE_LAST_EVENT) {
+        exp4_burst_early_close_count++;
+    } else if (reason == EXP4_BURST_CLOSE_DEADLINE) {
+        exp4_burst_deadline_close_count++;
+    } else {
+        exp4_burst_forced_prep_close_count++;
+    }
+}
+
+static void exp4_advance_after_event(uint8_t observed_slot,
+                                     bool close_on_final_slot)
 {
     uint8_t next_slot = 0xFF;
 
@@ -1972,9 +2028,13 @@ static void exp4_advance_after_event(uint8_t observed_slot)
     if (next_slot < current_beacon_config.slot_count) {
         current_rx_slot = next_slot;
         slots_scheduled[next_slot] = true;
+    } else if (close_on_final_slot) {
+        exp4_close_data_burst(EXP4_BURST_CLOSE_LAST_EVENT);
     } else {
-        dwt_forcetrxoff();
-        current_rx_slot = 0xFF;
+        /* An RX error near the final slot is not proof that the expected DATA
+         * frame was processed. Keep RX active until the scheduled deadline so
+         * a later valid frame or the fallback close can finish the burst. */
+        current_rx_slot = (uint8_t)(current_beacon_config.slot_count - 1U);
     }
 }
 
@@ -2222,7 +2282,7 @@ int brrs_init(void)
     {
         static char cfg_msg[240];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "BRRS v1.8: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
+                 "BRRS v2.0: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
                  BRRS_EXPERIMENT, SYNC_PLEN, DATA_PLEN, PREAMBLE_SYMBOLS,
                  PREAMBLE_US, SLOT_INTERVAL_US, RX_WINDOW_US,
                  RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US, PERIOD_US,
@@ -2240,7 +2300,7 @@ int brrs_init(void)
         test_run_info((unsigned char *)beacon_cfg_msg);
     }
     test_run_info((unsigned char *)
-        "BRRS_TIMING_CONFIG_CSV,metric=uwb_signed_slot_error,reference=sync_tx_rmarker,observation=data_rx_rmarker,unit=ns,resolution_ns_x1000=4006,declared_field=slot_offset_us");
+        "BRRS_TIMING_CONFIG_CSV,metric=uwb_signed_slot_error,reference=sync_tx_rmarker,observation=data_rx_rmarker,slot_identity=nearest_scheduled_rmarker,unit=ns,resolution_ns_x1000=4006");
 #if BRRS_EXPERIMENT == 3
     {
         static char cfg_msg[260];
@@ -2258,9 +2318,9 @@ int brrs_init(void)
 #endif
 #if BRRS_EXPERIMENT == 4
     {
-        static char cfg_msg[420];
+        static char cfg_msg[560];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "EXP4_CONFIG_CSV,physical_sensors=%d,data_slots=%d,slot_repeats=%d,data_plen=%d,psdu_bytes=%d,app_payload_bytes=%d,sync_plen=%d,superframe_us=%d,sync_rmarker_offset_us=%d,sync_buffer_us=%d,frame_airtime_us=%d,slot_us=%d,guard_us=%d,lead_us=%d,tail_us=%d,rx_burst_end_us=%d,burst_rearm_budget_us=%d,max_slots=%d",
+                 "EXP4_CONFIG_CSV,physical_sensors=%d,data_slots=%d,slot_repeats=%d,data_plen=%d,psdu_bytes=%d,app_payload_bytes=%d,sync_plen=%d,superframe_us=%d,sync_rmarker_offset_us=%d,sync_buffer_us=%d,frame_airtime_us=%d,slot_us=%d,guard_us=%d,lead_us=%d,tail_us=%d,data_burst_deadline_us=%d,sync_prep_deadline_us=%d,burst_rearm_budget_us=%d,max_slots=%d",
                  brrs_active_node_count(brrs_configured_sensor_bitmap()),
                  BRRS_EXP4_DATA_SLOT_COUNT, BRRS_EXP4_SLOT_REPEATS,
                  PREAMBLE_SYMBOLS, PSDU_BYTES,
@@ -2270,12 +2330,13 @@ int brrs_init(void)
                  SLOT_INTERVAL_US - SLOT_GUARD_US,
                  SLOT_INTERVAL_US, SLOT_GUARD_US,
                  RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US,
+                 EXP4_DATA_BURST_END_US,
                  CONFIG_SWITCH_US,
                  SLOT_GUARD_US,
                  EXP4_MAX_DATA_SLOTS);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=11,beacon_protocol=2,slot_owner_schedule=1,data_rx=delayed_first_continuous_burst,error_attribution=nearest_event_time,sync_arm=fixed_prep_deadline,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+            "EXP4_FIRMWARE_REV,rev=12,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_continuous_burst,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=fixed_prep_deadline,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -2354,6 +2415,9 @@ int brrs_init(void)
              dwt_timer_elapsed(last_sync_cycles,
                                us_to_cpu_cycles(CONFIG_SWITCH_US)));
         if (sync_tx_due) {
+            if (exp4_data_burst_active) {
+                exp4_close_data_burst(EXP4_BURST_CLOSE_SYNC_PREP);
+            }
 #else
         if (last_sync_cycles == 0 || dwt_timer_elapsed(last_sync_cycles, period_interval_cycles)) {
 #endif
@@ -2445,8 +2509,10 @@ int brrs_init(void)
                         (exp4_sync_tx_delayed_late == 0 &&
                          total_rx_delayed_fallbacks == 0 &&
                          data_config_errors == 0 &&
+                         exp4_wrong_length_frames == 0 &&
                          exp4_wrong_slot_frames == 0 &&
-                         exp4_wrong_superframe_frames == 0);
+                         exp4_wrong_superframe_frames == 0 &&
+                         exp4_burst_forced_prep_close_count == 0);
                     bool timing_pass = slot_timing_counts_match();
                     bool link_pass = (exp4_frames_received == expected_frames);
                     bool collection_pass =
@@ -2454,6 +2520,8 @@ int brrs_init(void)
                          expected_frames == data_slots_per_superframe * total_cycles &&
                          exp4_end_ok &&
                          exp4_end_tx_count == EXP4_END_REPEAT_COUNT &&
+                         exp4_burst_early_close_count +
+                             exp4_burst_deadline_close_count == total_cycles &&
                          schedule_pass &&
                          timing_pass);
                     static char s[320];
@@ -2478,7 +2546,8 @@ int brrs_init(void)
                     final_log_info(s);
 
                     snprintf(s, sizeof(s),
-                             "TDMA validation: wrong-slot=%lu wrong-superframe=%lu data-config-errors=%lu rx-schedule-late=%lu sync-delayed-late=%lu",
+                             "TDMA validation: wrong-length=%lu wrong-slot=%lu wrong-superframe=%lu data-config-errors=%lu rx-schedule-late=%lu sync-delayed-late=%lu",
+                             (unsigned long)exp4_wrong_length_frames,
                              (unsigned long)exp4_wrong_slot_frames,
                              (unsigned long)exp4_wrong_superframe_frames,
                              (unsigned long)data_config_errors,
@@ -2501,6 +2570,17 @@ int brrs_init(void)
                                  (unsigned long)exp4_end_tx_count);
                         final_log_info(s);
                     }
+
+                    snprintf(s, sizeof(s),
+                             "EXP4_BURST_CSV,mode=last_valid_frame_or_schedule_deadline,scheduled_end_us=%u,early_close=%lu,deadline_close=%lu,forced_prep_close=%lu,total=%lu",
+                             (unsigned)EXP4_DATA_BURST_END_US,
+                             (unsigned long)exp4_burst_early_close_count,
+                             (unsigned long)exp4_burst_deadline_close_count,
+                             (unsigned long)exp4_burst_forced_prep_close_count,
+                             (unsigned long)(exp4_burst_early_close_count +
+                                             exp4_burst_deadline_close_count +
+                                             exp4_burst_forced_prep_close_count));
+                    final_log_info(s);
 
                     {
                         uint64_t service_avg_x1000 = exp4_rearm_service_stats.count ?
@@ -3066,7 +3146,9 @@ int brrs_init(void)
 #elif BRRS_EXPERIMENT == 4
                 if (!config_is_sync && current_beacon_config.slot_count > 0U &&
                     !slots_scheduled[0]) {
-                    schedule_rx_slot(0);
+                    if (schedule_rx_slot(0)) {
+                        exp4_data_burst_active = true;
+                    }
                 }
 #endif
             }
@@ -3108,11 +3190,15 @@ int brrs_init(void)
                 uint32_t exp4_phase_us;
                 uint32_t rx_ts_high32;
                 uint32_t rx_open_high32 = last_rx_open_high32;
+                uint16_t rx_frame_len;
+                uint16_t header_read_len;
                 uint8_t completed_rx_slot = current_rx_slot;
                 uint8_t observed_rx_slot = completed_rx_slot;
                 bool observed_slot_valid = false;
+                bool frame_length_valid;
+                bool exp4_slot_event_processed = false;
                 bool rx_open_timing_valid = current_rx_open_timing_valid;
-                bool exp4_rearm_needed = exp4_has_next_slot();
+                bool exp4_rearm_needed = exp4_data_burst_active;
 
                 /* The first slot is delayed-RX. For contiguous slots, issue
                  * CMD_RX before every previous-frame SPI housekeeping step. */
@@ -3132,11 +3218,23 @@ int brrs_init(void)
                                         exp4_phase_us);
                 }
 
+                rx_frame_len = dwt_getframelength(0);
+                frame_length_valid = (rx_frame_len == PSDU_BYTES);
+                if (!frame_length_valid) {
+                    exp4_wrong_length_frames++;
+                }
+                observed_slot_valid = exp4_find_slot_by_rx_timestamp(
+                    rx_ts_high32, &observed_rx_slot);
+
                 /* Exp4 validates only the protocol header. Avoid copying the
                  * unused payload while the next slot is already receiving. */
                 memset(rx_buffer, 0, sizeof(rx_buffer));
                 exp4_phase_start_cycles = dwt_timer_get_cycles();
-                dwt_readrxdata(rx_buffer, IDX_DATA_PAYLOAD, 0);
+                header_read_len = (rx_frame_len < IDX_DATA_PAYLOAD) ?
+                                  rx_frame_len : IDX_DATA_PAYLOAD;
+                if (header_read_len > 0U) {
+                    dwt_readrxdata(rx_buffer, header_read_len, 0);
+                }
                 exp4_phase_cycles =
                     dwt_timer_get_cycles() - exp4_phase_start_cycles;
                 exp4_phase_us =
@@ -3161,17 +3259,23 @@ int brrs_init(void)
 #else
                 uint32_t rx_ts_high32;
                 uint32_t rx_open_high32;
+                uint16_t rx_frame_len;
                 uint8_t completed_rx_slot;
+                bool frame_length_valid;
                 bool rx_open_timing_valid = true;
 
                 rx_ts_high32 = dwt_readrxtimestamphi32();
                 rx_open_high32 = last_rx_open_high32;
+                rx_frame_len = dwt_getframelength(0);
+                frame_length_valid = (rx_frame_len == PSDU_BYTES);
                 completed_rx_slot = current_rx_slot;
 #endif
 
 #if BRRS_EXPERIMENT != 4
                 memset(rx_buffer, 0, sizeof(rx_buffer));
-                dwt_readrxdata(rx_buffer, sizeof(tx_msg), 0);
+                if (rx_frame_len > 0U && rx_frame_len <= sizeof(rx_buffer)) {
+                    dwt_readrxdata(rx_buffer, rx_frame_len, 0);
+                }
 #endif
 
                 uint8_t msg_type = rx_buffer[IDX_MSG_TYPE];
@@ -3179,7 +3283,7 @@ int brrs_init(void)
                 uint8_t src_idx = node_id_to_index(src_node);
 
                 /* [D-1] DATA 수신 */
-                if (msg_type == MSG_TYPE_DATA &&
+                if (frame_length_valid && msg_type == MSG_TYPE_DATA &&
                     rx_buffer[IDX_PROTOCOL_VERSION] == BRRS_PROTOCOL_VERSION) {
                     if (src_idx < TOTAL_ARRAY_SIZE && src_idx != 0) {
                         bool slot_matches = true;
@@ -3189,23 +3293,7 @@ int brrs_init(void)
                         uint8_t expected_owner_seq = 0U;
 #endif
 
-                        if (completed_rx_slot < current_beacon_config.slot_count) {
 #if BRRS_EXPERIMENT == 4
-                            expected_owner_seq =
-                                current_beacon_config.slot_owner[completed_rx_slot];
-#endif
-                            expected_slot_start_us =
-                                current_beacon_config.first_slot_offset_us +
-                                    (uint32_t)completed_rx_slot *
-                                    current_beacon_config.slot_interval_us;
-                        }
-#if BRRS_EXPERIMENT == 4
-                        uint32_t declared_slot_offset_us = 0U;
-                        declared_slot_offset_us = brrs_get_u32_le(
-                            &rx_buffer[IDX_DECLARED_SLOT_OFFSET_US]);
-
-                        observed_slot_valid = exp4_find_slot_by_offset(
-                            declared_slot_offset_us, &observed_rx_slot);
                         if (observed_slot_valid) {
                             expected_owner_seq =
                                 current_beacon_config.slot_owner[observed_rx_slot];
@@ -3216,8 +3304,7 @@ int brrs_init(void)
                         }
 
                         if (!observed_slot_valid ||
-                            src_idx != (uint8_t)(expected_owner_seq - 1U) ||
-                            declared_slot_offset_us != expected_slot_start_us) {
+                            src_idx != (uint8_t)(expected_owner_seq - 1U)) {
                             exp4_wrong_slot_frames++;
                             slot_matches = false;
                         }
@@ -3226,11 +3313,20 @@ int brrs_init(void)
                             slot_matches = false;
                         }
 
-                        if (slot_matches && !exp4_slot_received[observed_rx_slot]) {
-                            exp4_slot_received[observed_rx_slot] = 1U;
-                            accept_new_frame = true;
+                        if (slot_matches) {
+                            exp4_slot_event_processed = true;
+                            if (!exp4_slot_received[observed_rx_slot]) {
+                                exp4_slot_received[observed_rx_slot] = 1U;
+                                accept_new_frame = true;
+                            }
                         }
 #else
+                        if (completed_rx_slot < current_beacon_config.slot_count) {
+                            expected_slot_start_us =
+                                current_beacon_config.first_slot_offset_us +
+                                (uint32_t)completed_rx_slot *
+                                current_beacon_config.slot_interval_us;
+                        }
                         if (slot_matches && !data_received_from[src_idx]) {
                             data_received_from[src_idx] = 1U;
                             accept_new_frame = true;
@@ -3304,8 +3400,9 @@ int brrs_init(void)
                 }
 
 #if BRRS_EXPERIMENT == 4
-                exp4_advance_after_event(observed_slot_valid ?
-                                         observed_rx_slot : completed_rx_slot);
+                if (exp4_slot_event_processed) {
+                    exp4_advance_after_event(observed_rx_slot, true);
+                }
 #endif
 
                 /* 실험 1~3은 진단값을 읽은 다음 다음 슬롯을 예약한다. */
@@ -3330,7 +3427,7 @@ int brrs_init(void)
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = dwt_timer_get_cycles();
                 uint8_t failed_rx_slot = exp4_slot_from_event_time();
-                bool exp4_rearm_needed = exp4_has_next_slot();
+                bool exp4_rearm_needed = exp4_data_burst_active;
                 exp4_rearm_after_event(exp4_event_start_cycles);
 #endif
 #if BRRS_EXPERIMENT == 3 && EXP3_RX_STAGE_DIAG
@@ -3363,7 +3460,7 @@ int brrs_init(void)
                                             phase_us);
                     }
                 }
-                exp4_advance_after_event(failed_rx_slot);
+                exp4_advance_after_event(failed_rx_slot, false);
 #else
                 dwt_forcetrxoff();
                 dwt_writesysstatuslo(0xFFFFFFFF);
@@ -3383,7 +3480,7 @@ int brrs_init(void)
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = dwt_timer_get_cycles();
                 failed_rx_slot = exp4_slot_from_event_time();
-                bool exp4_rearm_needed = exp4_has_next_slot();
+                bool exp4_rearm_needed = exp4_data_burst_active;
                 exp4_rearm_after_event(exp4_event_start_cycles);
 #endif
 #if BRRS_EXPERIMENT == 3 && EXP3_RX_STAGE_DIAG
@@ -3422,7 +3519,7 @@ int brrs_init(void)
                                             phase_us);
                     }
                 }
-                exp4_advance_after_event(failed_rx_slot);
+                exp4_advance_after_event(failed_rx_slot, false);
 #else
                 dwt_writesysstatuslo(SYS_STATUS_ALL_RX_ERR);
                 dwt_forcetrxoff();
@@ -3437,6 +3534,14 @@ int brrs_init(void)
 #endif
             }
         }
+
+#if BRRS_EXPERIMENT == 4
+        if (exp4_data_burst_active && last_sync_cycles != 0U &&
+            dwt_timer_elapsed(last_sync_cycles,
+                              us_to_cpu_cycles(EXP4_DATA_BURST_END_US))) {
+            exp4_close_data_burst(EXP4_BURST_CLOSE_DEADLINE);
+        }
+#endif
 
     } /* end while */
 
