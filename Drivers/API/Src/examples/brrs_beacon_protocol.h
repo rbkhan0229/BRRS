@@ -69,6 +69,22 @@ static inline uint16_t brrs_get_u16_le(const uint8_t *src)
     return (uint16_t)((uint16_t)src[0] | ((uint16_t)src[1] << 8));
 }
 
+static inline void brrs_put_u32_le(uint8_t *dst, uint32_t value)
+{
+    dst[0] = (uint8_t)(value & 0xFFU);
+    dst[1] = (uint8_t)((value >> 8) & 0xFFU);
+    dst[2] = (uint8_t)((value >> 16) & 0xFFU);
+    dst[3] = (uint8_t)(value >> 24);
+}
+
+static inline uint32_t brrs_get_u32_le(const uint8_t *src)
+{
+    return (uint32_t)src[0] |
+           ((uint32_t)src[1] << 8) |
+           ((uint32_t)src[2] << 16) |
+           ((uint32_t)src[3] << 24);
+}
+
 static inline void brrs_encode_beacon(uint8_t *frame,
                                       uint8_t source,
                                       uint8_t destination,

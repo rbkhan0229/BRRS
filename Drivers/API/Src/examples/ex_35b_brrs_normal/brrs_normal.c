@@ -25,6 +25,10 @@
  *
  *           [v1.8 변경사항] (2026-08)
  *           - coordinator fast-command-priority 연속 슬롯 RX와 릴리스 동기화
+ *
+ *           [v1.9 변경사항] (2026-08)
+ *           - 비컨 DATA PHY 적용 실패 및 dwt_configure 실패 시 fail-closed 복구
+ *           - 실험 4 coordinator continuous RX burst와 릴리스 동기화
  */
 
 #include "deca_probe_interface.h"
@@ -102,31 +106,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v1.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v1.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v1.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v1.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v1.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v1.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v1.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v1.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v1.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v1.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v1.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v1.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v1.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v1.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -298,9 +302,12 @@ static void terminal_log_info(unsigned char *data)
 /* NORMAL starts its MCU timer when the complete SYNC frame is reported. */
 #define CONFIG_SWITCH_US    (EXP4_COORD_CONFIG_SWITCH_US - SYNC_FRAME_US)
 #define PERIOD_US           BRRS_SUPERFRAME_US
-#define EXP4_SLOT_BUDGET_US (EXP4_COORD_CONFIG_SWITCH_US - SYNC_RMARKER_OFFSET_US - SYNC_BUFFER_US)
-#define EXP4_MAX_DATA_SLOTS \
+#define EXP4_SLOT_BUDGET_US (EXP4_COORD_CONFIG_SWITCH_US - SYNC_BUFFER_US)
+#define EXP4_TIMING_MAX_DATA_SLOTS \
     (1 + (EXP4_SLOT_BUDGET_US - PHR_PSDU_US) / SLOT_INTERVAL_US)
+#define EXP4_MAX_DATA_SLOTS \
+    ((EXP4_TIMING_MAX_DATA_SLOTS < BRRS_MAX_DATA_SLOTS) ? \
+     EXP4_TIMING_MAX_DATA_SLOTS : BRRS_MAX_DATA_SLOTS)
 _Static_assert(EXP4_MAX_DATA_SLOTS >= 1,
                "Exp4 superframe cannot fit even one sensor slot");
 #else
@@ -407,7 +414,7 @@ static uint8_t tx_msg[PSDU_BYTES] = { 0x41, 0x8C, 0, 0x9A, 0x60, 0, 0, 0, 0, 0, 
 /* SYNC RX 타임아웃은 길게 (비컨 신뢰성), 그 외엔 짧게 동적 설정.
  * dwt_setrxtimeout(0)은 API 명세상 "타임아웃 비활성(무한 대기)"이지만,
  * SYNC 유실 감지(sync_lost 카운트)를 위해 명시적 유한값을 사용한다.
- * PERIOD(~10.4ms)보다 충분히 크면 정상 동작에는 영향 없음.
+ * 10 ms superframe보다 충분히 크면 정상 동작에는 영향 없음.
  */
 #define SYNC_RX_TIMEOUT_US  50000   /* 50ms - PERIOD보다 충분히 큼 */
 
@@ -727,6 +734,7 @@ static uint32_t current_slot_start_us = 0U;
 static uint32_t current_owned_slot_start_us[BRRS_MAX_DATA_SLOTS];
 static uint8_t current_owned_slot_count = 0U;
 static uint32_t beacon_config_errors = 0U;
+static uint32_t data_config_errors = 0U;
 static bool beacon_config_logged = false;
 
 static const char *brrs_beacon_reject_reason(const brrs_beacon_config_t *config)
@@ -946,7 +954,7 @@ int brrs_normal(void)
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=10,beacon_protocol=2,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=11,beacon_protocol=2,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -970,7 +978,7 @@ int brrs_normal(void)
     }
 
     dwt_setrxaftertxdelay(TX_TO_RX_DELAY_UUS);
-    /* SYNC는 무한 대기 (timeout 0) */
+    /* 초기/복구 SYNC 대기는 50 ms 유한 timeout 뒤 즉시 다시 연다. */
     dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
 
     dwt_setinterrupt(0, 0, DWT_ENABLE_INT);
@@ -1108,7 +1116,8 @@ int brrs_normal(void)
                         (per_stats[my_slot_idx()].tx_count == total_tx_attempts &&
                          total_tx_delayed_late == 0 &&
                          exp4_sync_rx_delayed_late == 0 &&
-                         exp4_sync_duplicates == 0);
+                         exp4_sync_duplicates == 0 &&
+                         data_config_errors == 0);
                     bool collection_pass = exp4_end_received && schedule_pass;
                     bool beacon_pass = (beacon_missed == 0);
                     static char s[240];
@@ -1174,10 +1183,11 @@ int brrs_normal(void)
                 {
                     static char s[140];
                     snprintf(s, sizeof(s),
-                             "SYNC loss: %lu timeouts  RX errors=%lu  beacon_config_errors=%lu",
+                             "SYNC loss: %lu timeouts  RX errors=%lu  beacon_config_errors=%lu  data_config_errors=%lu",
                              (unsigned long)sync_loss_stats.total_timeouts,
                              (unsigned long)total_rx_errors,
-                             (unsigned long)beacon_config_errors);
+                             (unsigned long)beacon_config_errors,
+                             (unsigned long)data_config_errors);
                     final_log_info(s);
                 }
 
@@ -1283,7 +1293,21 @@ int brrs_normal(void)
 
                     if (!brrs_apply_beacon_data_phy(
                             decoded_config.data_preamble_symbols)) {
+                        static char phy_error_line[160];
                         beacon_config_errors++;
+                        snprintf(phy_error_line, sizeof(phy_error_line),
+                                 "BRRS_BEACON_REJECT,count=%lu,reason=apply_data_phy,m=%u,node=%u",
+                                 (unsigned long)beacon_config_errors,
+                                 decoded_config.data_preamble_symbols,
+                                 MY_NODE_SEQ);
+                        test_run_info((unsigned char *)phy_error_line);
+                        dwt_forcetrxoff();
+                        if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+                            config_is_sync = true;
+                        }
+                        dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
+                        dwt_writesysstatuslo(0xFFFFFFFF);
+                        dwt_rxenable(DWT_START_RX_IMMEDIATE);
                         continue;
                     }
                     current_beacon_config = decoded_config;
@@ -1375,6 +1399,24 @@ int brrs_normal(void)
 
                     if (dwt_configure(&config_data) == DWT_SUCCESS) {
                         config_is_sync = false;
+                    } else {
+                        static char config_error_line[112];
+                        data_config_errors++;
+                        snprintf(config_error_line, sizeof(config_error_line),
+                                 "BRRS_DATA_CONFIG_ERROR,role=NORMAL,node=%u,experiment=%d,superframe=%lu,count=%lu",
+                                 MY_NODE_SEQ, BRRS_EXPERIMENT,
+                                 (unsigned long)current_cycle,
+                                 (unsigned long)data_config_errors);
+                        test_run_info((unsigned char *)config_error_line);
+
+                        dwt_forcetrxoff();
+                        if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+                            config_is_sync = true;
+                        }
+                        dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
+                        dwt_writesysstatuslo(0xFFFFFFFF);
+                        dwt_rxenable(DWT_START_RX_IMMEDIATE);
+                        continue;
                     }
 
                     /* 한 비컨에 같은 물리 노드의 슬롯이 여러 개 있을 수 있다. */
@@ -1401,9 +1443,9 @@ int brrs_normal(void)
                             tx_msg[IDX_PROTOCOL_VERSION] = BRRS_PROTOCOL_VERSION;
                             brrs_put_u16_le(&tx_msg[IDX_SUPERFRAME_SEQ],
                                             current_beacon_config.superframe_seq);
-                            memcpy(&tx_msg[IDX_DECLARED_SLOT_OFFSET_US],
-                                   &declared_slot_offset_us,
-                                   sizeof(declared_slot_offset_us));
+                            brrs_put_u32_le(
+                                &tx_msg[IDX_DECLARED_SLOT_OFFSET_US],
+                                declared_slot_offset_us);
 
                             total_tx_attempts++;
                             dwt_writetxdata(sizeof(tx_msg), tx_msg, 0);

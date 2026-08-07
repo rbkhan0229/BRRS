@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert BRRS experiment-2 CIR logs to CSV files and SVG plots."""
+"""Validate raw BRRS experiment-2 CIR logs and create CSV/SVG results."""
 
 from __future__ import annotations
 
@@ -146,6 +146,74 @@ def parse_log(path: Path, run: str, environment: str, distance_m: str) -> list[d
 
 def run_status(n: int, expected_samples: int) -> str:
     return "PASS" if n == expected_samples else "FAIL"
+
+
+def validate_raw_log(path: Path, rows: list[dict[str, object]], expected_samples: int) -> None:
+    groups: dict[tuple[str, int], list[dict[str, object]]] = defaultdict(list)
+    for row in rows:
+        groups[(str(row["node"]), int(row["plen"]))].append(row)
+
+    if not groups:
+        raise ValueError(
+            f"{path}: no raw CIR_CSV samples; a CIR_SUMMARY_CSV line is not a "
+            "substitute for the required per-frame samples"
+        )
+
+    for (node, plen), group in groups.items():
+        valid = [
+            row for row in group
+            if int(row["fp_snr_ratio_x1000"]) > 0
+            and not math.isnan(float(row["fp_snr_db"]))
+        ]
+        sequences = [int(row["rx_seq"]) for row in group]
+        unique_sequences = set(sequences)
+        expected_sequences = set(range(1, expected_samples + 1))
+
+        if len(group) != expected_samples:
+            raise ValueError(
+                f"{path}: {node}/{plen}sym has {len(group)} raw CIR_CSV rows; "
+                f"expected exactly {expected_samples}"
+            )
+        if len(unique_sequences) != expected_samples:
+            raise ValueError(
+                f"{path}: {node}/{plen}sym has duplicate rx_seq values "
+                f"({len(unique_sequences)} unique of {expected_samples})"
+            )
+        if unique_sequences != expected_sequences:
+            missing = sorted(expected_sequences - unique_sequences)
+            extra = sorted(unique_sequences - expected_sequences)
+            raise ValueError(
+                f"{path}: {node}/{plen}sym rx_seq is incomplete; "
+                f"missing={missing[:10]}, extra={extra[:10]}"
+            )
+        if len(valid) != expected_samples:
+            raise ValueError(
+                f"{path}: {node}/{plen}sym has {len(valid)} valid first-path "
+                f"SNR samples; expected exactly {expected_samples}"
+            )
+
+
+def validate_firmware_summary(path: Path,
+                              raw_summaries: list[dict[str, object]],
+                              firmware_summaries: list[dict[str, object]]) -> None:
+    if not firmware_summaries:
+        raise ValueError(f"{path}: CIR_SUMMARY_CSV not found")
+
+    raw_by_key = {(str(row["node"]), int(row["plen"])): row for row in raw_summaries}
+    firmware_by_key = {
+        (str(row["node"]), int(row["plen"])): row for row in firmware_summaries
+    }
+    if raw_by_key.keys() != firmware_by_key.keys():
+        raise ValueError(f"{path}: raw CIR groups and CIR_SUMMARY_CSV groups differ")
+
+    for key, raw_summary in raw_by_key.items():
+        firmware_summary = firmware_by_key[key]
+        if int(raw_summary["n"]) != int(firmware_summary["n"]):
+            raise ValueError(
+                f"{path}: {key[0]}/{key[1]}sym raw sample count "
+                f"{raw_summary['n']} disagrees with firmware summary "
+                f"{firmware_summary['n']}"
+            )
 
 
 def parse_summary_log(path: Path, run: str, environment: str, distance_m: str, expected_samples: int) -> list[dict[str, object]]:
@@ -437,22 +505,27 @@ def main() -> int:
     args = parser.parse_args()
 
     rows: list[dict[str, object]] = []
-    direct_summaries: list[dict[str, object]] = []
-    for log_path in args.logs:
-        rows.extend(parse_log(log_path, args.run, args.environment, args.distance_m))
-        direct_summaries.extend(parse_summary_log(log_path, args.run, args.environment, args.distance_m, args.expected_samples))
-
-    if not rows and not direct_summaries:
-        raise SystemExit("No CIR_CSV or CIR_SUMMARY_CSV rows found. Build INIT with ENABLE_CIR=1 and capture the INIT terminal log.")
+    try:
+        for log_path in args.logs:
+            log_rows = parse_log(
+                log_path, args.run, args.environment, args.distance_m
+            )
+            validate_raw_log(log_path, log_rows, args.expected_samples)
+            raw_summaries = summarize(log_rows, args.expected_samples)
+            firmware_summaries = parse_summary_log(
+                log_path, args.run, args.environment, args.distance_m,
+                args.expected_samples
+            )
+            validate_firmware_summary(log_path, raw_summaries, firmware_summaries)
+            rows.extend(log_rows)
+    except ValueError as exc:
+        raise SystemExit(f"FAIL: {exc}") from exc
 
     args.outdir.mkdir(parents=True, exist_ok=True)
     sample_csv = args.outdir / f"{args.prefix}_samples.csv"
     summary_csv = args.outdir / f"{args.prefix}_summary.csv"
 
-    sample_summaries = summarize(rows, args.expected_samples)
-    sample_keys = {summary_key(row) for row in sample_summaries}
-    direct_only_summaries = [row for row in direct_summaries if summary_key(row) not in sample_keys]
-    summaries = sorted(sample_summaries + direct_only_summaries, key=summary_sort_key)
+    summaries = sorted(summarize(rows, args.expected_samples), key=summary_sort_key)
     write_csv(sample_csv, SAMPLE_FIELDS, rows)
     write_csv(summary_csv, SUMMARY_FIELDS, summaries)
     plots = write_plots(args.outdir, args.prefix, rows, summaries)

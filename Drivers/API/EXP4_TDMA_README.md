@@ -53,33 +53,49 @@ records on RTT channels 0 and 1:
 - `EXP4_NODE_CSV`: per-node expected, received, missed, and RX error counts.
 - `EXP4_TIMING_CSV`: measured SYNC period, total elapsed time, delayed-SYNC
   scheduling failures, and END transmission count.
-- `EXP4_REARM_CSV`: coordinator immediate-RX re-arm service time. It has
-  `count=0` in an S1 run because there is no adjacent sensor slot. The
-  `delayed_schedule_late` field applies to delayed scheduling of the first slot,
-  not to the immediate re-arm burst itself.
+- `EXP4_REARM_CSV`: coordinator RX fast-command service time inside the
+  continuous DATA-slot burst. It has `count=0` in an S1 run because there is no
+  adjacent sensor slot. The `delayed_schedule_late` field applies to delayed
+  scheduling of the first slot, not to the fast re-arm burst itself.
 - `EXP4_REARM_PHASE_CSV`: SPI service time split into the critical RX fast
   command and post-rearm RX timestamp, 12-byte DATA header read, and status
-  operations. Frame timeout is programmed with the first delayed slot and
-  persists across the immediate RX commands. Post-rearm operations are not part
-  of the `EXP4_REARM_CSV` deadline.
+  operations. Exp4 disables the hardware frame-wait timeout during the burst;
+  the fixed superframe switch time ends RX before the next beacon. This lets a
+  later slot remain receivable when an earlier sensor frame is absent.
+  Post-rearm operations are not part of the `EXP4_REARM_CSV` value.
 - `BRRS_SLOT_TIMING_CSV`: signed DATA arrival error in ns, calculated from
   DW3000 RMARKER timestamps. Its sample count must equal the accepted RX count.
-- `EXP4_STATUS_CSV`: schedule, UWB timing-sample integrity, and collection
-  validity separated from measured link loss.
+- `EXP4_STATUS_CSV`: schedule, UWB timing-sample integrity, collection validity,
+  and zero-loss link status as separate fields.
 - `EXP4_DONE`: collection completeness marker.
 
 `status=PASS` means the 1000-superframe schedule and explicit END collection
 completed without delayed scheduling, wrong-slot, or wrong-sequence failures.
-It does not mean PER is zero; PER is an experimental result. Sensor output also
+It does not mean PER is zero; check `link=PASS/LOSS` separately because PER is
+an experimental result. Sensor output also
 separates `schedule=PASS/FAIL` from `beacon=PASS/LOSS`.
+
+The coordinator keeps RX active across the contiguous DATA-slot burst. Exp4
+therefore evaluates TDMA capacity, aggregate throughput, and loss isolation; it
+must not be cited as a per-slot delayed-RX energy measurement.
+
+Because the burst frame-wait timeout is disabled, a missing DATA frame is
+reported by `expected - rx`, not by `RX timeouts`. Error-only frames have no
+decodable DATA header, so their per-node attribution uses the nearest scheduled
+slot at the error-event read time; aggregate error and PER counts remain the
+authoritative result.
 
 With the current 30-byte PSDU and 100 us guard, the compiled timing model is:
 
 | DATA preamble | Frame airtime | Slot interval | Calculated slots |
 |---:|---:|---:|---:|
-| 32 sym | 101 us | 201 us | 31 |
-| 64 sym | 134 us | 234 us | 27 |
-| 256 sym | 329 us | 429 us | 15 |
+| 32 sym | 101 us | 201 us | 32 (protocol cap) |
+| 64 sym | 134 us | 234 us | 28 |
+| 256 sym | 329 us | 429 us | 16 |
+
+Slot capacity is calculated in the same SYNC-RMARKER clock domain used by the
+beacon's slot offsets. The 32-symbol timing would fit 33 slots, but protocol
+version 2 carries at most 32 packed slot owners, so the implemented limit is 32.
 
 The preamble component itself falls by about 8x from 256 to 32 symbols, while
 the complete slot and calculated node capacity improve by smaller factors because
@@ -127,6 +143,11 @@ exceeds the guard or N3 is consistently absent, increase `BRRS_SLOT_GUARD_US`
 and repeat; the coordinator did not re-enable RX before the next preamble.
 After a stable baseline is obtained, sweep the guard downward separately to
 find the minimum multi-slot value.
+
+Then repeat S2 with N2 powered off and N3 still running. N2 should show nearly
+all misses while N3 continues to be received in its declared slot, with
+`wrong-slot=0`. This dropout-isolation run verifies that one absent early slot
+does not shift or suppress the later-slot collection state.
 
 ## Build any N2-N8 combination
 

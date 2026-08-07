@@ -12,6 +12,8 @@ from pathlib import Path
 FIELDS = (
     "preamble_symbols",
     "sensor_nodes",
+    "data_slots",
+    "slot_repeats",
     "psdu_bytes",
     "app_payload_bytes",
     "slot_us",
@@ -27,6 +29,10 @@ FIELDS = (
     "delayed_late",
     "wrong_slot_frames",
     "status",
+)
+
+LEGACY_FIELDS = tuple(
+    field for field in FIELDS if field not in ("data_slots", "slot_repeats")
 )
 
 EXTRA_FIELDS = (
@@ -66,11 +72,17 @@ def parse_summary(path: Path):
             marker = line.find("EXP4_SUMMARY_CSV,")
             if marker >= 0:
                 values = line[marker:].strip().split(",")[1:]
-                if len(values) != len(FIELDS):
+                if len(values) == len(FIELDS):
+                    row = dict(zip(FIELDS, values))
+                elif len(values) == len(LEGACY_FIELDS):
+                    row = dict(zip(LEGACY_FIELDS, values))
+                    row["data_slots"] = row["sensor_nodes"]
+                    row["slot_repeats"] = "1"
+                else:
                     raise ValueError(
-                        f"{path}: EXP4_SUMMARY_CSV has {len(values)} fields; expected {len(FIELDS)}"
+                        f"{path}: EXP4_SUMMARY_CSV has {len(values)} fields; "
+                        f"expected {len(FIELDS)} (current) or {len(LEGACY_FIELDS)} (legacy)"
                     )
-                row = dict(zip(FIELDS, values))
                 for field in FIELDS[:-1]:
                     row[field] = int(row[field])
                 row["source_log"] = str(path)
@@ -104,9 +116,9 @@ def parse_summary(path: Path):
         "rearm_service_min_us": int(rearm["service_min_us"]),
         "rearm_service_max_us": int(rearm["service_max_us"]),
         "rearm_service_avg_us": int(rearm["service_avg_x1000_us"]) / 1000.0,
-        "rearm_slack_min_us": int(rearm["slack_min_us"]),
-        "rearm_slack_max_us": int(rearm["slack_max_us"]),
-        "rearm_slack_avg_us": int(rearm["slack_avg_x1000_us"]) / 1000.0,
+        "rearm_slack_min_us": int(rearm.get("slack_min_us", "0")),
+        "rearm_slack_max_us": int(rearm.get("slack_max_us", "0")),
+        "rearm_slack_avg_us": int(rearm.get("slack_avg_x1000_us", "0")) / 1000.0,
     })
 
     if row["period_count"] != row["superframes"]:
@@ -149,21 +161,68 @@ def write_csv(rows, output_path: Path):
 def grouped_means(rows, value_field):
     grouped = defaultdict(list)
     for row in rows:
-        grouped[(row["preamble_symbols"], row["sensor_nodes"])].append(row[value_field])
+        grouped[(row["preamble_symbols"], row["data_slots"])].append(row[value_field])
     return {
         key: (statistics.mean(values), statistics.stdev(values) if len(values) > 1 else 0.0)
         for key, values in grouped.items()
     }
 
 
+def validate_topologies(rows):
+    topologies = defaultdict(set)
+    for row in rows:
+        topologies[(row["preamble_symbols"], row["data_slots"])].add(
+            (row["sensor_nodes"], row["slot_repeats"])
+        )
+
+    mixed = {key: value for key, value in topologies.items() if len(value) > 1}
+    if mixed:
+        details = "; ".join(
+            f"{plen}sym/{slots}slots={sorted(values)}"
+            for (plen, slots), values in sorted(mixed.items())
+        )
+        raise SystemExit(
+            "FAIL: physical-node and repeated-slot topologies would be averaged "
+            f"together ({details}); analyze them as separate datasets"
+        )
+
+
+def validate_group_parameters(rows):
+    groups = defaultdict(set)
+    for row in rows:
+        key = (
+            row["preamble_symbols"], row["data_slots"],
+            row["sensor_nodes"], row["slot_repeats"]
+        )
+        groups[key].add(
+            (
+                row["psdu_bytes"], row["app_payload_bytes"], row["slot_us"],
+                row["guard_us"], row["max_slots"], row["superframes"],
+                row["expected_frames"]
+            )
+        )
+
+    inconsistent = {key: values for key, values in groups.items() if len(values) > 1}
+    if inconsistent:
+        details = "; ".join(
+            f"{key}={sorted(values)}" for key, values in sorted(inconsistent.items())
+        )
+        raise SystemExit(
+            "FAIL: runs grouped as replicates have different firmware/timing "
+            f"parameters ({details})"
+        )
+
 def write_aggregate_csv(rows, output_path: Path):
     groups = defaultdict(list)
     for row in rows:
-        groups[(row["preamble_symbols"], row["sensor_nodes"])].append(row)
+        groups[(row["preamble_symbols"], row["data_slots"],
+                row["sensor_nodes"], row["slot_repeats"])].append(row)
 
     columns = (
         "preamble_symbols",
         "sensor_nodes",
+        "data_slots",
+        "slot_repeats",
         "runs",
         "slot_us",
         "guard_us",
@@ -183,7 +242,9 @@ def write_aggregate_csv(rows, output_path: Path):
             goodput_values = [row["goodput_bps"] for row in group]
             writer.writerow({
                 "preamble_symbols": key[0],
-                "sensor_nodes": key[1],
+                "data_slots": key[1],
+                "sensor_nodes": key[2],
+                "slot_repeats": key[3],
                 "runs": len(group),
                 "slot_us": group[0]["slot_us"],
                 "guard_us": group[0]["guard_us"],
@@ -215,15 +276,15 @@ def make_plots(rows, output_dir: Path, prefix: str):
     offered = grouped_means(rows, "offered_bps")
     fig, ax = plt.subplots(figsize=(9.2, 5.4))
     for plen in preambles:
-        sensors = sorted({n for p, n in goodput if p == plen})
-        measured = [goodput[(plen, n)][0] / 1000.0 for n in sensors]
-        measured_std = [goodput[(plen, n)][1] / 1000.0 for n in sensors]
-        offered_values = [offered[(plen, n)][0] / 1000.0 for n in sensors]
-        ax.errorbar(sensors, measured, yerr=measured_std, marker="o", linewidth=2.2,
+        data_slots = sorted({n for p, n in goodput if p == plen})
+        measured = [goodput[(plen, n)][0] / 1000.0 for n in data_slots]
+        measured_std = [goodput[(plen, n)][1] / 1000.0 for n in data_slots]
+        offered_values = [offered[(plen, n)][0] / 1000.0 for n in data_slots]
+        ax.errorbar(data_slots, measured, yerr=measured_std, marker="o", linewidth=2.2,
                     capsize=4, color=colors.get(plen), label=f"{plen} sym measured")
-        ax.plot(sensors, offered_values, linestyle="--", linewidth=1.4,
+        ax.plot(data_slots, offered_values, linestyle="--", linewidth=1.4,
                 color=colors.get(plen), alpha=0.7, label=f"{plen} sym offered")
-    ax.set_xlabel("Sensor nodes per 10 ms superframe")
+    ax.set_xlabel("Scheduled DATA slots per 10 ms superframe")
     ax.set_ylabel("Application throughput (kbps)")
     ax.set_title("Experiment 4: aggregate application throughput")
     ax.grid(True, alpha=0.25)
@@ -235,12 +296,12 @@ def make_plots(rows, output_dir: Path, prefix: str):
     per = grouped_means(rows, "per_ppm")
     fig, ax = plt.subplots(figsize=(9.2, 5.4))
     for plen in preambles:
-        sensors = sorted({n for p, n in per if p == plen})
-        values = [per[(plen, n)][0] / 10000.0 for n in sensors]
-        std_values = [per[(plen, n)][1] / 10000.0 for n in sensors]
-        ax.errorbar(sensors, values, yerr=std_values, marker="o", linewidth=2.2,
+        data_slots = sorted({n for p, n in per if p == plen})
+        values = [per[(plen, n)][0] / 10000.0 for n in data_slots]
+        std_values = [per[(plen, n)][1] / 10000.0 for n in data_slots]
+        ax.errorbar(data_slots, values, yerr=std_values, marker="o", linewidth=2.2,
                     capsize=4, color=colors.get(plen), label=f"{plen} sym")
-    ax.set_xlabel("Sensor nodes per 10 ms superframe")
+    ax.set_xlabel("Scheduled DATA slots per 10 ms superframe")
     ax.set_ylabel("Aggregate PER (%)")
     ax.set_title("Experiment 4: aggregate packet error rate")
     ax.grid(True, alpha=0.25)
@@ -283,7 +344,8 @@ def main():
     args = parser.parse_args()
 
     rows = [parse_summary(path) for path in args.logs]
-    rows.sort(key=lambda row: (row["preamble_symbols"], row["sensor_nodes"], row["source_log"]))
+    rows.sort(key=lambda row: (row["preamble_symbols"], row["data_slots"],
+                               row["sensor_nodes"], row["source_log"]))
 
     guards = {row["guard_us"] for row in rows}
     if len(guards) > 1:
@@ -297,6 +359,9 @@ def main():
     if invalid:
         sources = ", ".join(row["source_log"] for row in invalid)
         raise SystemExit(f"FAIL: incomplete Exp4 collection in {sources}")
+
+    validate_topologies(rows)
+    validate_group_parameters(rows)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = args.output_dir / f"{args.prefix}_summary.csv"

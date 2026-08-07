@@ -15,6 +15,7 @@ from pathlib import Path
 MATPLOTLIB_CACHE = Path(tempfile.gettempdir()) / "brrs-matplotlib"
 MATPLOTLIB_CACHE.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("MPLCONFIGDIR", str(MATPLOTLIB_CACHE))
+os.environ.setdefault("XDG_CACHE_HOME", str(MATPLOTLIB_CACHE))
 
 import matplotlib
 
@@ -37,9 +38,15 @@ ERROR_RE = re.compile(
     r"RX errors=(?P<errors>\d+) "
     r"\(sfdto=(?P<sfdto>\d+) phe=(?P<phe>\d+) "
     r"fce=(?P<fce>\d+) fsl=(?P<fsl>\d+)\)\s+"
-    r"delayed late=(?P<delayed_late>\d+)"
+    r"delayed(?: schedule)? late=(?P<delayed_late>\d+)"
 )
 ACCUM_RE = re.compile(r"^accum=(?P<accum>\d+): n=(?P<count>\d+)")
+DONE_RE = re.compile(
+    r"^EXP1_DONE,plen=(?P<symbols>\d+),lead_us=(?P<lead>\d+),"
+    r"tail_us=(?P<tail>\d+),expected=(?P<expected>\d+),rx=(?P<rx>\d+),"
+    r"collection=(?P<collection>PASS|FAIL),link=(?P<link>PASS|LOSS),"
+    r"status=(?P<status>PASS|FAIL)"
+)
 FILENAME_LEAD_RE = re.compile(r"lead(?P<lead>\d+)")
 
 FAILURE_FIELDS = ("fwto", "pto", "sfdto", "phe", "fce", "fsl")
@@ -80,6 +87,8 @@ class Exp1Run:
     failure_counts: dict[str, int] = field(default_factory=dict)
     accum_histogram: dict[int, int] = field(default_factory=dict)
     cycle_lines: int = 0
+    completion_marker: bool = False
+    completion_status: str = ""
 
     @property
     def accum_mode(self) -> str:
@@ -145,6 +154,19 @@ def parse_log(path: Path) -> Exp1Run:
                 run.accum_histogram[int(match.group("accum"))] = int(match.group("count"))
                 continue
 
+            match = DONE_RE.match(line)
+            if match:
+                values = match.groupdict()
+                run.completion_marker = True
+                run.completion_status = values["status"]
+                if run.preamble_symbols != int(values["symbols"]):
+                    raise ValueError(f"{path.name}: EXP1_DONE preamble mismatch")
+                if run.lead_us != int(values["lead"]) or run.tail_us != int(values["tail"]):
+                    raise ValueError(f"{path.name}: EXP1_DONE margin mismatch")
+                if run.expected != int(values["expected"]) or run.rx != int(values["rx"]):
+                    raise ValueError(f"{path.name}: EXP1_DONE counter mismatch")
+                continue
+
             # RTT loggers can append the next reset/header after a completed run.
             # Keep the first complete result instead of letting that trailing header
             # overwrite the configuration associated with the FINAL STATS block.
@@ -196,9 +218,12 @@ def validate_run(run: Exp1Run) -> None:
     calculated_per = 100.0 * run.miss / run.expected
     if abs(calculated_per - run.per_percent) > 0.005:
         raise ValueError(f"{run.path.name}: logged PER does not match miss/expected")
-    if run.cycle_lines < run.expected:
+    if run.completion_marker and run.completion_status != "PASS":
+        raise ValueError(f"{run.path.name}: EXP1_DONE collection status is FAIL")
+    if not run.completion_marker and run.cycle_lines < run.expected:
         raise ValueError(
-            f"{run.path.name}: only {run.cycle_lines} cycle lines for {run.expected} frames"
+            f"{run.path.name}: no EXP1_DONE marker and only {run.cycle_lines} "
+            f"legacy cycle lines for {run.expected} frames"
         )
     if sum(run.accum_histogram.values()) != run.rx:
         raise ValueError(
@@ -256,6 +281,8 @@ def write_summary_csv(runs: list[Exp1Run], path: Path) -> None:
         "accum_mode",
         "accum_mean",
         "cycle_lines",
+        "completion_marker",
+        "completion_status",
     ]
     with path.open("w", newline="") as output:
         writer = csv.DictWriter(output, fieldnames=fields)
@@ -279,6 +306,8 @@ def write_summary_csv(runs: list[Exp1Run], path: Path) -> None:
                     "accum_mode": run.accum_mode,
                     "accum_mean": "" if run.accum_mean is None else f"{run.accum_mean:.3f}",
                     "cycle_lines": run.cycle_lines,
+                    "completion_marker": run.completion_marker,
+                    "completion_status": run.completion_status,
                 }
             )
 
