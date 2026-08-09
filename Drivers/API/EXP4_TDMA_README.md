@@ -25,8 +25,9 @@ SYNC beacon (PLEN 256)
 ```
 
 - Coordinator: sends one PLEN-256 SYNC beacon and opens the first DATA slot
-  with delayed-RX. Adjacent DATA slots are received by immediate re-arm before
-  host-side frame processing, so processing latency cannot consume the guard.
+  with delayed-RX. Adjacent DATA slots use the DW3000 manual double RX buffer:
+  the completed event is cleared, RX is immediately re-armed into the other
+  buffer, and then the host reads and releases the completed buffer.
   It closes RX immediately after the last-slot event, or at the scheduled end
   of the last slot when that frame is absent. The independent 7500-us deadline
   is retained only to prepare the next fixed-period SYNC.
@@ -64,17 +65,21 @@ records on RTT channels 0 and 1:
 - `EXP4_SYNC_PREP_CSV`: measured DATA-PHY to SYNC-PHY transition plus
   delayed-TX arm time. A 1000-superframe run has 999 delayed SYNC preparations;
   `max_us` must remain below `budget_us` and `delayed_late` must be zero.
-- `EXP4_REARM_CSV`: coordinator RX fast-command service time inside the
-  continuous DATA-slot burst. RX is provisionally re-armed before parsing every
-  event, including an S1 final-slot event, and is then closed if that event is a
-  valid scheduled final slot. The `delayed_schedule_late` field applies to
-  delayed scheduling of the first slot, not to the fast re-arm burst itself.
+- `EXP4_REARM_CSV`: coordinator status-clear plus RX fast-command service time
+  inside the double-buffered DATA-slot burst. RX is provisionally re-armed
+  before parsing every event, including an S1 final-slot event, and is then
+  closed if that event is a valid scheduled final slot. The
+  `delayed_schedule_late` field applies to delayed scheduling of the first slot.
 - `EXP4_REARM_PHASE_CSV`: SPI service time split into the critical RX fast
-  command and post-rearm RX timestamp, 8-byte DATA header read, and status
-  operations. Exp4 disables the hardware frame-wait timeout during the burst;
+  command, pre-rearm status clear, post-rearm RX timestamp, and 8-byte DATA
+  header read operations. Exp4 disables the hardware frame-wait timeout during
+  the burst;
   the last-slot event or scheduled last-slot end closes RX. This lets a later
   slot remain receivable when an earlier sensor frame is absent.
   Post-rearm operations are not part of the `EXP4_REARM_CSV` value.
+- `EXP4_DOUBLE_BUFFER_CSV`: good-frame events, returned-buffer count, buffer
+  release service time, and RX-buffer overruns. `free_count` must equal
+  `rx_good_events` and `overrun` must be zero.
 - `EXP4_BURST_CSV`: number of superframes closed by a valid received DATA frame
   in the final slot, by the scheduled last-slot deadline, or forcibly at SYNC
   preparation. RX errors do not trigger an early close. `forced_prep_close`
@@ -155,7 +160,9 @@ To validate back-to-back slot re-arming with three boards, use the two-sensor
 7. Check `EXP4_SYNC_PREP_CSV`: `count=999`, `max_us<budget_us`, and
    `delayed_late=0`.
 8. Check `BRRS_SLOT_TIMING_CSV`: `samples` equals `rx` and `status=PASS`.
-9. Check each sensor for `BRRS_DATA_PHY_APPLIED_CSV`: `m` must match the
+9. Check `EXP4_DOUBLE_BUFFER_CSV`: `free_count=rx_good_events` and
+   `overrun=0`.
+10. Check each sensor for `BRRS_DATA_PHY_APPLIED_CSV`: `m` must match the
    coordinator configuration.
 
 The one-sensor guard-time test does not validate back-to-back slot processing.

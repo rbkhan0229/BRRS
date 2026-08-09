@@ -48,6 +48,12 @@ EXTRA_FIELDS = (
     "sync_prep_min_us",
     "sync_prep_max_us",
     "sync_prep_avg_us",
+    "rx_good_events",
+    "rx_buffer_free_count",
+    "rx_buffer_free_min_us",
+    "rx_buffer_free_max_us",
+    "rx_buffer_free_avg_us",
+    "rx_buffer_overruns",
     "rearm_count",
     "rearm_service_min_us",
     "rearm_service_max_us",
@@ -76,6 +82,7 @@ def parse_summary(path: Path):
     summaries = []
     timing = None
     sync_prep = None
+    double_buffer = None
     rearm = None
     burst = None
     with path.open("r", encoding="utf-8", errors="replace") as stream:
@@ -111,6 +118,10 @@ def parse_summary(path: Path):
             if marker >= 0:
                 sync_prep = parse_key_values(line[marker:].strip())
 
+            marker = line.find("EXP4_DOUBLE_BUFFER_CSV,")
+            if marker >= 0:
+                double_buffer = parse_key_values(line[marker:].strip())
+
             marker = line.find("EXP4_BURST_CSV,")
             if marker >= 0:
                 burst = parse_key_values(line[marker:].strip())
@@ -138,6 +149,15 @@ def parse_summary(path: Path):
         "sync_prep_avg_us": (
             int(sync_prep["avg_x1000_us"]) / 1000.0 if sync_prep else 0
         ),
+        "rx_good_events": int(double_buffer["rx_good_events"]) if double_buffer else 0,
+        "rx_buffer_free_count": int(double_buffer["free_count"]) if double_buffer else 0,
+        "rx_buffer_free_min_us": int(double_buffer["free_min_us"]) if double_buffer else 0,
+        "rx_buffer_free_max_us": int(double_buffer["free_max_us"]) if double_buffer else 0,
+        "rx_buffer_free_avg_us": (
+            int(double_buffer["free_avg_x1000_us"]) / 1000.0
+            if double_buffer else 0
+        ),
+        "rx_buffer_overruns": int(double_buffer["overrun"]) if double_buffer else 0,
         "rearm_count": int(rearm["count"]),
         "rearm_service_min_us": int(rearm["service_min_us"]),
         "rearm_service_max_us": int(rearm["service_max_us"]),
@@ -180,6 +200,15 @@ def parse_summary(path: Path):
                 f"max={row['sync_prep_max_us']} us, "
                 f"budget={row['sync_prep_budget_us']} us, "
                 f"delayed_late={sync_prep['delayed_late']})"
+            )
+    if double_buffer is not None:
+        if (row["rx_buffer_free_count"] != row["rx_good_events"] or
+                row["rx_buffer_overruns"] != 0):
+            raise ValueError(
+                f"{path}: invalid double-buffer lifecycle "
+                f"(good={row['rx_good_events']}, "
+                f"free={row['rx_buffer_free_count']}, "
+                f"overrun={row['rx_buffer_overruns']})"
             )
     if burst is not None:
         burst_total = int(burst["total"])
