@@ -309,7 +309,11 @@ _Static_assert(BRRS_SENSOR_NODES == 1 || SLOT_GUARD_US >= RX_LEAD_MARGIN_US,
 #define BRRS_SUPERFRAME_US  10000
 #endif
 #if BRRS_EXPERIMENT == 4
-#define EXP4_SYNC_PREP_US   500
+#ifndef BRRS_EXP4_SYNC_PREP_US
+/* Reserve the measured DATA->SYNC PHY transition and delayed-TX arm time. */
+#define BRRS_EXP4_SYNC_PREP_US 2500
+#endif
+#define EXP4_SYNC_PREP_US   BRRS_EXP4_SYNC_PREP_US
 #define EXP4_TX_WAIT_TIMEOUT_US 3000
 #define EXP4_END_REPEAT_COUNT 3
 #define EXP4_END_REPEAT_DELAY_MS 5
@@ -1056,6 +1060,7 @@ static latency_stats_t exp4_rearm_rx_timestamp_stats;
 static latency_stats_t exp4_rearm_header_read_stats;
 static latency_stats_t exp4_rearm_status_clear_stats;
 static latency_stats_t exp4_rearm_rx_enable_stats;
+static latency_stats_t exp4_sync_prep_stats;
 #endif
 
 /* [DIAG] accumCount 히스토그램: min/max/avg만으로는 분포 모양(양봉 vs 연속)을
@@ -2048,6 +2053,7 @@ static bool exp4_transmit_control_frame(uint8_t msg_type,
     bool timing_exact = true;
     bool immediate_fallback = false;
     uint32_t tx_wait_timeout_us = EXP4_TX_WAIT_TIMEOUT_US;
+    uint32_t sync_prep_start_cycles = dwt_timer_get_cycles();
     int tx_result;
 
     dwt_forcetrxoff();
@@ -2086,6 +2092,14 @@ static bool exp4_transmit_control_frame(uint8_t msg_type,
                                                    delayed_time_high32);
         dwt_setdelayedtrxtime(delayed_time_high32);
         tx_result = dwt_starttx(DWT_START_TX_DELAYED);
+        if (msg_type == MSG_TYPE_SYNC) {
+            uint32_t prep_cycles =
+                dwt_timer_get_cycles() - sync_prep_start_cycles;
+            uint32_t prep_us =
+                (prep_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
+                (CPU_FREQ_HZ / 1000000UL);
+            update_node_latency(&exp4_sync_prep_stats, prep_us);
+        }
         if (tx_result != DWT_SUCCESS) {
             exp4_sync_tx_delayed_late++;
             timing_exact = false;
@@ -2336,7 +2350,7 @@ int brrs_init(void)
                  EXP4_MAX_DATA_SLOTS);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=12,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_continuous_burst,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=fixed_prep_deadline,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+            "EXP4_FIRMWARE_REV,rev=13,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_continuous_burst,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -2385,6 +2399,7 @@ int brrs_init(void)
     exp4_rearm_header_read_stats.min_us = 0xFFFFFFFF;
     exp4_rearm_status_clear_stats.min_us = 0xFFFFFFFF;
     exp4_rearm_rx_enable_stats.min_us = 0xFFFFFFFF;
+    exp4_sync_prep_stats.min_us = 0xFFFFFFFF;
 #endif
 
     int period_count = 0;
@@ -2568,6 +2583,22 @@ int brrs_init(void)
                                  (unsigned long)exp4_sync_tx_delayed_late,
                                  (unsigned long)exp4_tx_wait_timeouts,
                                  (unsigned long)exp4_end_tx_count);
+                        final_log_info(s);
+                    }
+
+                    {
+                        uint64_t prep_avg_x1000 = exp4_sync_prep_stats.count ?
+                            (exp4_sync_prep_stats.sum_us * 1000ULL /
+                             exp4_sync_prep_stats.count) : 0;
+                        snprintf(s, sizeof(s),
+                                 "EXP4_SYNC_PREP_CSV,budget_us=%u,count=%lu,min_us=%lu,max_us=%lu,avg_x1000_us=%llu,delayed_late=%lu",
+                                 (unsigned)EXP4_SYNC_PREP_US,
+                                 (unsigned long)exp4_sync_prep_stats.count,
+                                 (unsigned long)(exp4_sync_prep_stats.count ?
+                                     exp4_sync_prep_stats.min_us : 0),
+                                 (unsigned long)exp4_sync_prep_stats.max_us,
+                                 (unsigned long long)prep_avg_x1000,
+                                 (unsigned long)exp4_sync_tx_delayed_late);
                         final_log_info(s);
                     }
 

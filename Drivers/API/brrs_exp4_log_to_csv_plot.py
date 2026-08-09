@@ -43,6 +43,11 @@ EXTRA_FIELDS = (
     "sync_delayed_late",
     "tx_wait_timeout",
     "end_tx_count",
+    "sync_prep_budget_us",
+    "sync_prep_count",
+    "sync_prep_min_us",
+    "sync_prep_max_us",
+    "sync_prep_avg_us",
     "rearm_count",
     "rearm_service_min_us",
     "rearm_service_max_us",
@@ -70,6 +75,7 @@ def parse_key_values(record: str):
 def parse_summary(path: Path):
     summaries = []
     timing = None
+    sync_prep = None
     rearm = None
     burst = None
     with path.open("r", encoding="utf-8", errors="replace") as stream:
@@ -101,6 +107,10 @@ def parse_summary(path: Path):
             if marker >= 0:
                 rearm = parse_key_values(line[marker:].strip())
 
+            marker = line.find("EXP4_SYNC_PREP_CSV,")
+            if marker >= 0:
+                sync_prep = parse_key_values(line[marker:].strip())
+
             marker = line.find("EXP4_BURST_CSV,")
             if marker >= 0:
                 burst = parse_key_values(line[marker:].strip())
@@ -121,6 +131,13 @@ def parse_summary(path: Path):
         "sync_delayed_late": int(timing["sync_delayed_late"]),
         "tx_wait_timeout": int(timing.get("tx_wait_timeout", "0")),
         "end_tx_count": int(timing["end_tx"]),
+        "sync_prep_budget_us": int(sync_prep["budget_us"]) if sync_prep else 0,
+        "sync_prep_count": int(sync_prep["count"]) if sync_prep else 0,
+        "sync_prep_min_us": int(sync_prep["min_us"]) if sync_prep else 0,
+        "sync_prep_max_us": int(sync_prep["max_us"]) if sync_prep else 0,
+        "sync_prep_avg_us": (
+            int(sync_prep["avg_x1000_us"]) / 1000.0 if sync_prep else 0
+        ),
         "rearm_count": int(rearm["count"]),
         "rearm_service_min_us": int(rearm["service_min_us"]),
         "rearm_service_max_us": int(rearm["service_max_us"]),
@@ -152,6 +169,18 @@ def parse_summary(path: Path):
             f"tx_wait_timeout={row['tx_wait_timeout']}, "
             f"end_tx={row['end_tx_count']})"
         )
+    if sync_prep is not None:
+        expected_prep_count = max(row["superframes"] - 1, 0)
+        if (row["sync_prep_count"] != expected_prep_count or
+                row["sync_prep_max_us"] > row["sync_prep_budget_us"] or
+                int(sync_prep["delayed_late"]) != 0):
+            raise ValueError(
+                f"{path}: invalid SYNC preparation "
+                f"(count={row['sync_prep_count']}/{expected_prep_count}, "
+                f"max={row['sync_prep_max_us']} us, "
+                f"budget={row['sync_prep_budget_us']} us, "
+                f"delayed_late={sync_prep['delayed_late']})"
+            )
     if burst is not None:
         burst_total = int(burst["total"])
         counted_total = (row["burst_early_close"] +

@@ -21,14 +21,14 @@ SYNC beacon (PLEN 256)
     -> N3 DATA slot
     -> ...
     -> N8 DATA slot
-    -> 500 us SYNC preparation interval
+    -> 2500 us reserved SYNC preparation interval
 ```
 
 - Coordinator: sends one PLEN-256 SYNC beacon and opens the first DATA slot
   with delayed-RX. Adjacent DATA slots are received by immediate re-arm before
   host-side frame processing, so processing latency cannot consume the guard.
   It closes RX immediately after the last-slot event, or at the scheduled end
-  of the last slot when that frame is absent. The independent 9500-us deadline
+  of the last slot when that frame is absent. The independent 7500-us deadline
   is retained only to prepare the next fixed-period SYNC.
 - The first SYNC is immediate; later SYNC beacons use DW3000 delayed-TX at the
   previous scheduled RMARKER plus exactly 10,000 us. MCU work and RTT output do
@@ -61,6 +61,9 @@ records on RTT channels 0 and 1:
 - `EXP4_NODE_CSV`: per-node expected, received, missed, and RX error counts.
 - `EXP4_TIMING_CSV`: measured SYNC period, total elapsed time, delayed-SYNC
   scheduling failures, and END transmission count.
+- `EXP4_SYNC_PREP_CSV`: measured DATA-PHY to SYNC-PHY transition plus
+  delayed-TX arm time. A 1000-superframe run has 999 delayed SYNC preparations;
+  `max_us` must remain below `budget_us` and `delayed_late` must be zero.
 - `EXP4_REARM_CSV`: coordinator RX fast-command service time inside the
   continuous DATA-slot burst. RX is provisionally re-armed before parsing every
   event, including an S1 final-slot event, and is then closed if that event is a
@@ -102,16 +105,17 @@ With the current 26-byte PSDU and 100 us guard, the compiled timing model is:
 
 | DATA preamble | Frame airtime | Slot interval | Calculated slots |
 |---:|---:|---:|---:|
-| 32 sym | 97 us | 197 us | 32 (protocol cap) |
-| 64 sym | 130 us | 230 us | 28 |
-| 128 sym | 195 us | 295 us | 22 |
-| 256 sym | 325 us | 425 us | 15 |
+| 32 sym | 97 us | 197 us | 23 |
+| 64 sym | 130 us | 230 us | 19 |
+| 128 sym | 195 us | 295 us | 15 |
+| 256 sym | 325 us | 425 us | 11 |
 
 Slot capacity is calculated in the same SYNC-RMARKER clock domain used by the
 beacon's slot offsets. The capacity calculation reserves the final slot's guard
-before the 9500-us SYNC preparation deadline. The 32-symbol timing would fit 33
-slots, but protocol version 3 carries at most 32 packed slot owners, so the
-implemented limit is 32.
+before the 7500-us SYNC preparation deadline. The coordinator reports the
+measured DATA-to-SYNC configuration and delayed-TX arm service time in
+`EXP4_SYNC_PREP_CSV`; a valid run must keep it inside the 2500-us budget and
+must report `sync_delayed_late=0`.
 
 The preamble component itself falls by about 8x from 256 to 32 symbols, while
 the complete slot and calculated node capacity improve by smaller factors because
@@ -148,8 +152,10 @@ To validate back-to-back slot re-arming with three boards, use the two-sensor
    row per configured sensor.
 6. Check `EXP4_TIMING_CSV`: `period_count=1000`, average approximately
    10,000 us, `sync_delayed_late=0`, and `end_tx=3`.
-7. Check `BRRS_SLOT_TIMING_CSV`: `samples` equals `rx` and `status=PASS`.
-8. Check each sensor for `BRRS_DATA_PHY_APPLIED_CSV`: `m` must match the
+7. Check `EXP4_SYNC_PREP_CSV`: `count=999`, `max_us<budget_us`, and
+   `delayed_late=0`.
+8. Check `BRRS_SLOT_TIMING_CSV`: `samples` equals `rx` and `status=PASS`.
+9. Check each sensor for `BRRS_DATA_PHY_APPLIED_CSV`: `m` must match the
    coordinator configuration.
 
 The one-sensor guard-time test does not validate back-to-back slot processing.

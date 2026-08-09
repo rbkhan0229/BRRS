@@ -302,7 +302,11 @@ static void terminal_log_info(unsigned char *data)
 #define BRRS_SUPERFRAME_US  10000
 #endif
 #if BRRS_EXPERIMENT == 4
-#define EXP4_SYNC_PREP_US   500
+#ifndef BRRS_EXP4_SYNC_PREP_US
+/* Keep the sensor's static capacity model aligned with the coordinator. */
+#define BRRS_EXP4_SYNC_PREP_US 2500
+#endif
+#define EXP4_SYNC_PREP_US   BRRS_EXP4_SYNC_PREP_US
 #define EXP4_COORD_CONFIG_SWITCH_US (BRRS_SUPERFRAME_US - EXP4_SYNC_PREP_US)
 /* NORMAL starts its MCU timer when the complete SYNC frame is reported. */
 #define CONFIG_SWITCH_US    (EXP4_COORD_CONFIG_SWITCH_US - SYNC_FRAME_US)
