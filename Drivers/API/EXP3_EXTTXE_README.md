@@ -29,8 +29,10 @@ GPIO6 배선이 서로 바뀐 보드가 있으므로 캡처 수가 0이면 보�
 | B | DW SFD 16 symbol | STD | `B - A`로 SFD 8 symbol 증가분 측정 |
 | C | DW SFD 8 symbol | DTA | `A - C`로 STD PHR의 추가 시간 측정 |
 
-세 조건 모두 preamble 32 symbol, PSDU 127 byte, 6.81 Mb/s, PAC8,
-STS OFF이다. INIT와 NORMAL은 반드시 같은 조건의 펌웨어를 사용한다.
+세 조건 모두 preamble 32 symbol, PSDU 26 byte(8 B 공통 헤더 + 16 B
+application payload + 2 B FCS), 6.81 Mb/s, PAC8, STS OFF이다. INIT와
+NORMAL은 반드시 같은 조건의 펌웨어를 사용한다. SFD 종류와 PHR rate는
+비컨 필드가 아니라 사전에 맞춘 실험용 빌드 프로파일이다.
 
 ## 3. 이론 airtime
 
@@ -39,11 +41,11 @@ STS OFF이다. INIT와 NORMAL은 반드시 같은 조건의 펌웨어를 사용�
 ```text
 T_frame = T_preamble + T_SFD + T_PHR + T_PSDU
 
-data_bits    = 127 byte x 8 = 1016 bit
-RS_blocks    = ceil(1016 / 330) = 4
-RS_parity    = 4 x 48 = 192 bit
-encoded_bits = 1016 + 192 = 1208 bit
-T_PSDU       = 1208 x 128.21 ns = 154.878 us
+data_bits    = 26 byte x 8 = 208 bit
+RS_blocks    = ceil(208 / 330) = 1
+RS_parity    = 1 x 48 = 48 bit
+encoded_bits = 208 + 48 = 256 bit
+T_PSDU       = 256 x 128.21 ns = 32.822 us
 ```
 
 - PHR: PHY Header. PSDU의 길이와 PHY 정보를 전달하는 21-symbol 헤더.
@@ -51,9 +53,9 @@ T_PSDU       = 1208 x 128.21 ns = 154.878 us
   데이터 영역.
 - Reed-Solomon 부호: 데이터 오류 복구용 패리티를 추가하는 전방 오류
   정정 부호. 최대 330 data bit마다 48 parity bit가 추가된다.
-- A 이론값: 약 217.124 us
-- B 이론값: 약 225.265 us
-- C 이론값: 약 198.278 us
+- A 이론값: 약 95.068 us
+- B 이론값: 약 103.209 us
+- C 이론값: 약 76.222 us
 - `B - A`: 약 8.141 us
 - `A - C`: 약 18.846 us
 
@@ -73,7 +75,7 @@ Drivers/API/brrs_exp3_build_all.sh
 생성 위치:
 
 ```text
-Drivers/API/Build_Platforms/nRF52840-DK/Output/Debug/Exe/exp3/
+Drivers/API/Build_Platforms/nRF52840-DK/Output/exp3/
 ```
 
 생성되는 HEX:

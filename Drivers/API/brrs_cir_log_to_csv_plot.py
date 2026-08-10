@@ -501,7 +501,7 @@ def main() -> int:
     parser.add_argument("--run", default="", help="Optional run label.")
     parser.add_argument("--environment", default="", help="Optional environment label.")
     parser.add_argument("--distance-m", default="", help="Optional distance label in meters.")
-    parser.add_argument("--expected-samples", type=int, default=1000, help="Expected valid CIR sample count per preamble run.")
+    parser.add_argument("--expected-samples", type=int, default=1000, help="Expected valid CIR sample count per preamble run (submission default: 1000).")
     args = parser.parse_args()
 
     rows: list[dict[str, object]] = []

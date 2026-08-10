@@ -34,7 +34,7 @@ if [[ "${ROLE}" != "init" && "${ROLE}" != "normal" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HEX_DIR="${SCRIPT_DIR}/Build_Platforms/nRF52840-DK/Output/Debug/Exe/exp3"
+HEX_DIR="${SCRIPT_DIR}/Build_Platforms/nRF52840-DK/Output/exp3"
 HEX_FILE="${HEX_DIR}/exp3_${VARIANT}_${ROLE}.hex"
 JLINK=${JLINK:-}
 RTT_LOGGER=${RTT_LOGGER:-}

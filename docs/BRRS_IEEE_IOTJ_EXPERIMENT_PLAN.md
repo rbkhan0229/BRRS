@@ -1,6 +1,6 @@
 # BRRS IEEE Internet of Things Journal Submission Experiment Plan
 
-Updated: 2026-08-07
+Updated: 2026-08-10
 
 ## 1. Submission Position
 
@@ -47,7 +47,7 @@ A reliable Experiment 4 configuration must satisfy all of the following:
 
 ## 3. Protocol and Firmware Freeze
 
-The submission firmware uses BRRS beacon protocol version 3 and firmware v2.0.
+The submission firmware uses BRRS beacon protocol version 3 and firmware v2.6.
 
 Beacon payload values are transmitted directly rather than through a private
 profile table:
@@ -98,6 +98,9 @@ Hold these factors constant unless they are the independent variable:
 - antenna polarization, height, and orientation;
 - coordinator and sensor mounting fixtures;
 - beacon preamble: 256 symbols;
+- application payload: 16 bytes;
+- on-air DATA PSDU: 26 bytes (8-byte protocol header + 16-byte application
+  payload + 2-byte FCS);
 - no retransmission and no ACK;
 - one DATA report per active node per superframe;
 - documented room layout and photographs;
@@ -161,6 +164,7 @@ For each condition:
 
 - five independent runs;
 - 2,000 scheduled DATA attempts per run;
+- fixed 26-byte DATA PSDU;
 - power-cycle or reset both radios between runs;
 - randomized `M` order;
 - no repositioning within a replicate block.
@@ -183,8 +187,9 @@ Use the same mounts and conditions as Experiment 1 for a reduced matrix:
 - `M = 32, 64, 128, 256`;
 - distance = 1 and 3 m;
 - LOS and controlled NLOS;
-- five independent runs per condition;
-- 2,000 transmission attempts per run.
+- three independent runs per condition;
+- 1,000 transmission attempts per run.
+- the same 26-byte DATA PSDU used in Experiment 1.
 
 Store CIR only when the DW3000 reports a valid frame/CIR, but retain the total
 attempt and failure counters. Never replace missing CIR rows with a summary row.
@@ -217,8 +222,9 @@ Core variants:
 
 For each variant:
 
-- five independent resets;
+- three independent resets;
 - 1,000 EXTTXE captures per run;
+- fixed 26-byte DATA PSDU for the primary A/B/C comparison;
 - `captures = successful TX attempts` required;
 - report mean, standard deviation, min/max, and 95% interval.
 
@@ -231,8 +237,8 @@ Differential estimates:
 
 Recommended strengthening experiment:
 
-- sweep PSDU lengths around Reed-Solomon boundaries, including 30, 55, 56, 100,
-  and 127 bytes;
+- optionally sweep PSDU lengths around the 330-data-bit Reed-Solomon boundaries,
+  including 26, 41/42, 82/83, 123/124, and 127 bytes;
 - verify that the timing model includes RS parity steps;
 - validate one representative waveform with an external logic analyzer or
   oscilloscope if available.
@@ -440,7 +446,7 @@ Official references:
 
 ## 16. Immediate Execution Order
 
-1. Flash v2.0/protocol-v3 INIT and NORMAL firmware and complete the beacon protocol smoke tests.
+1. Flash v2.6/protocol-v3 INIT and NORMAL firmware and complete the beacon protocol smoke tests.
 2. Run Stage 0 lead/tail calibration and freeze the lead value.
 3. Freeze fixtures, environments, scripts, and run manifests.
 4. Collect Experiment 1 and Experiment 2 in the same physical blocks.

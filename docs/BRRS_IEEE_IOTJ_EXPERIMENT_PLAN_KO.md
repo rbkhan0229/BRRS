@@ -1,6 +1,6 @@
 # BRRS IEEE IoT Journal 제출용 실험 실행 계획
 
-작성일: 2026-08-07
+갱신일: 2026-08-10
 
 상세 설계와 통계 기준은 `BRRS_IEEE_IOTJ_EXPERIMENT_PLAN.md`를 기준으로 하고,
 이 문서는 실제 재실험 순서와 판단 기준을 빠르게 확인하기 위한 한국어 실행본이다.
@@ -37,7 +37,7 @@ DWM3000에서는 SFD와 PHR을 실제로 제거하지 못한다. 따라서 논�
 - 슈퍼프레임 순번.
 - DATA 슬롯 수와 슬롯별 송신 노드 순서.
 
-제출용 펌웨어는 v2.0, beacon protocol v3를 사용한다. DATA는 슬롯 오프셋을
+제출용 펌웨어는 v2.6, beacon protocol v3를 사용한다. DATA는 슬롯 오프셋을
 다시 싣지 않고 슈퍼프레임 순번만 되돌려 보낸다. 코디네이터는 DATA RX RMARKER로
 실제 슬롯을 계산하고 비컨의 슬롯별 송신 노드와 source ID를 대조한다. 이에 따라
 DATA 프로토콜 헤더는 12바이트에서 8바이트로 줄었다.
@@ -55,7 +55,7 @@ SFD 종류와 PHR rate는 송수신 펌웨어의 실험용 빌드 설정으로�
 
 ## 3. 제출 데이터 수집 전 필수 조건
 
-1. INIT와 모든 NORMAL 보드에 동일한 v2.0, beacon protocol v3 펌웨어를 사용한다.
+1. INIT와 모든 NORMAL 보드에 동일한 v2.6, beacon protocol v3 펌웨어를 사용한다.
 2. 2노드 smoke test에서 INIT의 `BRRS_BEACON_CONFIG_CSV`와 NORMAL의
    `BRRS_BEACON_RX_CSV` 값이 일치해야 한다.
 3. `BRRS_BEACON_REJECT=0`, `delayed_late=0`, wrong-slot=0,
@@ -69,10 +69,13 @@ SFD 종류와 PHR rate는 송수신 펌웨어의 실험용 빌드 설정으로�
 
 - 채널 9, PRF 64 MHz, PAC8, STS off, DATA 6.81 Mbps를 기본값으로 고정한다.
 - 비컨 프리앰블은 256 symbol로 고정한다.
+- application payload는 16 B로 고정한다.
+- 무선 DATA PSDU는 26 B(8 B protocol header + 16 B application + 2 B FCS)로
+  고정한다.
 - 재전송과 ACK는 사용하지 않는다.
 - 한 활성 노드는 한 슈퍼프레임에 DATA 한 번을 전송한다.
-- 각 조건은 독립 run 5회 이상 수행한다.
-- 본 실험 1·2는 run당 DATA 2,000회, 실험 4는 조건당 1,000 superframe 10회를 권장한다.
+- 반복 수는 실험별 표를 따른다. Stage 0·실험 1은 2,000회 x 5 run,
+  실험 2·3은 1,000개 x 3 run, 실험 4는 1,000 superframe x 10 run이다.
 - 프리앰블 조건의 실행 순서를 무작위로 섞는다.
 - 최소 세 보드 pair를 사용하거나 보드 역할을 교대하고, 핵심 조건은 다른 날짜에
   반복한다.
@@ -104,6 +107,9 @@ PER뿐 아니라 FWTO, PTO, SFDTO, PHE, FCE, FSL과 성공 프레임의 accumCou
 | 환경 | 통제 LOS, 통제 NLOS |
 | 반복 | 조건당 2,000 frame x 5 run |
 
+모든 조건에서 DATA PSDU는 26 B로 고정한다. 기존 127 B 결과는 legacy 비교
+자료로만 보관하고 새 제출용 결과와 합산하지 않는다.
+
 NLOS는 사람이나 빨래건조대처럼 변하는 물체 대신 위치와 재질을 고정한 금속판 또는
 파티션을 사용한다. 각 run의 PER, 오류 원인, beacon loss, delayed scheduling failure를
 분리한다. 결론은 "M32가 항상 가능"이 아니라 거리·환경별 신뢰도와 airtime의
@@ -116,7 +122,8 @@ trade-off로 제시한다.
 - M32, 64, 128, 256;
 - 거리 1 m와 3 m;
 - LOS와 통제 NLOS;
-- 조건당 2,000 attempt x 5 run.
+- 조건당 1,000 attempt x 3 run.
+- 실험 1과 동일한 DATA PSDU 26 B.
 
 주 지표는 다음과 같다.
 
@@ -135,12 +142,14 @@ CIR은 수신 성공 프레임에서만 얻어지므로 표본 수와 PER을 항
 | B | SFD16 + STD PHR | B-A = SFD 8 symbol 추가 시간 |
 | C | SFD8 + DTA PHR | A-C = STD와 DTA PHR 시간 차이 |
 
-각 변형은 EXTTXE capture 1,000개 x 독립 reset 5회로 측정하며 `capture=TX success`여야
-한다. 평균만 쓰지 않고 표준편차, 범위, 95% 신뢰구간을 보고한다.
+각 변형의 주 조건은 DATA PSDU 26 B이다. EXTTXE capture 1,000개 x 독립
+reset 3회로 측정하며 `capture=TX success`여야 한다. 평균만 쓰지 않고
+표준편차, 범위, 95% 신뢰구간을 보고한다.
 
-가능하면 PSDU 30, 55, 56, 100, 127 B도 측정해 Reed-Solomon parity가 추가되는
-경계의 계단형 airtime을 검증한다. 실험 3 결과는 표준 호환 실측 airtime에서 SFD/PHR을
-뺀 이상적 BRRS 서브슬롯 시간을 재구성할 때 사용한다.
+가능하면 330 data bit Reed-Solomon 경계 전후인 PSDU 26, 41/42, 82/83,
+123/124, 127 B도 보조 측정해 계단형 airtime을 검증한다. 실험 3 결과는
+표준 호환 실측 airtime에서 SFD/PHR을 뺀 이상적 BRRS 서브슬롯 시간을
+재구성할 때 사용한다.
 
 ## 9. 실험 4: 다중 노드 수용량과 goodput
 
@@ -149,12 +158,14 @@ CIR은 수신 성공 프레임에서만 얻어지므로 표본 수와 PER을 항
 M32에서 다음 SES 구성을 사용한다.
 
 - 코디네이터: `Exp4_32_S2x4_Init`;
-- N2 센서: `Exp4_32_S2x4_N2`;
-- N3 센서: `Exp4_32_S2x4_N3`.
+- N2 센서: `Exp4_N2`;
+- N3 센서: `Exp4_N3`.
 
 비컨의 기대 스케줄은 `slot_count=8, slot_owners=23232323`이다. 1,000개
 슈퍼프레임이 끝나면 INIT은 `expected=8000`, N2와 N3는 각각 `attempts=4000`이
-정상이다. M256 비교에는 이름에서 `32`를 `256`으로 바꾼 세 구성을 사용한다.
+정상이다. M256 비교에서는 코디네이터만 `Exp4_256_S2x4_Init`로 바꾸고,
+N2/N3는 비컨의 DATA PHY와 슬롯 순서를 적용하므로 같은 `Exp4_N2`,
+`Exp4_N3` 이미지를 유지한다.
 
 이 모드는 8개 슬롯과 8개 DATA 전송을 실제 무선으로 수행한다. 다만 송신기 발진기,
 안테나 위치, 채널이 두 개뿐이므로 결과 명칭은 `8-slot virtual-node load` 또는
@@ -219,7 +230,7 @@ shunt/oscilloscope로 continuous/immediate RX와 beacon-scheduled delayed-RX를 
 
 ## 12. 지금부터의 실행 순서
 
-1. 양쪽 노트북에 v2.0/protocol-v3 소스를 맞추고 Exp4 M32/S1 smoke test를 한다.
+1. 양쪽 노트북에 v2.6/protocol-v3 소스를 맞추고 Exp4 M32/S1 smoke test를 한다.
 2. 비컨 송수신 로그 값과 오류 카운터를 확인한다.
 3. 비연속 bitmap 시험으로 참여 제어와 슬롯 압축을 검증한다.
 4. Stage 0을 수행해 lead를 동결한다.

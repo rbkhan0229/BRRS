@@ -43,68 +43,68 @@
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=1;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
   <configuration Name="Stage0_Normal" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=2000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=1;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
-  <configuration Name="Exp1_32_Init" c_preprocessor_definitions="DEBUG" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+  <configuration Name="Exp1_32_Init" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=2000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=1;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
-  <configuration Name="Exp1_Normal" c_preprocessor_definitions="DEBUG" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+  <configuration Name="Exp1_Normal" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=2000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=1;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
-  <configuration Name="Exp1_64_Init" c_preprocessor_definitions="DEBUG" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+  <configuration Name="Exp1_64_Init" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=2000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=1;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_64;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
-  <configuration Name="Exp1_128_Init" c_preprocessor_definitions="DEBUG" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+  <configuration Name="Exp1_128_Init" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=2000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=1;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_128;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
-  <configuration Name="Exp1_256_Init" c_preprocessor_definitions="DEBUG" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+  <configuration Name="Exp1_256_Init" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=2000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=1;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_256;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
-  <configuration Name="Exp2_32_Init" c_preprocessor_definitions="DEBUG" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+  <configuration Name="Exp2_32_Init" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=2;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
-  <configuration Name="Exp2_Normal" c_preprocessor_definitions="DEBUG" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+  <configuration Name="Exp2_Normal" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=2;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
-  <configuration Name="Exp2_64_Init" c_preprocessor_definitions="DEBUG" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+  <configuration Name="Exp2_64_Init" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=2;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_64;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
-  <configuration Name="Exp2_128_Init" c_preprocessor_definitions="DEBUG" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+  <configuration Name="Exp2_128_Init" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=2;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_128;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
-  <configuration Name="Exp2_256_Init" c_preprocessor_definitions="DEBUG" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+  <configuration Name="Exp2_256_Init" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=2;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_256;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
   <configuration
     Name="Exp3_A_Init"
-    c_preprocessor_definitions="DEBUG"
+    c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000"
     cpp_enable_rtti="Yes"
     gcc_debugging_level="Level 3"
     gcc_optimization_level="None"
-    macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=2" />
+    macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
   <configuration
     Name="Exp3_A_Normal"
-    c_preprocessor_definitions="DEBUG"
+    c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000"
     cpp_enable_rtti="Yes"
     gcc_debugging_level="Level 3"
     gcc_optimization_level="None"
-    macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=2" />
+    macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
   <configuration
     Name="Exp3_B_Init"
-    c_preprocessor_definitions="DEBUG"
+    c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000"
     cpp_enable_rtti="Yes"
     gcc_debugging_level="Level 3"
     gcc_optimization_level="None"
-    macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=2;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=2" />
+    macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=2;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
   <configuration
     Name="Exp3_B_Normal"
-    c_preprocessor_definitions="DEBUG"
+    c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000"
     cpp_enable_rtti="Yes"
     gcc_debugging_level="Level 3"
     gcc_optimization_level="None"
-    macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=2;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=2" />
+    macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=2;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
   <configuration
     Name="Exp3_C_Init"
-    c_preprocessor_definitions="DEBUG"
+    c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000"
     cpp_enable_rtti="Yes"
     gcc_debugging_level="Level 3"
     gcc_optimization_level="None"
-    macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=3;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=2" />
+    macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=3;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
   <configuration
     Name="Exp3_C_Normal"
-    c_preprocessor_definitions="DEBUG"
+    c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000"
     cpp_enable_rtti="Yes"
     gcc_debugging_level="Level 3"
     gcc_optimization_level="None"
-    macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=3;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=2" />
+    macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=3;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=3;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
   <configuration
     Name="Exp4_32_S1_Init"
     c_preprocessor_definitions="DEBUG"
@@ -129,6 +129,13 @@
   <configuration
     Name="Exp4_32_S2_Init"
     c_preprocessor_definitions="DEBUG"
+    cpp_enable_rtti="Yes"
+    gcc_debugging_level="Level 3"
+    gcc_optimization_level="None"
+    macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=4;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=2" />
+  <configuration
+    Name="Exp4_32_S2_G200_Init"
+    c_preprocessor_definitions="DEBUG;BRRS_SLOT_GUARD_US=200"
     cpp_enable_rtti="Yes"
     gcc_debugging_level="Level 3"
     gcc_optimization_level="None"
@@ -281,8 +288,22 @@
     gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=4;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=7" />
   <configuration
+    Name="Exp4_N2_G200"
+    c_preprocessor_definitions="DEBUG;BRRS_SLOT_GUARD_US=200"
+    cpp_enable_rtti="Yes"
+    gcc_debugging_level="Level 3"
+    gcc_optimization_level="None"
+    macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=4;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=7" />
+  <configuration
     Name="Exp4_N3"
     c_preprocessor_definitions="DEBUG"
+    cpp_enable_rtti="Yes"
+    gcc_debugging_level="Level 3"
+    gcc_optimization_level="None"
+    macros="BRRS_ROLE_DEFINE=TEST_BRRS_NORMAL;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=4;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_32;BRRS_NODE_DEFINE=TEST_NODE_3;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=7" />
+  <configuration
+    Name="Exp4_N3_G200"
+    c_preprocessor_definitions="DEBUG;BRRS_SLOT_GUARD_US=200"
     cpp_enable_rtti="Yes"
     gcc_debugging_level="Level 3"
     gcc_optimization_level="None"
@@ -371,6 +392,82 @@
       cpp_enable_rtti="Yes"
       debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
     <configuration
+      Name="Release"
+      cpp_enable_rtti="Yes"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L0_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L2_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L4_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L6_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L8_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L10_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L12_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L14_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L15_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L16_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L20_T0_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L0_T100_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_L12_T100_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Stage0_Normal"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp1_32_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp1_Normal"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp1_64_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp1_128_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp1_256_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp2_32_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp2_Normal"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp2_64_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp2_128_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp2_256_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
       Name="Exp3_A_Init"
       cpp_enable_rtti="Yes"
       debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
@@ -411,6 +508,10 @@
       cpp_enable_rtti="Yes"
       debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
     <configuration
+      Name="Exp4_32_S2_G200_Init"
+      cpp_enable_rtti="Yes"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
       Name="Exp4_64_S2_Init"
       cpp_enable_rtti="Yes"
       debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
@@ -419,11 +520,73 @@
       cpp_enable_rtti="Yes"
       debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
     <configuration
+      Name="Exp4_32_S3_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_32_S3_B05_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_32_S4_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_32_S5_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_32_S6_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_32_S7_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_64_S3_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_64_S4_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_64_S5_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_64_S6_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_64_S7_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_256_S3_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_256_S4_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_256_S5_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_256_S6_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_256_S7_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_32_S2x4_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_256_S2x4_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
       Name="Exp4_N2"
       cpp_enable_rtti="Yes"
       debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
     <configuration
+      Name="Exp4_N2_G200"
+      cpp_enable_rtti="Yes"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
       Name="Exp4_N3"
+      cpp_enable_rtti="Yes"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp4_N3_G200"
       cpp_enable_rtti="Yes"
       debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
     <configuration

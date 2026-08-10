@@ -1,6 +1,6 @@
 # BRRS Experiment 4: fixed-superframe TDMA capacity
 
-This procedure requires the visible v2.3 firmware banner and Exp4 diagnostic
+This procedure requires the visible v2.6 firmware banner and Exp4 diagnostic
 revision 18 or newer on the coordinator and sensor nodes.
 
 ## Purpose

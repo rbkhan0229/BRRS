@@ -3,13 +3,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 API_DIR="$ROOT/Drivers/API"
-EXE_DIR="$API_DIR/Build_Platforms/nRF52840-DK/Output/Debug/Exe"
+OUTPUT_DIR="$API_DIR/Build_Platforms/nRF52840-DK/Output"
 JLINK="/Applications/SEGGER/JLink_V934b/JLinkExe"
 RTT_LOGGER="/Applications/SEGGER/JLink_V934b/JLinkRTTLoggerExe"
 PARSER="$API_DIR/brrs_cir_log_to_csv_plot.py"
 
-INIT_HEX="$EXE_DIR/dw3000_api_brrs_exp2_init_cir_psdu127_plen32.hex"
-NORMAL_HEX="$EXE_DIR/dw3000_api_brrs_exp2_normal_psdu127_plen32.hex"
+INIT_HEX="$OUTPUT_DIR/Exp2_32_Init/Exe/dw3000_api.hex"
+NORMAL_HEX="$OUTPUT_DIR/Exp2_Normal/Exe/dw3000_api.hex"
 
 INIT_SERIAL=""
 NORMAL_SERIAL=""
@@ -93,19 +93,26 @@ if [[ "$NO_FLASH" -eq 0 && -z "$NORMAL_SERIAL" ]]; then
     exit 2
 fi
 
-for required in "$JLINK" "$RTT_LOGGER" "$PARSER"; do
+for required in "$RTT_LOGGER" "$PARSER"; do
     if [[ ! -e "$required" ]]; then
         echo "Required file not found: $required" >&2
         exit 1
     fi
 done
 
-for hex in "$INIT_HEX" "$NORMAL_HEX"; do
-    if [[ ! -e "$hex" ]]; then
-        echo "HEX file not found: $hex" >&2
-        exit 1
-    fi
-done
+if [[ "$NO_FLASH" -eq 0 && ! -e "$JLINK" ]]; then
+    echo "Required file not found: $JLINK" >&2
+    exit 1
+fi
+
+if [[ "$NO_FLASH" -eq 0 ]]; then
+    for hex in "$INIT_HEX" "$NORMAL_HEX"; do
+        if [[ ! -e "$hex" ]]; then
+            echo "HEX file not found: $hex" >&2
+            exit 1
+        fi
+    done
+fi
 
 timestamp="$(date '+%Y%m%d_%H%M%S')"
 safe_env="$(echo "$ENV_LABEL" | tr -c 'A-Za-z0-9_.-' '_')"
@@ -164,7 +171,7 @@ set +e
     -If SWD \
     -Speed 4000 \
     -USB "$INIT_SERIAL" \
-    -RTTChannel 0 \
+    -RTTChannel 1 \
     "$LOG_FILE"
 logger_status=$?
 set -e
@@ -177,7 +184,8 @@ python3 "$PARSER" "$LOG_FILE" \
     -o "$RESULT_DIR" \
     --prefix "$PREFIX" \
     --environment "$ENV_LABEL" \
-    --distance-m "$DISTANCE_M"
+    --distance-m "$DISTANCE_M" \
+    --expected-samples 1000
 
 echo
 echo "Done."

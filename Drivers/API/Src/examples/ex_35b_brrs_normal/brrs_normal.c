@@ -44,6 +44,13 @@
  *
  *           [v2.3 변경사항] (2026-08)
  *           - coordinator polling IRQ 상태 추적 수정 릴리스와 버전 동기화
+ *
+ *           [v2.4 진단 변경사항] (2026-08)
+ *           - 비컨 RX RMARKER 대비 실제 DATA TX RMARKER 오차 집계 추가
+ *
+ *           [v2.6 실험 조건 변경사항] (2026-08)
+ *           - 실험 1~4 DATA를 8 B header + 16 B application + 2 B FCS로 통일
+ *           - 실험 1~3의 기존 최대 PSDU 127 B 조건을 제출용 26 B 조건으로 교체
  */
 
 #include "deca_probe_interface.h"
@@ -121,31 +128,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v2.3 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v2.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v2.3 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v2.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v2.3 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v2.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v2.3 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v2.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v2.3 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v2.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v2.3 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v2.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v2.3 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v2.6 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -229,16 +236,14 @@ static void terminal_log_info(unsigned char *data)
 #define BRRS_SYNC_BUFFER_US 3000
 #endif
 #define SYNC_BUFFER_US      BRRS_SYNC_BUFFER_US
-#if BRRS_EXPERIMENT == 4
+/* All experiments use the same short sensor frame on air. */
 #ifndef BRRS_APP_PAYLOAD_BYTES
 #define BRRS_APP_PAYLOAD_BYTES 16
 #endif
 #define BRRS_PROTOCOL_HEADER_BYTES BRRS_COMMON_HEADER_BYTES
 #define IEEE_802154_FCS_BYTES       BRRS_IEEE_802154_FCS_BYTES
 #define PSDU_BYTES          (BRRS_PROTOCOL_HEADER_BYTES + BRRS_APP_PAYLOAD_BYTES + IEEE_802154_FCS_BYTES)
-#else
-#define PSDU_BYTES          127
-#endif
+_Static_assert(PSDU_BYTES <= 127U, "DATA PSDU exceeds the IEEE 802.15.4 maximum");
 
 #if EXP3_PHY_VARIANT == EXP3_VARIANT_A
 #define EXP3_VARIANT_NAME   "A"
@@ -465,6 +470,15 @@ static uint32_t exp4_last_sync_seq = 0;
 static bool exp4_end_received = false;
 static uint32_t exp4_sync_rx_scheduled = 0;
 static uint32_t exp4_sync_rx_delayed_late = 0;
+typedef struct {
+    int64_t min_ns;
+    int64_t max_ns;
+    int64_t sum_ns;
+    uint32_t count;
+} exp4_tx_slot_error_stats_t;
+static exp4_tx_slot_error_stats_t exp4_tx_slot_error_stats = {
+    INT64_MAX, INT64_MIN, 0, 0
+};
 #endif
 
 #if BRRS_EXPERIMENT == 3
@@ -924,6 +938,37 @@ static int schedule_delayed_tx(uint32_t sync_rx_ts_high32, uint32_t slot_offset_
 }
 
 #if BRRS_EXPERIMENT == 4
+static int64_t exp4_tx_slot_error_ns(uint32_t sync_rx_ts_high32,
+                                     uint32_t tx_ts_high32,
+                                     uint32_t scheduled_offset_us)
+{
+    uint32_t actual_offset_high32 = tx_ts_high32 - sync_rx_ts_high32;
+    uint32_t scheduled_offset_high32 = (uint32_t)
+        (US_TO_DWT_TIME(scheduled_offset_us) >> 8);
+    int32_t error_high32 =
+        (int32_t)(actual_offset_high32 - scheduled_offset_high32);
+    int64_t numerator = (int64_t)error_high32 * 256000LL;
+
+    if (numerator >= 0) {
+        return (numerator + (int64_t)DWT_TIME_UNITS_PER_US / 2) /
+               (int64_t)DWT_TIME_UNITS_PER_US;
+    }
+    return (numerator - (int64_t)DWT_TIME_UNITS_PER_US / 2) /
+           (int64_t)DWT_TIME_UNITS_PER_US;
+}
+
+static void exp4_record_tx_slot_error(int64_t error_ns)
+{
+    if (error_ns < exp4_tx_slot_error_stats.min_ns) {
+        exp4_tx_slot_error_stats.min_ns = error_ns;
+    }
+    if (error_ns > exp4_tx_slot_error_stats.max_ns) {
+        exp4_tx_slot_error_stats.max_ns = error_ns;
+    }
+    exp4_tx_slot_error_stats.sum_ns += error_ns;
+    exp4_tx_slot_error_stats.count++;
+}
+
 static bool exp4_schedule_next_sync_rx(void)
 {
     uint32_t offset_us =
@@ -1000,7 +1045,7 @@ int brrs_normal(void)
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=18,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=20,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -1173,6 +1218,18 @@ int brrs_normal(void)
                              (unsigned long)total_tx_attempts,
                              (unsigned long)total_tx_delayed_late);
                     final_log_info(s);
+                    if (exp4_tx_slot_error_stats.count > 0U) {
+                        int64_t avg_ns = exp4_tx_slot_error_stats.sum_ns /
+                                         exp4_tx_slot_error_stats.count;
+                        snprintf(s, sizeof(s),
+                                 "EXP4_TX_SLOT_TIMING_CSV,node=N%u,n=%lu,min_error_ns=%lld,max_error_ns=%lld,avg_error_ns=%lld,reference=sync_rx_rmarker,observation=data_tx_rmarker",
+                                 MY_NODE_SEQ,
+                                 (unsigned long)exp4_tx_slot_error_stats.count,
+                                 (long long)exp4_tx_slot_error_stats.min_ns,
+                                 (long long)exp4_tx_slot_error_stats.max_ns,
+                                 (long long)avg_ns);
+                        final_log_info(s);
+                    }
                     snprintf(s, sizeof(s),
                              "EXP4_TX_SYNC_RX_CSV,scheduled=%lu,delayed_late=%lu,early_us=%d,window_us=%d",
                              (unsigned long)exp4_sync_rx_scheduled,
@@ -1525,8 +1582,19 @@ int brrs_normal(void)
                                 waitforsysstatus(&tx_status, NULL,
                                                  DWT_INT_TXFRS_BIT_MASK, 0);
                                 if (tx_status & DWT_INT_TXFRS_BIT_MASK) {
+#if BRRS_EXPERIMENT == 4
+                                    uint32_t actual_tx_ts_high32 =
+                                        dwt_readtxtimestamphi32();
+#endif
                                     dwt_writesysstatuslo(DWT_INT_TXFRS_BIT_MASK);
                                     per_stats[my_slot_idx()].tx_count++;
+#if BRRS_EXPERIMENT == 4
+                                    exp4_record_tx_slot_error(
+                                        exp4_tx_slot_error_ns(
+                                            last_sync_rx_ts_high32,
+                                            actual_tx_ts_high32,
+                                            slot_start_us));
+#endif
                                 }
                             } else {
 #if BRRS_EXPERIMENT == 3

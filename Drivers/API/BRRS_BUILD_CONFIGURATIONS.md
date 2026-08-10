@@ -4,6 +4,10 @@ DATA preamble length is carried in the beacon `m` field. Normal nodes validate
 `m` and apply the corresponding DW3000 TX preamble at runtime. Changing only
 the preamble therefore requires rebuilding INIT, not the Normal node.
 
+All submission profiles use the same short DATA frame: 8-byte protocol header,
+16-byte application payload, and 2-byte FCS (`PSDU=26 B`). Legacy 127-byte runs
+must be stored and analyzed separately.
+
 ## Stage 0
 
 - INIT: `Stage0_L*_T*_Init`
@@ -13,11 +17,14 @@ the preamble therefore requires rebuilding INIT, not the Normal node.
 
 - INIT: `Exp1_32_Init`, `Exp1_64_Init`, `Exp1_128_Init`, or `Exp1_256_Init`
 - N2: `Exp1_Normal`
+- Each build runs 2,000 scheduled DATA attempts.
 
 ## Experiment 2
 
 - INIT: `Exp2_32_Init`, `Exp2_64_Init`, `Exp2_128_Init`, or `Exp2_256_Init`
 - N2: `Exp2_Normal`
+- Each build runs 1,000 scheduled DATA attempts and requires 1,000 valid raw
+  CIR rows for a complete run.
 
 ## Experiment 3
 
@@ -26,7 +33,8 @@ the preamble therefore requires rebuilding INIT, not the Normal node.
 - C: `Exp3_C_Init` and `Exp3_C_Normal`
 
 A/B/C remain separate because they change SFD length and PHR rate, not only
-the DATA preamble length.
+the DATA preamble length. Each pair uses `M=32`, `PSDU=26 B`, and 1,000
+EXTTXE captures. Never mix A/B/C roles in one run.
 
 ## Experiment 4
 
