@@ -1,7 +1,7 @@
 # BRRS Experiment 4: fixed-superframe TDMA capacity
 
-This procedure requires the visible v2.1 firmware banner and Exp4 diagnostic
-revision 16 or newer on the coordinator and sensor nodes.
+This procedure requires the visible v2.2 firmware banner and Exp4 diagnostic
+revision 17 or newer on the coordinator and sensor nodes.
 
 ## Purpose
 
@@ -70,6 +70,10 @@ records on RTT channels 0 and 1:
   `max_us` must remain below `budget_us` and `delayed_late` must be zero.
 - `EXP4_DOUBLE_BUFFER_CONFIG_CSV`: boot-time verification that double buffering
   is enabled in manual mode. The run does not start if this check fails.
+- `EXP4_EVENT_MASK_CONFIG_CSV`: boot-time readback verification that RX good,
+  error, timeout, and overrun events are enabled in `SYS_ENABLE_LO`. `FINT_STAT`
+  is a masked aggregate and remains zero if these event masks are not enabled.
+  The run does not start if this check fails.
 - `EXP4_REARM_CSV`: coordinator critical-path service time inside the
   double-buffered DATA-slot burst. A good frame re-arms RX before clearing and
   parsing the completed buffer; an error or timeout clears the required status
@@ -286,7 +290,7 @@ python3 Drivers/API/brrs_exp4_log_to_csv_plot.py \
 ```
 
 The script rejects a log whose final `EXP4_SUMMARY_CSV` status is `FAIL`, whose
-firmware revision is older than 16, whose manual-double-buffer, fixed-period,
+firmware revision is older than 17, whose manual-double-buffer, FINT event-mask, fixed-period,
 SYNC-preparation, re-arm, or burst diagnostics are missing or invalid, whose
 average period differs from 10 ms by more than 5 us, or whose END sequence is
 incomplete. Logs with different guard values must be analyzed in separate

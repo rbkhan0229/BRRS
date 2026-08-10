@@ -51,6 +51,10 @@
  *           - FINT_STAT 기반 빠른 이벤트 검출과 현재 RDB_STATUS 검증 추가
  *           - RX 재무장/버퍼 수명주기/guard 하한을 fail-closed로 검증
  *
+ *           [v2.2 변경사항] (2026-08)
+ *           - FINT_STAT 집계에 필요한 RX good/error/timeout/overrun interrupt mask 활성화
+ *           - SYS_ENABLE_LO readback을 부팅 시 fail-closed로 검증
+ *
  *           지원 실험:
  *           - 실험 1: 프리앰블 축소 PER 측정 (DATA_PLEN 변경)
  *           - 실험 2: CIR 수집 (ENABLE_CIR=1)
@@ -87,7 +91,7 @@ extern void test_run_info(unsigned char *data);
 extern int SEGGER_RTT_ConfigUpBuffer(unsigned BufferIndex, const char* sName, void* pBuffer, unsigned BufferSize, unsigned Flags);
 extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 
-#define APP_NAME "BRRS INIT NODE v2.1 (beacon-scheduled delayed-RX)"
+#define APP_NAME "BRRS INIT NODE v2.2 (beacon-scheduled delayed-RX)"
 
 /* ========== 실험 모드 선택 ========== */
 #ifndef BRRS_EXPERIMENT
@@ -2365,14 +2369,42 @@ int brrs_init(void)
     dwt_setrxaftertxdelay(TX_TO_RX_DELAY_UUS);
     /* dwt_setrxtimeout은 schedule_delayed_rx()에서 설정 */
 
+#if BRRS_EXPERIMENT == 4
+    {
+        const uint32_t exp4_event_mask =
+            DWT_INT_RXFCG_BIT_MASK |
+            SYS_STATUS_ALL_RX_ERR |
+            SYS_STATUS_ALL_RX_TO |
+            DWT_INT_RXOVRR_BIT_MASK;
+        uint32_t enabled_event_mask;
+        static char event_mask_line[192];
+
+        /* FINT_STAT is a masked aggregate: the corresponding SYS_ENABLE_LO
+         * bits must be enabled even though Exp4 polls rather than servicing
+         * the DW3000 IRQ pin. */
+        dwt_setinterrupt(exp4_event_mask, 0U, DWT_ENABLE_INT_ONLY);
+        enabled_event_mask = dwt_read_reg(SYS_ENABLE_LO_ID);
+        snprintf(event_mask_line, sizeof(event_mask_line),
+                 "EXP4_EVENT_MASK_CONFIG_CSV,expected_lo=0x%08lX,actual_lo=0x%08lX,status=%s",
+                 (unsigned long)exp4_event_mask,
+                 (unsigned long)enabled_event_mask,
+                 ((enabled_event_mask & exp4_event_mask) == exp4_event_mask) ?
+                     "PASS" : "FAIL");
+        test_run_info((unsigned char *)event_mask_line);
+        if ((enabled_event_mask & exp4_event_mask) != exp4_event_mask) {
+            while (1) { };
+        }
+    }
+#else
     dwt_setinterrupt(0, 0, DWT_ENABLE_INT);
+#endif
     dwt_writesysstatuslo(0xFFFFFFFF);
 
     /* Print configuration */
     {
         static char cfg_msg[240];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "BRRS v2.1: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
+                 "BRRS v2.2: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
                  BRRS_EXPERIMENT, SYNC_PLEN, DATA_PLEN, PREAMBLE_SYMBOLS,
                  PREAMBLE_US, SLOT_INTERVAL_US, RX_WINDOW_US,
                  RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US, PERIOD_US,
@@ -2426,7 +2458,7 @@ int brrs_init(void)
                  EXP4_MAX_DATA_SLOTS);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=16,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,event_poll=fint_status,rdb_status=validate_current_host_buffer_post_rearm,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+            "EXP4_FIRMWARE_REV,rev=17,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,event_poll=fint_status,event_mask=validated,rdb_status=validate_current_host_buffer_post_rearm,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -3360,9 +3392,10 @@ int brrs_init(void)
             uint8_t exp4_fint_status = 0U;
             uint32_t status_reg = 0U;
 
-            /* FINT_STAT is the driver's fast aggregate event source. Polling
-             * one byte keeps the good-frame path short; detailed SYS_STATUS
-             * is needed only to classify an RX error or timeout. */
+            /* FINT_STAT is the driver's fast masked aggregate event source.
+             * Its RX masks were verified at boot. Polling one byte keeps the
+             * good-frame path short; detailed SYS_STATUS is needed only to
+             * classify an RX error or timeout. */
             dwt_readfromdevice(FINT_STAT_ID, 0U, 1U, &exp4_fint_status);
             uint32_t exp4_status_poll_cycles =
                 dwt_timer_get_cycles() - exp4_status_poll_start_cycles;

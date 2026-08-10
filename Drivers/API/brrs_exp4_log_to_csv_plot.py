@@ -95,6 +95,7 @@ def parse_summary(path: Path):
     timing = None
     sync_prep = None
     double_buffer_config = None
+    event_mask_config = None
     double_buffer = None
     rearm = None
     burst = None
@@ -143,6 +144,10 @@ def parse_summary(path: Path):
             if marker >= 0:
                 double_buffer_config = parse_key_values(line[marker:].strip())
 
+            marker = line.find("EXP4_EVENT_MASK_CONFIG_CSV,")
+            if marker >= 0:
+                event_mask_config = parse_key_values(line[marker:].strip())
+
             marker = line.find("EXP4_BURST_CSV,")
             if marker >= 0:
                 burst = parse_key_values(line[marker:].strip())
@@ -153,12 +158,14 @@ def parse_summary(path: Path):
         raise ValueError(f"{path}: EXP4_TIMING_CSV not found; rerun with the fixed-period firmware")
     if rearm is None:
         raise ValueError(f"{path}: EXP4_REARM_CSV not found; rerun with the rearm diagnostics")
-    if firmware is None or int(firmware.get("rev", "0")) < 16:
-        raise ValueError(f"{path}: Exp4 coordinator firmware rev 16 or newer is required")
+    if firmware is None or int(firmware.get("rev", "0")) < 17:
+        raise ValueError(f"{path}: Exp4 coordinator firmware rev 17 or newer is required")
     if sync_prep is None:
         raise ValueError(f"{path}: EXP4_SYNC_PREP_CSV not found")
     if double_buffer_config is None:
         raise ValueError(f"{path}: EXP4_DOUBLE_BUFFER_CONFIG_CSV not found")
+    if event_mask_config is None:
+        raise ValueError(f"{path}: EXP4_EVENT_MASK_CONFIG_CSV not found")
     if double_buffer is None:
         raise ValueError(f"{path}: EXP4_DOUBLE_BUFFER_CSV not found")
     if burst is None:
@@ -173,6 +180,20 @@ def parse_summary(path: Path):
         raise ValueError(
             f"{path}: invalid double-buffer boot configuration "
             f"({double_buffer_config})"
+        )
+    try:
+        expected_event_mask = int(event_mask_config["expected_lo"], 0)
+        actual_event_mask = int(event_mask_config["actual_lo"], 0)
+    except (KeyError, ValueError) as exc:
+        raise ValueError(
+            f"{path}: malformed event-mask boot configuration "
+            f"({event_mask_config})"
+        ) from exc
+    if (event_mask_config.get("status") != "PASS" or
+            (actual_event_mask & expected_event_mask) != expected_event_mask):
+        raise ValueError(
+            f"{path}: invalid FINT event-mask boot configuration "
+            f"({event_mask_config})"
         )
     row.update({
         "period_count": int(timing["period_count"]),

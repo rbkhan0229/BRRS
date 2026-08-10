@@ -38,6 +38,9 @@
  *           [v2.1 변경사항] (2026-08)
  *           - coordinator manual double-buffer/FINT-RDB 수신 경로와 버전 동기화
  *           - 비컨 슬롯 간격과 마지막 슬롯 경계를 런타임 PHY 값으로 검증
+ *
+ *           [v2.2 변경사항] (2026-08)
+ *           - coordinator FINT event-mask 검증 릴리스와 버전 동기화
  */
 
 #include "deca_probe_interface.h"
@@ -115,31 +118,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v2.1 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v2.2 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v2.1 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v2.2 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v2.1 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v2.2 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v2.1 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v2.2 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v2.1 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v2.2 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v2.1 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v2.2 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v2.1 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v2.2 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -994,7 +997,7 @@ int brrs_normal(void)
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=16,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=17,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
