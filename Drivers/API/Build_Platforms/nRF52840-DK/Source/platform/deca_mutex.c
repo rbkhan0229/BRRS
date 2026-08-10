@@ -12,7 +12,6 @@
 
 #include "port.h"
 #include <deca_device_api.h>
-extern uint16_t  current_irq_pin;
 
 // ---------------------------------------------------------------------------
 //
@@ -51,10 +50,10 @@ decaIrqStatus_t decamutexon(void)
 /* NRF chip has only 1 IRQ for all GPIO pins.
  * Disablin of the NVIC would not be of the best ideas.
  */
-    decaIrqStatus_t s = nrf_drv_gpiote_in_is_set(current_irq_pin);
+    decaIrqStatus_t s = port_GetEXT_IRQStatus();
     if(s)
     {
-        nrf_drv_gpiote_in_event_disable(current_irq_pin);
+        port_DisableEXT_IRQ();
     }
     return s;
 }
@@ -78,6 +77,6 @@ void decamutexoff(decaIrqStatus_t s) // put a function here that re-enables the 
 {
     if (s)
     {
-        nrf_drv_gpiote_in_event_enable(current_irq_pin, true);
+        port_EnableEXT_IRQ();
     }
 }

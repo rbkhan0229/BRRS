@@ -167,7 +167,7 @@ void gpio_init(void);
     void port_EnableEXT_IRQ(void);
 
     /* @fn      port_GetEXT_IRQStatus
-     * @brief   wrapper to read a DW_IRQ pin IRQ status
+     * @brief   wrapper to read whether the DW_IRQ GPIOTE event is enabled
      * */
     uint32_t port_GetEXT_IRQStatus(void);
 

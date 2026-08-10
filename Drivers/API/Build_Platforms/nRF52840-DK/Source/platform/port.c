@@ -26,6 +26,10 @@ extern uint16_t  current_irq_pin;
  *******************************************************************************/
 /* DW IC IRQ handler definition. */
 static port_dwic_isr_t port_dwic_isr = NULL;
+/* Track the GPIOTE event state separately from the physical IRQ pin level.
+ * The previous implementation treated a HIGH pin as an enabled interrupt,
+ * which could accidentally enable an IRQ with no ISR in polling examples. */
+static volatile bool port_dwic_irq_enabled = false;
 
 /****************************************************************************
  *
@@ -103,6 +107,7 @@ void dw_irq_init(void)
     APP_ERROR_CHECK(err_code);
 
     nrf_drv_gpiote_in_event_enable(DW3000_IRQ2n_Pin, false);
+    port_dwic_irq_enabled = false;
 
 }
 
@@ -204,7 +209,7 @@ __INLINE void process_deca_irq(void)
 __INLINE void port_DisableEXT_IRQ(void)
 {
     nrf_drv_gpiote_in_event_disable(current_irq_pin);
-
+    port_dwic_irq_enabled = false;
 }
 
 /* @fn      port_EnableEXT_IRQ
@@ -212,24 +217,24 @@ __INLINE void port_DisableEXT_IRQ(void)
  * */
 __INLINE void port_EnableEXT_IRQ(void)
 {
-    nrf_drv_gpiote_in_event_enable(current_irq_pin, true);
-}
-
-/* @fn      port_GetEXT_IRQStatus
- * @brief   wrapper to read a DW_IRQ pin IRQ status
- * */
-__INLINE uint32_t port_GetEXT_IRQStatus(void)
-{
-    bool status = nrfx_gpiote_in_is_set(current_irq_pin);
-
-    if (status == TRUE)
+    if (port_dwic_isr != NULL)
     {
-        return 1;
+        nrf_drv_gpiote_in_event_enable(current_irq_pin, true);
+        port_dwic_irq_enabled = true;
     }
     else
     {
-        return 0;
+        nrf_drv_gpiote_in_event_disable(current_irq_pin);
+        port_dwic_irq_enabled = false;
     }
+}
+
+/* @fn      port_GetEXT_IRQStatus
+ * @brief   wrapper to read whether the DW_IRQ GPIOTE event is enabled
+ * */
+__INLINE uint32_t port_GetEXT_IRQStatus(void)
+{
+    return port_dwic_irq_enabled ? 1U : 0U;
 }
 
 /* @fn      port_CheckEXT_IRQ
@@ -262,15 +267,12 @@ __INLINE uint32_t port_CheckEXT_IRQ(void)
  */
 void port_set_dwic_isr(port_dwic_isr_t dwic_isr)
 {
-    /* Check DW IC IRQ activation status. */
-    uint8_t en = port_GetEXT_IRQStatus();
-
-    /* If needed, deactivate DW IC IRQ during the installation of the new handler. */
+    /* Deactivate the event while replacing the handler. */
     port_DisableEXT_IRQ();
 
     port_dwic_isr = dwic_isr;
 
-    if (!en)
+    if (port_dwic_isr != NULL)
     {
         port_EnableEXT_IRQ();
     }

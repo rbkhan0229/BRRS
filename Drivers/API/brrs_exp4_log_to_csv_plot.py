@@ -52,6 +52,7 @@ EXTRA_FIELDS = (
     "rdb_good_events",
     "rdb_dispatches",
     "rdb_host_mismatches",
+    "rdb_incomplete_events",
     "rx_buffer_free_count",
     "rx_buffer_free_min_us",
     "rx_buffer_free_max_us",
@@ -96,6 +97,7 @@ def parse_summary(path: Path):
     sync_prep = None
     double_buffer_config = None
     event_mask_config = None
+    host_irq_config = None
     double_buffer = None
     rearm = None
     burst = None
@@ -148,6 +150,10 @@ def parse_summary(path: Path):
             if marker >= 0:
                 event_mask_config = parse_key_values(line[marker:].strip())
 
+            marker = line.find("EXP4_HOST_IRQ_CONFIG_CSV,")
+            if marker >= 0:
+                host_irq_config = parse_key_values(line[marker:].strip())
+
             marker = line.find("EXP4_BURST_CSV,")
             if marker >= 0:
                 burst = parse_key_values(line[marker:].strip())
@@ -158,14 +164,16 @@ def parse_summary(path: Path):
         raise ValueError(f"{path}: EXP4_TIMING_CSV not found; rerun with the fixed-period firmware")
     if rearm is None:
         raise ValueError(f"{path}: EXP4_REARM_CSV not found; rerun with the rearm diagnostics")
-    if firmware is None or int(firmware.get("rev", "0")) < 17:
-        raise ValueError(f"{path}: Exp4 coordinator firmware rev 17 or newer is required")
+    if firmware is None or int(firmware.get("rev", "0")) < 18:
+        raise ValueError(f"{path}: Exp4 coordinator firmware rev 18 or newer is required")
     if sync_prep is None:
         raise ValueError(f"{path}: EXP4_SYNC_PREP_CSV not found")
     if double_buffer_config is None:
         raise ValueError(f"{path}: EXP4_DOUBLE_BUFFER_CONFIG_CSV not found")
     if event_mask_config is None:
         raise ValueError(f"{path}: EXP4_EVENT_MASK_CONFIG_CSV not found")
+    if host_irq_config is None:
+        raise ValueError(f"{path}: EXP4_HOST_IRQ_CONFIG_CSV not found")
     if double_buffer is None:
         raise ValueError(f"{path}: EXP4_DOUBLE_BUFFER_CSV not found")
     if burst is None:
@@ -195,6 +203,13 @@ def parse_summary(path: Path):
             f"{path}: invalid FINT event-mask boot configuration "
             f"({event_mask_config})"
         )
+    if (host_irq_config.get("mode") != "polling" or
+            host_irq_config.get("enabled") != "0" or
+            host_irq_config.get("status") != "PASS"):
+        raise ValueError(
+            f"{path}: invalid host IRQ polling configuration "
+            f"({host_irq_config})"
+        )
     row.update({
         "period_count": int(timing["period_count"]),
         "period_min_us": int(timing["min_x1000_us"]) / 1000.0,
@@ -212,6 +227,7 @@ def parse_summary(path: Path):
         "rdb_good_events": int(double_buffer["rdb_good_events"]),
         "rdb_dispatches": int(double_buffer["rdb_dispatches"]),
         "rdb_host_mismatches": int(double_buffer["rdb_host_mismatch"]),
+        "rdb_incomplete_events": int(double_buffer["rdb_incomplete"]),
         "rx_buffer_free_count": int(double_buffer["free_count"]),
         "rx_buffer_free_min_us": int(double_buffer["free_min_us"]),
         "rx_buffer_free_max_us": int(double_buffer["free_max_us"]),
@@ -301,6 +317,7 @@ def parse_summary(path: Path):
     if (row["rdb_dispatches"] != row["rx_good_events"] or
             row["rdb_good_events"] != row["rx_good_events"] or
             row["rdb_host_mismatches"] != 0 or
+            row["rdb_incomplete_events"] != 0 or
             row["rx_buffer_free_count"] != row["rx_good_events"] or
             row["rx_buffer_overruns"] != 0):
         raise ValueError(
@@ -309,6 +326,7 @@ def parse_summary(path: Path):
             f"rdb_good={row['rdb_good_events']}, "
             f"rdb_dispatches={row['rdb_dispatches']}, "
             f"rdb_host_mismatch={row['rdb_host_mismatches']}, "
+            f"rdb_incomplete={row['rdb_incomplete_events']}, "
             f"free={row['rx_buffer_free_count']}, "
             f"overrun={row['rx_buffer_overruns']})"
         )

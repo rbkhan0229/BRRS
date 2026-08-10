@@ -1,7 +1,7 @@
 # BRRS Experiment 4: fixed-superframe TDMA capacity
 
-This procedure requires the visible v2.2 firmware banner and Exp4 diagnostic
-revision 17 or newer on the coordinator and sensor nodes.
+This procedure requires the visible v2.3 firmware banner and Exp4 diagnostic
+revision 18 or newer on the coordinator and sensor nodes.
 
 ## Purpose
 
@@ -74,6 +74,10 @@ records on RTT channels 0 and 1:
   error, timeout, and overrun events are enabled in `SYS_ENABLE_LO`. `FINT_STAT`
   is a masked aggregate and remains zero if these event masks are not enabled.
   The run does not start if this check fails.
+- `EXP4_HOST_IRQ_CONFIG_CSV`: verifies that the nRF52840 GPIOTE interrupt is
+  disabled while Exp4 polls `FINT_STAT`. The DW3000 IRQ pin level is tracked
+  separately from the GPIOTE enable state so a HIGH pin cannot accidentally
+  enter an ISR path with no handler.
 - `EXP4_REARM_CSV`: coordinator critical-path service time inside the
   double-buffered DATA-slot burst. A good frame re-arms RX before clearing and
   parsing the completed buffer; an error or timeout clears the required status
@@ -94,8 +98,12 @@ records on RTT channels 0 and 1:
 - `EXP4_DOUBLE_BUFFER_CSV`: good-frame events dispatched from `FINT_STAT` and
   verified in the current host buffer's `RDB_STATUS`, returned-buffer count,
   buffer release service time, host-pointer mismatches, and RX-buffer overruns.
+  A ready buffer must have `RXFR`, `RXFCG`, and `CIADONE`; after its timestamp
+  and header are cached, firmware clears that buffer's W1C `RDB_STATUS` flags
+  before issuing `CMD_DB_TOGGLE`.
   `rdb_dispatches`, `rdb_good_events`, and `free_count` must equal
-  `rx_good_events`; `rdb_host_mismatch` and `overrun` must be zero.
+  `rx_good_events`; `rdb_host_mismatch`, `rdb_incomplete`, and `overrun` must
+  be zero.
 - `EXP4_BURST_CSV`: number of superframes closed by a valid received DATA frame
   in the final slot, by the scheduled last-slot deadline, or forcibly at SYNC
   preparation. RX errors do not trigger an early close. `forced_prep_close`
@@ -178,7 +186,7 @@ To validate back-to-back slot re-arming with three boards, use the two-sensor
 8. Check `BRRS_SLOT_TIMING_CSV`: `samples` equals `rx` and `status=PASS`.
 9. Check `EXP4_DOUBLE_BUFFER_CSV`:
    `rdb_dispatches=rdb_good_events=free_count=rx_good_events`,
-   `rdb_host_mismatch=0`, and `overrun=0`.
+   `rdb_host_mismatch=0`, `rdb_incomplete=0`, and `overrun=0`.
 10. Check `EXP4_REARM_CSV`: `required_guard_us` (measured service maximum plus
     RX startup allowance) must not exceed `guard_us` from `EXP4_CONFIG_CSV`.
 11. Check each sensor for `BRRS_DATA_PHY_APPLIED_CSV`: `m` must match the
@@ -290,7 +298,8 @@ python3 Drivers/API/brrs_exp4_log_to_csv_plot.py \
 ```
 
 The script rejects a log whose final `EXP4_SUMMARY_CSV` status is `FAIL`, whose
-firmware revision is older than 17, whose manual-double-buffer, FINT event-mask, fixed-period,
+firmware revision is older than 18, whose manual-double-buffer, FINT event-mask,
+host-IRQ polling, fixed-period,
 SYNC-preparation, re-arm, or burst diagnostics are missing or invalid, whose
 average period differs from 10 ms by more than 5 us, or whose END sequence is
 incomplete. Logs with different guard values must be analyzed in separate
