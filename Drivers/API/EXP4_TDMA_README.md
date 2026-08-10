@@ -1,5 +1,8 @@
 # BRRS Experiment 4: fixed-superframe TDMA capacity
 
+This procedure requires the visible v2.1 firmware banner and Exp4 diagnostic
+revision 16 or newer on the coordinator and sensor nodes.
+
 ## Purpose
 
 Experiment 4 evaluates how a shorter DATA preamble changes TDMA slot duration,
@@ -65,21 +68,30 @@ records on RTT channels 0 and 1:
 - `EXP4_SYNC_PREP_CSV`: measured DATA-PHY to SYNC-PHY transition plus
   delayed-TX arm time. A 1000-superframe run has 999 delayed SYNC preparations;
   `max_us` must remain below `budget_us` and `delayed_late` must be zero.
-- `EXP4_REARM_CSV`: coordinator status-clear plus RX fast-command service time
-  inside the double-buffered DATA-slot burst. RX is provisionally re-armed
-  before parsing every event, including an S1 final-slot event, and is then
-  closed if that event is a valid scheduled final slot. The
+- `EXP4_DOUBLE_BUFFER_CONFIG_CSV`: boot-time verification that double buffering
+  is enabled in manual mode. The run does not start if this check fails.
+- `EXP4_REARM_CSV`: coordinator critical-path service time inside the
+  double-buffered DATA-slot burst. A good frame re-arms RX before clearing and
+  parsing the completed buffer; an error or timeout clears the required status
+  first and then re-arms RX. An S1 final-slot event is also provisionally
+  re-armed and then closed after validation. The
   `delayed_schedule_late` field applies to delayed scheduling of the first slot.
-- `EXP4_REARM_PHASE_CSV`: SPI service time split into the critical RX fast
-  command, pre-rearm status clear, post-rearm RX timestamp, and 8-byte DATA
-  header read operations. Exp4 disables the hardware frame-wait timeout during
-  the burst;
+  `required_guard_us` adds one extra status-poll transaction (the event can
+  arrive just after the preceding poll sampled the register) and the configured
+  RX startup allowance to the measured worst-case detecting-read-to-command
+  service time.
+- `EXP4_REARM_PHASE_CSV`: SPI service time split into the detecting status read,
+  critical RX fast command, error-path pre-rearm status clear, good-path
+  post-rearm status clear, post-rearm RX timestamp, and 8-byte DATA header read
+  operations. Exp4 disables the hardware frame-wait timeout during the burst;
   the last-slot event or scheduled last-slot end closes RX. This lets a later
   slot remain receivable when an earlier sensor frame is absent.
   Post-rearm operations are not part of the `EXP4_REARM_CSV` value.
-- `EXP4_DOUBLE_BUFFER_CSV`: good-frame events, returned-buffer count, buffer
-  release service time, and RX-buffer overruns. `free_count` must equal
-  `rx_good_events` and `overrun` must be zero.
+- `EXP4_DOUBLE_BUFFER_CSV`: good-frame events dispatched from `FINT_STAT` and
+  verified in the current host buffer's `RDB_STATUS`, returned-buffer count,
+  buffer release service time, host-pointer mismatches, and RX-buffer overruns.
+  `rdb_dispatches`, `rdb_good_events`, and `free_count` must equal
+  `rx_good_events`; `rdb_host_mismatch` and `overrun` must be zero.
 - `EXP4_BURST_CSV`: number of superframes closed by a valid received DATA frame
   in the final slot, by the scheduled last-slot deadline, or forcibly at SYNC
   preparation. RX errors do not trigger an early close. `forced_prep_close`
@@ -160,13 +172,16 @@ To validate back-to-back slot re-arming with three boards, use the two-sensor
 7. Check `EXP4_SYNC_PREP_CSV`: `count=999`, `max_us<budget_us`, and
    `delayed_late=0`.
 8. Check `BRRS_SLOT_TIMING_CSV`: `samples` equals `rx` and `status=PASS`.
-9. Check `EXP4_DOUBLE_BUFFER_CSV`: `free_count=rx_good_events` and
-   `overrun=0`.
-10. Check each sensor for `BRRS_DATA_PHY_APPLIED_CSV`: `m` must match the
+9. Check `EXP4_DOUBLE_BUFFER_CSV`:
+   `rdb_dispatches=rdb_good_events=free_count=rx_good_events`,
+   `rdb_host_mismatch=0`, and `overrun=0`.
+10. Check `EXP4_REARM_CSV`: `required_guard_us` (measured service maximum plus
+    RX startup allowance) must not exceed `guard_us` from `EXP4_CONFIG_CSV`.
+11. Check each sensor for `BRRS_DATA_PHY_APPLIED_CSV`: `m` must match the
    coordinator configuration.
 
 The one-sensor guard-time test does not validate back-to-back slot processing.
-During the first N2+N3 smoke test, check `EXP4_REARM_CSV`, the four
+During the first N2+N3 smoke test, check `EXP4_REARM_CSV`, the seven
 `EXP4_REARM_PHASE_CSV` rows, and N3 PER. If the maximum re-arm service time
 exceeds the guard or N3 is consistently absent, increase `BRRS_SLOT_GUARD_US`
 and repeat; the coordinator did not re-enable RX before the next preamble.
@@ -234,8 +249,12 @@ For multiple sensors, the practical requirement is:
 guard >= maximum coordinator immediate-RX re-arm time + receiver safety margin
 ```
 
-Use `EXP4_REARM_CSV` and PER to reduce guard from 100 us. An S1 result cannot
-validate this because it does not contain a back-to-back RX re-arm.
+Here the re-arm budget includes worst-case status-poll detection latency, the
+detecting status read, the RX fast command, and the configured RX startup
+allowance. Use `EXP4_REARM_CSV` and PER to reduce guard from 100 us. An S1
+result cannot validate this because it does not contain a back-to-back RX
+re-arm requirement, even though the firmware still measures the provisional
+final-slot re-arm.
 
 ## Sparse active-node bitmap validation
 
@@ -267,10 +286,11 @@ python3 Drivers/API/brrs_exp4_log_to_csv_plot.py \
 ```
 
 The script rejects a log whose final `EXP4_SUMMARY_CSV` status is `FAIL`, whose
-fixed-period diagnostics are missing, whose average period differs from 10 ms
-by more than 5 us, or whose END sequence is incomplete. Logs with different
-guard values must be analyzed in separate invocations so they are not mistaken
-for replicates of the same condition.
+firmware revision is older than 16, whose manual-double-buffer, fixed-period,
+SYNC-preparation, re-arm, or burst diagnostics are missing or invalid, whose
+average period differs from 10 ms by more than 5 us, or whose END sequence is
+incomplete. Logs with different guard values must be analyzed in separate
+invocations so they are not mistaken for replicates of the same condition.
 Generated files are:
 
 - `exp4_controlled_summary.csv`

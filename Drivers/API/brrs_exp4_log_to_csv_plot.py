@@ -49,6 +49,9 @@ EXTRA_FIELDS = (
     "sync_prep_max_us",
     "sync_prep_avg_us",
     "rx_good_events",
+    "rdb_good_events",
+    "rdb_dispatches",
+    "rdb_host_mismatches",
     "rx_buffer_free_count",
     "rx_buffer_free_min_us",
     "rx_buffer_free_max_us",
@@ -58,6 +61,14 @@ EXTRA_FIELDS = (
     "rearm_service_min_us",
     "rearm_service_max_us",
     "rearm_service_avg_us",
+    "rearm_poll_count",
+    "rearm_rx_enable_count",
+    "rearm_clear_pre_count",
+    "rearm_clear_post_count",
+    "rearm_poll_max_us",
+    "rearm_poll_detection_allowance_us",
+    "rearm_startup_allowance_us",
+    "rearm_required_guard_us",
     "rearm_slack_min_us",
     "rearm_slack_max_us",
     "rearm_slack_avg_us",
@@ -80,8 +91,10 @@ def parse_key_values(record: str):
 
 def parse_summary(path: Path):
     summaries = []
+    firmware = None
     timing = None
     sync_prep = None
+    double_buffer_config = None
     double_buffer = None
     rearm = None
     burst = None
@@ -110,6 +123,10 @@ def parse_summary(path: Path):
             if marker >= 0:
                 timing = parse_key_values(line[marker:].strip())
 
+            marker = line.find("EXP4_FIRMWARE_REV,")
+            if marker >= 0:
+                firmware = parse_key_values(line[marker:].strip())
+
             marker = line.find("EXP4_REARM_CSV,")
             if marker >= 0:
                 rearm = parse_key_values(line[marker:].strip())
@@ -122,6 +139,10 @@ def parse_summary(path: Path):
             if marker >= 0:
                 double_buffer = parse_key_values(line[marker:].strip())
 
+            marker = line.find("EXP4_DOUBLE_BUFFER_CONFIG_CSV,")
+            if marker >= 0:
+                double_buffer_config = parse_key_values(line[marker:].strip())
+
             marker = line.find("EXP4_BURST_CSV,")
             if marker >= 0:
                 burst = parse_key_values(line[marker:].strip())
@@ -132,8 +153,27 @@ def parse_summary(path: Path):
         raise ValueError(f"{path}: EXP4_TIMING_CSV not found; rerun with the fixed-period firmware")
     if rearm is None:
         raise ValueError(f"{path}: EXP4_REARM_CSV not found; rerun with the rearm diagnostics")
+    if firmware is None or int(firmware.get("rev", "0")) < 16:
+        raise ValueError(f"{path}: Exp4 coordinator firmware rev 16 or newer is required")
+    if sync_prep is None:
+        raise ValueError(f"{path}: EXP4_SYNC_PREP_CSV not found")
+    if double_buffer_config is None:
+        raise ValueError(f"{path}: EXP4_DOUBLE_BUFFER_CONFIG_CSV not found")
+    if double_buffer is None:
+        raise ValueError(f"{path}: EXP4_DOUBLE_BUFFER_CSV not found")
+    if burst is None:
+        raise ValueError(f"{path}: EXP4_BURST_CSV not found")
 
     row = summaries[-1]
+    if row["status"] != "PASS":
+        raise ValueError(f"{path}: EXP4_SUMMARY_CSV status is {row['status']}, not PASS")
+    if (double_buffer_config.get("enabled") != "1" or
+            double_buffer_config.get("mode") != "manual" or
+            double_buffer_config.get("status") != "PASS"):
+        raise ValueError(
+            f"{path}: invalid double-buffer boot configuration "
+            f"({double_buffer_config})"
+        )
     row.update({
         "period_count": int(timing["period_count"]),
         "period_min_us": int(timing["min_x1000_us"]) / 1000.0,
@@ -142,33 +182,43 @@ def parse_summary(path: Path):
         "sync_delayed_late": int(timing["sync_delayed_late"]),
         "tx_wait_timeout": int(timing.get("tx_wait_timeout", "0")),
         "end_tx_count": int(timing["end_tx"]),
-        "sync_prep_budget_us": int(sync_prep["budget_us"]) if sync_prep else 0,
-        "sync_prep_count": int(sync_prep["count"]) if sync_prep else 0,
-        "sync_prep_min_us": int(sync_prep["min_us"]) if sync_prep else 0,
-        "sync_prep_max_us": int(sync_prep["max_us"]) if sync_prep else 0,
-        "sync_prep_avg_us": (
-            int(sync_prep["avg_x1000_us"]) / 1000.0 if sync_prep else 0
-        ),
-        "rx_good_events": int(double_buffer["rx_good_events"]) if double_buffer else 0,
-        "rx_buffer_free_count": int(double_buffer["free_count"]) if double_buffer else 0,
-        "rx_buffer_free_min_us": int(double_buffer["free_min_us"]) if double_buffer else 0,
-        "rx_buffer_free_max_us": int(double_buffer["free_max_us"]) if double_buffer else 0,
-        "rx_buffer_free_avg_us": (
-            int(double_buffer["free_avg_x1000_us"]) / 1000.0
-            if double_buffer else 0
-        ),
-        "rx_buffer_overruns": int(double_buffer["overrun"]) if double_buffer else 0,
+        "sync_prep_budget_us": int(sync_prep["budget_us"]),
+        "sync_prep_count": int(sync_prep["count"]),
+        "sync_prep_min_us": int(sync_prep["min_us"]),
+        "sync_prep_max_us": int(sync_prep["max_us"]),
+        "sync_prep_avg_us": int(sync_prep["avg_x1000_us"]) / 1000.0,
+        "rx_good_events": int(double_buffer["rx_good_events"]),
+        "rdb_good_events": int(double_buffer["rdb_good_events"]),
+        "rdb_dispatches": int(double_buffer["rdb_dispatches"]),
+        "rdb_host_mismatches": int(double_buffer["rdb_host_mismatch"]),
+        "rx_buffer_free_count": int(double_buffer["free_count"]),
+        "rx_buffer_free_min_us": int(double_buffer["free_min_us"]),
+        "rx_buffer_free_max_us": int(double_buffer["free_max_us"]),
+        "rx_buffer_free_avg_us": int(double_buffer["free_avg_x1000_us"]) / 1000.0,
+        "rx_buffer_overruns": int(double_buffer["overrun"]),
         "rearm_count": int(rearm["count"]),
         "rearm_service_min_us": int(rearm["service_min_us"]),
         "rearm_service_max_us": int(rearm["service_max_us"]),
         "rearm_service_avg_us": int(rearm["service_avg_x1000_us"]) / 1000.0,
+        "rearm_poll_count": int(rearm["poll_count"]),
+        "rearm_rx_enable_count": int(rearm["rx_enable_count"]),
+        "rearm_clear_pre_count": int(rearm["clear_pre_count"]),
+        "rearm_clear_post_count": int(rearm["clear_post_count"]),
+        "rearm_poll_max_us": int(rearm.get("poll_max_us", "0")),
+        "rearm_poll_detection_allowance_us": int(
+            rearm.get("poll_detection_allowance_us", "0")
+        ),
+        "rearm_startup_allowance_us": int(rearm.get("startup_allowance_us", "0")),
+        "rearm_required_guard_us": int(
+            rearm.get("required_guard_us", rearm["service_max_us"])
+        ),
         "rearm_slack_min_us": int(rearm.get("slack_min_us", "0")),
         "rearm_slack_max_us": int(rearm.get("slack_max_us", "0")),
         "rearm_slack_avg_us": int(rearm.get("slack_avg_x1000_us", "0")) / 1000.0,
-        "burst_scheduled_end_us": int(burst["scheduled_end_us"]) if burst else 0,
-        "burst_early_close": int(burst["early_close"]) if burst else 0,
-        "burst_deadline_close": int(burst["deadline_close"]) if burst else 0,
-        "burst_forced_prep_close": int(burst["forced_prep_close"]) if burst else 0,
+        "burst_scheduled_end_us": int(burst["scheduled_end_us"]),
+        "burst_early_close": int(burst["early_close"]),
+        "burst_deadline_close": int(burst["deadline_close"]),
+        "burst_forced_prep_close": int(burst["forced_prep_close"]),
     })
 
     if row["period_count"] != row["superframes"]:
@@ -189,42 +239,72 @@ def parse_summary(path: Path):
             f"tx_wait_timeout={row['tx_wait_timeout']}, "
             f"end_tx={row['end_tx_count']})"
         )
-    if sync_prep is not None:
-        expected_prep_count = max(row["superframes"] - 1, 0)
-        if (row["sync_prep_count"] != expected_prep_count or
-                row["sync_prep_max_us"] > row["sync_prep_budget_us"] or
-                int(sync_prep["delayed_late"]) != 0):
-            raise ValueError(
-                f"{path}: invalid SYNC preparation "
-                f"(count={row['sync_prep_count']}/{expected_prep_count}, "
-                f"max={row['sync_prep_max_us']} us, "
-                f"budget={row['sync_prep_budget_us']} us, "
-                f"delayed_late={sync_prep['delayed_late']})"
-            )
-    if double_buffer is not None:
-        if (row["rx_buffer_free_count"] != row["rx_good_events"] or
-                row["rx_buffer_overruns"] != 0):
-            raise ValueError(
-                f"{path}: invalid double-buffer lifecycle "
-                f"(good={row['rx_good_events']}, "
-                f"free={row['rx_buffer_free_count']}, "
-                f"overrun={row['rx_buffer_overruns']})"
-            )
-    if burst is not None:
-        burst_total = int(burst["total"])
-        counted_total = (row["burst_early_close"] +
-                         row["burst_deadline_close"] +
-                         row["burst_forced_prep_close"])
-        if (burst_total != row["superframes"] or
-                counted_total != burst_total or
-                row["burst_forced_prep_close"] != 0):
-            raise ValueError(
-                f"{path}: invalid DATA-burst completion "
-                f"(early={row['burst_early_close']}, "
-                f"deadline={row['burst_deadline_close']}, "
-                f"forced={row['burst_forced_prep_close']}, "
-                f"total={burst_total}, superframes={row['superframes']})"
-            )
+    if row["rearm_poll_count"] != row["rearm_count"]:
+        raise ValueError(
+            f"{path}: RX status-poll/re-arm count mismatch "
+            f"(poll={row['rearm_poll_count']}, rearm={row['rearm_count']})"
+        )
+    if row["rearm_rx_enable_count"] != row["rearm_count"]:
+        raise ValueError(
+            f"{path}: RX-enable/re-arm count mismatch "
+            f"(enable={row['rearm_rx_enable_count']}, rearm={row['rearm_count']})"
+        )
+    if (row["rearm_clear_pre_count"] + row["rearm_clear_post_count"] !=
+            row["rearm_count"]):
+        raise ValueError(
+            f"{path}: RX-status-clear/re-arm count mismatch "
+            f"(pre={row['rearm_clear_pre_count']}, "
+            f"post={row['rearm_clear_post_count']}, "
+            f"rearm={row['rearm_count']})"
+        )
+    if row["rearm_required_guard_us"] > row["guard_us"]:
+        raise ValueError(
+            f"{path}: RX re-arm plus startup allowance exceeds the slot guard "
+            f"(service_max={row['rearm_service_max_us']} us, "
+            f"poll_allowance={row['rearm_poll_detection_allowance_us']} us, "
+            f"startup={row['rearm_startup_allowance_us']} us, "
+            f"required={row['rearm_required_guard_us']} us, "
+            f"guard={row['guard_us']} us)"
+        )
+    expected_prep_count = max(row["superframes"] - 1, 0)
+    if (row["sync_prep_count"] != expected_prep_count or
+            row["sync_prep_max_us"] > row["sync_prep_budget_us"] or
+            int(sync_prep["delayed_late"]) != 0):
+        raise ValueError(
+            f"{path}: invalid SYNC preparation "
+            f"(count={row['sync_prep_count']}/{expected_prep_count}, "
+            f"max={row['sync_prep_max_us']} us, "
+            f"budget={row['sync_prep_budget_us']} us, "
+            f"delayed_late={sync_prep['delayed_late']})"
+        )
+    if (row["rdb_dispatches"] != row["rx_good_events"] or
+            row["rdb_good_events"] != row["rx_good_events"] or
+            row["rdb_host_mismatches"] != 0 or
+            row["rx_buffer_free_count"] != row["rx_good_events"] or
+            row["rx_buffer_overruns"] != 0):
+        raise ValueError(
+            f"{path}: invalid double-buffer lifecycle "
+            f"(good={row['rx_good_events']}, "
+            f"rdb_good={row['rdb_good_events']}, "
+            f"rdb_dispatches={row['rdb_dispatches']}, "
+            f"rdb_host_mismatch={row['rdb_host_mismatches']}, "
+            f"free={row['rx_buffer_free_count']}, "
+            f"overrun={row['rx_buffer_overruns']})"
+        )
+    burst_total = int(burst["total"])
+    counted_total = (row["burst_early_close"] +
+                     row["burst_deadline_close"] +
+                     row["burst_forced_prep_close"])
+    if (burst_total != row["superframes"] or
+            counted_total != burst_total or
+            row["burst_forced_prep_close"] != 0):
+        raise ValueError(
+            f"{path}: invalid DATA-burst completion "
+            f"(early={row['burst_early_close']}, "
+            f"deadline={row['burst_deadline_close']}, "
+            f"forced={row['burst_forced_prep_close']}, "
+            f"total={burst_total}, superframes={row['superframes']})"
+        )
     return row
 
 

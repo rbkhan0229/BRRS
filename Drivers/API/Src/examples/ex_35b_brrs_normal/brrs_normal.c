@@ -34,6 +34,10 @@
  *           - beacon protocol v3 및 8-byte DATA 헤더 적용
  *           - 중복 슬롯 오프셋 필드 제거, 송신 슬롯은 비컨 스케줄만 사용
  *           - 잘못된 길이/비제어 프레임 수신 후 SYNC RX 복구 보강
+ *
+ *           [v2.1 변경사항] (2026-08)
+ *           - coordinator manual double-buffer/FINT-RDB 수신 경로와 버전 동기화
+ *           - 비컨 슬롯 간격과 마지막 슬롯 경계를 런타임 PHY 값으로 검증
  */
 
 #include "deca_probe_interface.h"
@@ -111,31 +115,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v2.0 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v2.1 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v2.0 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v2.1 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v2.0 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v2.1 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v2.0 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v2.1 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v2.0 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v2.1 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v2.0 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v2.1 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v2.0 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v2.1 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -312,8 +316,11 @@ static void terminal_log_info(unsigned char *data)
 #define CONFIG_SWITCH_US    (EXP4_COORD_CONFIG_SWITCH_US - SYNC_FRAME_US)
 #define PERIOD_US           BRRS_SUPERFRAME_US
 #define EXP4_SLOT_BUDGET_US (EXP4_COORD_CONFIG_SWITCH_US - SYNC_BUFFER_US)
+_Static_assert(EXP4_SLOT_BUDGET_US > PHR_PSDU_US + SLOT_GUARD_US,
+               "Exp4 DATA budget cannot fit even one guarded slot");
 #define EXP4_TIMING_MAX_DATA_SLOTS \
-    (1 + (EXP4_SLOT_BUDGET_US - PHR_PSDU_US) / SLOT_INTERVAL_US)
+    (1 + (EXP4_SLOT_BUDGET_US - PHR_PSDU_US - SLOT_GUARD_US) / \
+         SLOT_INTERVAL_US)
 #define EXP4_MAX_DATA_SLOTS \
     ((EXP4_TIMING_MAX_DATA_SLOTS < BRRS_MAX_DATA_SLOTS) ? \
      EXP4_TIMING_MAX_DATA_SLOTS : BRRS_MAX_DATA_SLOTS)
@@ -749,10 +756,24 @@ static uint32_t beacon_config_errors = 0U;
 static uint32_t data_config_errors = 0U;
 static bool beacon_config_logged = false;
 
-static const char *brrs_beacon_reject_reason(const brrs_beacon_config_t *config)
+static uint32_t brrs_preamble_us_from_symbols(uint16_t symbols)
+{
+    return (uint32_t)(((uint64_t)symbols * IPATOV_SYMBOL_X100_NS +
+                       99999ULL) / 100000ULL);
+}
+
+static const char *brrs_beacon_reject_reason(uint8_t message_type,
+                                              const brrs_beacon_config_t *config)
 {
     uint8_t schedule_bitmap = 0U;
     uint8_t slot;
+    uint32_t expected_slot_interval_us;
+    uint32_t schedule_end_us;
+#if BRRS_EXPERIMENT == 4
+    const uint32_t data_deadline_us = EXP4_COORD_CONFIG_SWITCH_US;
+#else
+    const uint32_t data_deadline_us = config->superframe_period_us;
+#endif
 
     {
         uint16_t ignored_plen;
@@ -767,14 +788,25 @@ static const char *brrs_beacon_reject_reason(const brrs_beacon_config_t *config)
     if (config->data_rate != (uint8_t)DWT_BR_6M8) {
         return "data_rate";
     }
-    if (config->slot_interval_us == 0U) {
-        return "slot_interval_zero";
+    expected_slot_interval_us =
+        brrs_preamble_us_from_symbols(config->data_preamble_symbols) +
+        SFD_US + PHR_PSDU_US + SLOT_GUARD_US;
+    if (config->slot_interval_us != expected_slot_interval_us) {
+        return "slot_interval";
     }
     if (config->superframe_period_us == 0U) {
         return "period_zero";
     }
     if (config->first_slot_offset_us >= config->superframe_period_us) {
         return "first_slot_range";
+    }
+    if (message_type == MSG_TYPE_END) {
+        return (config->slot_count == 0U &&
+                config->active_node_bitmap == 0U) ?
+               NULL : "end_schedule";
+    }
+    if (config->slot_count == 0U) {
+        return "slot_count_zero";
     }
 
     for (slot = 0U; slot < config->slot_count; slot++) {
@@ -792,10 +824,10 @@ static const char *brrs_beacon_reject_reason(const brrs_beacon_config_t *config)
         return "active_bitmap";
     }
 
-    if (config->slot_count != 0U &&
-        (uint32_t)config->first_slot_offset_us +
-            (uint32_t)config->slot_count * config->slot_interval_us >=
-            config->superframe_period_us) {
+    schedule_end_us = (uint32_t)config->first_slot_offset_us +
+        (uint32_t)(config->slot_count - 1U) * config->slot_interval_us +
+        PHR_PSDU_US + SLOT_GUARD_US;
+    if (schedule_end_us > data_deadline_us) {
         return "schedule_range";
     }
 
@@ -962,7 +994,7 @@ int brrs_normal(void)
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=14,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=16,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -1261,7 +1293,8 @@ int brrs_normal(void)
                         reject_reason = "decode";
                     } else {
                         decoded = true;
-                        reject_reason = brrs_beacon_reject_reason(&decoded_config);
+                        reject_reason = brrs_beacon_reject_reason(
+                            msg_type, &decoded_config);
                     }
                     valid_beacon = (reject_reason == NULL);
 
