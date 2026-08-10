@@ -13,6 +13,10 @@ __pycache__/
 # Machine-local assistant settings
 **/.claude/settings.local.json
 
+# SEGGER Embedded Studio per-user session state
+Drivers/API/Build_Platforms/nRF52840-DK/*.emSession
+Drivers/API/Build_Platforms/nRF52840-DK/*.jlink
+
 # Rebuildable firmware artifacts
 Drivers/API/Build_Platforms/**/Output/
 Drivers/API/Build_Platforms/nRF52840-DK/sdk/
@@ -25,6 +29,12 @@ Drivers/API/Build_Platforms/nRF52840-DK/sdk/
 
 # Bundled vendor SDK. Install it locally beside the tracked project sources.
 SDK/
+
+# Machine-local experiment artifacts live beside this repository under DWM3000.
+/logs/
+/outputs/
+/reports/
+/result*/
 
 # Large legacy datasets unrelated to the current BRRS experiments
 Drivers/API/UWB_PROTOCOL_TEST_LOG_1001/

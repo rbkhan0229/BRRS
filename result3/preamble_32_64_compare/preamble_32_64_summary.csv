@@ -1,3 +1,0 @@
-preamble_symbols,rx,expected,miss,per_percent,rx_errors,sfdto,phe,fce,fsl,accum_min,accum_max,accum_avg,accum_n,lower_accum_value,lower_accum_n,higher_accum_value,higher_accum_n,tx_success,tx_attempts,delayed_late
-32,764,1000,236,23.60,236,225,11,0,0,8,16,14.7,764,8,121,16,643,1000,1000,0
-64,994,1000,6,0.60,6,6,0,0,0,40,48,47.2,994,40,94,48,900,1000,1000,0

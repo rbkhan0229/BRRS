@@ -1,5 +1,14 @@
 :orphan:
 
+Local BRRS workspace policy:
+
+    The repository contains firmware sources, SES project definitions, analysis
+    scripts, and experiment documentation. Generated logs, processed results,
+    reports, and transfer archives are stored beside this repository under the
+    parent DWM3000 directory. SES Output directories are rebuildable and are not
+    archived or version-controlled. The machine-local Nordic nRF5 SDK remains at
+    Drivers/API/Build_Platforms/nRF52840-DK/sdk.
+
 Release folder structure:
 
     ├─── README.md                                                              <--- Current file - it describes the folder structure

@@ -1,7 +1,9 @@
 from PIL import Image, ImageDraw, ImageFont
+from pathlib import Path
 
 
-OUT = "/Users/songchieon/Desktop/DWM3000/DW3_QM33_SDK_1.0.2/reports/result2_pac_grid_delta_timeline.png"
+OUT_DIR = Path(__file__).resolve().parents[2] / "reports"
+OUT = OUT_DIR / "result2_pac_grid_delta_timeline.png"
 FONT = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
 
 
@@ -185,5 +187,6 @@ text(110, 1261, "주의: result2의 lead 6/10/12/14/15 결과만 사용한 해�
 text(110, 1288, "δ≈11.3us는 lead10 정렬을 기준으로 한 도식용 추정값이며, RF 안정화 + digital acquisition chain을 합친 유효 지연으로 해석.", fill=COL["muted"], size=17)
 
 img = img.resize((W, H), Image.Resampling.LANCZOS)
+OUT_DIR.mkdir(parents=True, exist_ok=True)
 img.save(OUT)
 print(OUT)
