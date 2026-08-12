@@ -315,7 +315,7 @@ _Static_assert(PSDU_BYTES <= 127U, "DATA PSDU exceeds the IEEE 802.15.4 maximum"
  * RX_WINDOW_US는 RX ON부터 RMARKER 이후 PHR/PSDU 수신과 뒤쪽 마진까지의 전체 시간이다.
  */
 #ifndef BRRS_RX_LEAD_MARGIN_US
-#define BRRS_RX_LEAD_MARGIN_US 12
+#define BRRS_RX_LEAD_MARGIN_US 15
 #endif
 #ifndef BRRS_RX_TAIL_MARGIN_US
 #define BRRS_RX_TAIL_MARGIN_US 0
@@ -956,9 +956,7 @@ static void log_cir_quality(uint8_t src_idx, uint32_t frame_no, uint32_t cycle_n
 static void final_log_info(const char *line)
 {
     test_run_info((unsigned char *)line);
-#if !ENABLE_CIR
     cir_log_info(line);
-#endif
 }
 
 #if !ENABLE_CIR
@@ -2927,9 +2925,6 @@ int brrs_init(void)
                                      (unsigned long)expected_rx[i],
                                      (unsigned long)miss, per,
                                      (unsigned long)per_stats[i].rx_error_count);
-#if ENABLE_CIR
-                            cir_log_info(s);
-#endif
                             final_log_info(s);
 #if BRRS_EXPERIMENT == 4
                             snprintf(s, sizeof(s),
@@ -3153,7 +3148,7 @@ int brrs_init(void)
                 }
 
 #if ENABLE_CIR
-                test_run_info((unsigned char *)"--- CIR quality ---");
+                final_log_info("--- CIR quality ---");
                 {
                     uint8_t i;
                     bool cir_has_expected = false;
@@ -3197,7 +3192,7 @@ int brrs_init(void)
                                      (unsigned long long)snr_ratio_max,
                                      (unsigned long long)snr_ratio_avg,
                                      (unsigned long)snr_count);
-                            test_run_info((unsigned char *)s);
+                            final_log_info(s);
 
                             snprintf(s, sizeof(s),
                                      "CIR_SUMMARY_CSV,%s,%d,%lu,%llu,%llu,%llu,%ld,%ld,%ld,%ld,%ld,%ld",
@@ -3212,8 +3207,7 @@ int brrs_init(void)
                                      (long)fp_power_stats[i].min_x100,
                                      (long)fp_power_stats[i].max_x100,
                                      (long)fp_avg);
-                            cir_log_info(s);
-                            test_run_info((unsigned char *)s);
+                            final_log_info(s);
 
                             snprintf(s, sizeof(s),
                                      "CIR_RUN_RESULT,%s,%d,expected=%lu,rx=%lu,cir=%lu,status=%s",
@@ -3222,8 +3216,7 @@ int brrs_init(void)
                                      (unsigned long)per_stats[i].rx_count,
                                      (unsigned long)snr_count,
                                      node_pass ? "PASS" : "FAIL");
-                            cir_log_info(s);
-                            test_run_info((unsigned char *)s);
+                            final_log_info(s);
 
                             if (expected_rx[i] > 0) {
                                 cir_has_expected = true;
@@ -3242,8 +3235,7 @@ int brrs_init(void)
                                      get_slot_description(i), PREAMBLE_SYMBOLS,
                                      (unsigned long)expected_rx[i],
                                      (unsigned long)per_stats[i].rx_count);
-                            cir_log_info(s);
-                            test_run_info((unsigned char *)s);
+                            final_log_info(s);
                             cir_has_expected = true;
                             cir_final_expected += expected_rx[i];
                             cir_final_rx += per_stats[i].rx_count;

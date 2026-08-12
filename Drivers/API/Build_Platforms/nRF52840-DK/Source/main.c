@@ -63,7 +63,17 @@ extern void build_examples(void);
 extern void SEGGER_RTT_Init(void);
 extern void SEGGER_RTT_WriteString(int, char*);
 
+#if defined(DEBUG)
+#define APPROTECT_DISABLE_REG_ADDR 0x40000558UL
+#define APPROTECT_DISABLE_VALUE    0x5AUL
 
+static void disable_software_approtect(void)
+{
+    volatile uint32_t *approtect_disable =
+        (volatile uint32_t *)APPROTECT_DISABLE_REG_ADDR;
+    *approtect_disable = APPROTECT_DISABLE_VALUE;
+}
+#endif
 
 /*! ------------------------------------------------------------------------------------------------------------------
  * @fn test_run_info()
@@ -91,6 +101,9 @@ void test_run_info(unsigned char *data)
  *   Application entry point.
  */int main(void){
     /* USER CODE BEGIN 1 */
+#if defined(DEBUG)
+    disable_software_approtect();
+#endif
     SEGGER_RTT_Init();
     /* USER CODE END 1 */
 
@@ -100,7 +113,7 @@ void test_run_info(unsigned char *data)
     build_examples();
 
     /* USER CODE BEGIN Init */
-    
+
     /* USER CODE END Init */
 
     /* USER CODE BEGIN SysInit */
@@ -135,7 +148,7 @@ void test_run_info(unsigned char *data)
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
-    
+
     while (1)
     {
 
