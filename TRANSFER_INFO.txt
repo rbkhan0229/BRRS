@@ -1,6 +1,6 @@
 BRRS firmware transfer package
 
-Source revision: see `git rev-parse --short HEAD` in the transferred checkout
+Source commit: 27dd6f1 + telnet-default restoration
 Firmware banner: v2.6
 Beacon protocol: v3
 DATA PSDU: 26 bytes (8-byte BRRS header + 16-byte application payload + 2-byte FCS)
@@ -16,16 +16,19 @@ Changes vs 2026-08-10 package:
 - Modified: Source/main.c, dw3000_api.emProject, ex_35a_brrs_init/brrs_init.c,
   docs/BRRS_SUBMISSION_EXPERIMENT_TODO_KO.md
 - New: Drivers/API/brrs_exp2_capture_v3.sh  (single J-Link connection capture;
-  no JLinkRTTLogger. Default = pylink; optional diagnostic backend = RTT telnet.)
+  no JLinkRTTLogger. Default = RTT telnet; optional diagnostic backend = pylink.)
 - New: Drivers/API/rtt_capture.py  (flash + run + RTT ch1 capture + verify
   in one J-Link connection. Requires: pip install pylink-square)
 - New: Drivers/API/brrs_exp2_capture.sh, BRRS_EXPERIMENT2_AUTO_LOG_KR.md
 
 TX quick start (Exp2):
   cd Drivers/API
-  pip install pylink-square   # once
   ./brrs_exp2_capture.sh tx 32 1 <environment> [distance]
   # 재시도 시 기존 로그가 있으면 --force 추가 (이전 로그는 .prev.<time>으로 백업됨)
+
+Optional pylink diagnostic backend:
+  python3 -m pip install pylink-square
+  ./brrs_exp2_capture.sh tx 32 1 <environment> [distance] --method pylink
 
 2026-08-12 rev2:
 - capture_v3: --force 옵션 추가, distance 미지정 시 로그 폴더명 정리

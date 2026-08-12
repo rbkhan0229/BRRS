@@ -17,13 +17,6 @@ CSV와 그래프는 생성하지 않는다. 분석은 모든 원시 로그 수�
 두 노트북에 같은 SDK 폴더가 있어야 한다. 자동화 도구가 J-Link를 직접
 사용하므로, 실행 전 SES의 기존 디버그 세션은 중지한다.
 
-최초 한 번 `pylink-square`를 설치한다. 이 라이브러리는 J-Link DLL을 직접
-사용해 플래시와 RTT 수집을 하나의 연결에서 처리한다.
-
-```bash
-python3 -m pip install pylink-square
-```
-
 Ubuntu에서는 압축을 푼 현재 경로로 이동한다. `/path/to/...`를 글자 그대로
 입력하지 않는다. 현재 TX 노트북의 예시는 다음과 같다.
 
@@ -31,10 +24,10 @@ Ubuntu에서는 압축을 푼 현재 경로로 이동한다. `/path/to/...`를 �
 cd "$HOME/Desktop/CHIEON/BRRS_FW_v2.6_exp2_autolog_20260811/DW3_QM33_SDK_1.0.2"
 ```
 
-기본 방식은 `JLinkRTTLogger`를 사용하지 않는다. 별도 Logger가 두 번째
-디버그 연결을 만들면서 펌웨어가 초기화되던 문제를 피하기 위해, Python의
-`pylink-square`가 한 J-Link 연결 안에서 build 이후 flash, run, RTT 채널 1
-수집과 결과 검증을 연속 수행한다.
+기본 방식은 `JLinkRTTLogger`를 사용하지 않는다. 하나의 `JLinkExe` 세션을
+flash 이후에도 유지하고, 같은 세션의 RTT TELNET 채널 1에서 데이터를
+수집한다. 따라서 별도 Logger의 두 번째 디버그 연결로 펌웨어가 초기화되던
+문제를 피한다.
 
 ### Ubuntu 첫 실행 주의
 
@@ -54,8 +47,9 @@ Drivers/API/brrs_exp2_capture.sh
 ```
 
 이 파일은 안정된 진입점이며 내부적으로 `brrs_exp2_capture_v3.sh`를 호출한다.
-기본 backend는 `pylink`다. RTT TELNET 방식은 비교 진단이 필요할 때만
-`--method telnet`으로 선택한다.
+기본 backend는 클로드 해결안과 동일한 `telnet`이다. 명령에 `--method`를
+붙이지 않으면 된다. `pylink-square` 방식은 비교 진단이 필요할 때만
+`--method pylink`로 선택한다.
 
 현재 NLOS 측정 조건은 다음과 같다.
 
@@ -82,7 +76,7 @@ Drivers/API/brrs_exp2_capture.sh tx 32 1 iron_door_nlos 6.9
 2. TX에 아래 문구가 나오면 RX 노트북에서 실행한다.
 
 ```text
-[rtt_capture] READY marker seen
+[capture] READY marker seen
 ```
 
 ```bash

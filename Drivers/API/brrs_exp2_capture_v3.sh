@@ -10,7 +10,7 @@
 #   * RTT 데이터는 같은 JLinkExe 세션이 여는 RTT TELNET 포트(19021)에서 수신.
 #     채널 1 선택은 접속 직후 100ms 안에 SEGGER TELNET config string 전송으로
 #     수행한다 (공식 문서 요구사항: kb.segger.com/J-Link_RTT_TELNET_Channel).
-#   * 기본 pylink 방식은 rtt_capture.py(pylink-square)로 전 과정 수행.
+#   * --method pylink 지정 시 rtt_capture.py(pylink-square)로 전 과정 수행.
 #
 # 사용:
 #   ./brrs_exp2_capture_v3.sh <tx|rx> <32|64|128|256> <run> <environment> [distance]
@@ -34,7 +34,7 @@ Options:
   --serial <S/N>             Select a J-Link when multiple probes are attached.
   --no-build                 Reuse the existing ELF and HEX.
   --timeout <seconds>        Override the capture timeout.
-  --method <pylink|telnet>   Capture backend (default: pylink).
+  --method <telnet|pylink>   Capture backend (default: telnet).
   --force                    Preserve the old log as .prev.<time> and retry.
   -h, --help                 Show this help.
 EOF
@@ -51,7 +51,7 @@ fi
 
 ROLE="${1:?role tx|rx}"; PREAMBLE="${2:?preamble}"; RUN_NUMBER="${3:?run}"
 ENVIRONMENT="${4:?environment}"; shift 4
-DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="pylink"; FORCE=0
+DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="telnet"; FORCE=0
 if (( $# > 0 )) && [[ "${1}" != --* ]]; then DISTANCE="$1"; shift; fi
 while (( $# > 0 )); do
     case "$1" in
