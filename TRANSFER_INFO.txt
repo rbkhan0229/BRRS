@@ -1,49 +1,58 @@
 BRRS firmware transfer package
 
-Source commit: 27dd6f1 + telnet-default restoration
-Firmware banner: v2.6
+Source base commit: 7fc8705
+Local revision: full Exp2 PER-aware firmware, capture, and analysis
+Firmware banner: v2.7
 Beacon protocol: v3
 DATA PSDU: 26 bytes (8-byte BRRS header + 16-byte application payload + 2-byte FCS)
 Package date: 2026-08-12
+Package revision: rev3 (structured EXP2_TX_DONE verification)
 
 Open this SES project:
 Drivers/API/Build_Platforms/nRF52840-DK/dw3000_api.emProject
 
 Select the named build configuration for the required experiment and node.
-Do not use generic Debug/Release for the submission experiment runs.
+Do not use generic Debug/Release for submission experiment runs.
 
-Changes vs 2026-08-10 package:
-- Modified: Source/main.c, dw3000_api.emProject, ex_35a_brrs_init/brrs_init.c,
-  docs/BRRS_SUBMISSION_EXPERIMENT_TODO_KO.md
-- New: Drivers/API/brrs_exp2_capture_v3.sh  (single J-Link connection capture;
-  no JLinkRTTLogger. Default = RTT telnet; optional diagnostic backend = pylink.)
-- New: Drivers/API/rtt_capture.py  (flash + run + RTT ch1 capture + verify
-  in one J-Link connection. Requires: pip install pylink-square)
-- New: Drivers/API/brrs_exp2_capture.sh, BRRS_EXPERIMENT2_AUTO_LOG_KR.md
+Experiment 2 result semantics:
+- expected=1000 is the number of measurement opportunities.
+- rx is the number of successfully received frames.
+- One valid CIR_CSV row is required for every successful RX frame.
+- collection=PASS means rx, valid_cir, dump_count, and CIR_CSV rows agree.
+- link=LOSS means rx < expected and is reported separately from collection status.
+- per_x1000 is PER percent multiplied by 1000 (2.90% is 2900).
+- status is the collection status, not the zero-PER condition.
+- TX completion is verified from the structured EXP2_TX_DONE marker rather than
+  the human-readable FINAL STATS title.
 
-TX quick start (Exp2):
+Automatic capture:
   cd Drivers/API
   ./brrs_exp2_capture.sh tx 32 1 <environment> [distance]
-  # 재시도 시 기존 로그가 있으면 --force 추가 (이전 로그는 .prev.<time>으로 백업됨)
+  ./brrs_exp2_capture.sh rx 32 1 <environment> [distance]
 
-Optional pylink diagnostic backend:
+The default capture backend is pylink and requires:
   python3 -m pip install pylink-square
-  ./brrs_exp2_capture.sh tx 32 1 <environment> [distance] --method pylink
 
-2026-08-12 rev2:
-- capture_v3: --force 옵션 추가, distance 미지정 시 로그 폴더명 정리
-- rtt_capture.py: UICR.APPROTECT 검사를 PALL(하위 8비트)만 비교하도록 수정
-  (0xFFFFFF5A도 정상 — 이전 버전의 WARNING은 오탐)
+Use --force only when intentionally repeating the same run number. The old raw
+log is retained as .prev.<time>. Use --method telnet only for comparison or
+diagnosis.
+
+RX verification succeeds only when:
+- the firmware uses the new explicit collection/link/PER fields;
+- expected=1000 and the requested preamble agree;
+- rx, valid_cir, dump_count, CIR rows, unique rx_seq values, and unique cycle
+  values are internally consistent;
+- each CIR row has the expected node, preamble, and number of columns.
 
 Included:
 - Current BRRS source and SES project/build configurations
 - Nordic nRF52840 SDK required to resolve boards.h and build on another computer
-- Experiment scripts and docs, including docs/BRRS_SUBMISSION_EXPERIMENT_TODO_KO.md
+- Experiment scripts and Korean guides
 
 Excluded:
-- Previous build Output directories
-- SES personal .emSession and J-Link .jlink files containing machine-specific paths
-- Historical logs/results and the duplicate top-level vendor SDK archive
-- Git metadata
+- Build Output directories
+- SES personal .emSession and J-Link .jlink files with machine-specific paths
+- Historical logs/results, Python bytecode caches, and Git metadata
 
-Build and Debug will recreate the Output directory on the destination computer.
+Build and Debug or the automatic capture script recreates Output on the
+destination computer.

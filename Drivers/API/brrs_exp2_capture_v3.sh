@@ -10,7 +10,8 @@
 #   * RTT 데이터는 같은 JLinkExe 세션이 여는 RTT TELNET 포트(19021)에서 수신.
 #     채널 1 선택은 접속 직후 100ms 안에 SEGGER TELNET config string 전송으로
 #     수행한다 (공식 문서 요구사항: kb.segger.com/J-Link_RTT_TELNET_Channel).
-#   * --method pylink 지정 시 rtt_capture.py(pylink-square)로 전 과정 수행.
+#   * 기본 backend는 rtt_capture.py(pylink-square)이며, --method telnet으로
+#     JLinkExe RTT TELNET 방식을 선택할 수 있다.
 #
 # 사용:
 #   ./brrs_exp2_capture_v3.sh <tx|rx> <32|64|128|256> <run> <environment> [distance]
@@ -34,7 +35,7 @@ Options:
   --serial <S/N>             Select a J-Link when multiple probes are attached.
   --no-build                 Reuse the existing ELF and HEX.
   --timeout <seconds>        Override the capture timeout.
-  --method <telnet|pylink>   Capture backend (default: telnet).
+  --method <pylink|telnet>   Capture backend (default: pylink).
   --force                    Preserve the old log as .prev.<time> and retry.
   -h, --help                 Show this help.
 EOF
@@ -51,7 +52,7 @@ fi
 
 ROLE="${1:?role tx|rx}"; PREAMBLE="${2:?preamble}"; RUN_NUMBER="${3:?run}"
 ENVIRONMENT="${4:?environment}"; shift 4
-DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="telnet"; FORCE=0
+DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="${BRRS_EXP2_CAPTURE_METHOD:-pylink}"; FORCE=0
 if (( $# > 0 )) && [[ "${1}" != --* ]]; then DISTANCE="$1"; shift; fi
 while (( $# > 0 )); do
     case "$1" in
@@ -82,7 +83,7 @@ case "${ROLE}" in
         TIMEOUT="${TIMEOUT:-90}" ;;
     tx) CONFIG="Exp2_Normal"
         READY_MARKER="EXP_LOG_READY,channel=1"
-        END_MARKER="===== END STATS ====="
+        END_MARKER="EXP2_TX_DONE,"
         TIMEOUT="${TIMEOUT:-600}" ;;
     *)  echo "role must be tx|rx" >&2; exit 2 ;;
 esac
@@ -185,9 +186,6 @@ if [[ "${METHOD}" == "pylink" ]]; then
         --out "${RAW_LOG}"
     )
     [[ -n "${SERIAL}" ]] && PYLINK_ARGS+=(--serial "${SERIAL}")
-    if [[ "${ROLE}" == "rx" ]]; then
-        PYLINK_ARGS+=(--require "status=PASS" --expect-lines "CIR_CSV,:${EXPECTED_SAMPLES}")
-    fi
     "${PYLINK_ARGS[@]}"
     CAPTURE_RC=0
 else
@@ -309,45 +307,151 @@ if (( CAPTURE_RC != 0 )); then
 fi
 if [[ "${ROLE}" == "rx" ]]; then
     CSV_ROWS="$(grep -c '^CIR_CSV,' "${RAW_LOG}" || true)"
-    read -r UNIQUE_FRAMES UNIQUE_CYCLES BAD_ROWS <<EOF
+    read -r UNIQUE_FRAMES UNIQUE_CYCLES BAD_ROWS FRAME_MIN FRAME_MAX CYCLE_MIN CYCLE_MAX <<EOF
 $(awk -F, -v expected_m="${PREAMBLE}" '
     $1 == "CIR_CSV" {
         frames[$2] = 1;
         cycles[$3] = 1;
+        if (frame_count == 0 || $2 < frame_min) frame_min = $2;
+        if (frame_count == 0 || $2 > frame_max) frame_max = $2;
+        if (cycle_count == 0 || $3 < cycle_min) cycle_min = $3;
+        if (cycle_count == 0 || $3 > cycle_max) cycle_max = $3;
+        frame_count++;
+        cycle_count++;
         if ($4 != "N2" || $5 != expected_m || NF != 15) bad++;
     }
     END {
-        for (key in frames) frame_count++;
-        for (key in cycles) cycle_count++;
-        printf "%d %d %d\n", frame_count, cycle_count, bad;
+        for (key in frames) unique_frames++;
+        for (key in cycles) unique_cycles++;
+        printf "%d %d %d %d %d %d %d\n",
+               unique_frames, unique_cycles, bad,
+               frame_min, frame_max, cycle_min, cycle_max;
     }
 ' "${RAW_LOG}")
 EOF
-    if (( CSV_ROWS != EXPECTED_SAMPLES ||
-          UNIQUE_FRAMES != EXPECTED_SAMPLES ||
-          UNIQUE_CYCLES != EXPECTED_SAMPLES ||
+
+    EXP2_LINE="$(grep '^EXP2_DONE,' "${RAW_LOG}" | tail -1 || true)"
+    if [[ -z "${EXP2_LINE}" ]]; then
+        echo "[verify] FAIL: EXP2_DONE marker not found" >&2
+        exit 3
+    fi
+
+    read -r DONE_PLEN DONE_EXPECTED DONE_RX DONE_VALID DONE_DUMP DONE_COLLECTION DONE_LINK DONE_PER_X1000 DONE_STATUS <<EOF
+$(printf '%s\n' "${EXP2_LINE}" | awk -F, '
+    {
+        for (i = 2; i <= NF; i++) {
+            split($i, kv, "=");
+            value[kv[1]] = kv[2];
+        }
+        printf "%s %s %s %s %s %s %s %s %s\n",
+               value["plen"], value["expected"], value["rx"],
+               value["valid_cir"], value["dump_count"],
+               value["collection"], value["link"],
+               value["per_x1000"], value["status"];
+    }
+')
+EOF
+
+    if [[ ! "${DONE_PLEN}" =~ ^[0-9]+$ ||
+          ! "${DONE_EXPECTED}" =~ ^[0-9]+$ ||
+          ! "${DONE_RX}" =~ ^[0-9]+$ ||
+          ! "${DONE_VALID}" =~ ^[0-9]+$ ||
+          ! "${DONE_DUMP}" =~ ^[0-9]+$ ||
+          ! "${DONE_PER_X1000}" =~ ^[0-9]+$ ||
+          "${DONE_COLLECTION}" != "PASS" ||
+          "${DONE_STATUS}" != "PASS" ]]; then
+        echo "[verify] FAIL: malformed EXP2_DONE: ${EXP2_LINE}" >&2
+        exit 3
+    fi
+
+    if (( DONE_EXPECTED != EXPECTED_SAMPLES ||
+          DONE_PLEN != PREAMBLE ||
+          DONE_RX > DONE_EXPECTED ||
+          DONE_RX == 0 ||
+          CSV_ROWS != DONE_RX ||
+          DONE_VALID != DONE_RX ||
+          DONE_DUMP != DONE_RX ||
+          UNIQUE_FRAMES != CSV_ROWS ||
+          UNIQUE_CYCLES != CSV_ROWS ||
+          FRAME_MIN != 1 ||
+          FRAME_MAX != CSV_ROWS ||
+          CYCLE_MIN < 1 ||
+          CYCLE_MAX > DONE_EXPECTED ||
           BAD_ROWS != 0 )); then
-        echo "[verify] FAIL: rows=${CSV_ROWS}, frames=${UNIQUE_FRAMES}, cycles=${UNIQUE_CYCLES}, bad=${BAD_ROWS}" >&2
+        echo "[verify] FAIL: expected=${DONE_EXPECTED}, rx=${DONE_RX}, valid=${DONE_VALID}, dump=${DONE_DUMP}, rows=${CSV_ROWS}, frames=${UNIQUE_FRAMES}(${FRAME_MIN}-${FRAME_MAX}), cycles=${UNIQUE_CYCLES}(${CYCLE_MIN}-${CYCLE_MAX}), bad=${BAD_ROWS}" >&2
         exit 3
     fi
-    if ! grep -q 'EXP2_DONE,.*status=PASS' "${RAW_LOG}"; then
-        echo "[verify] FAIL: EXP2_DONE status=PASS not found" >&2; exit 3
+
+    MISSED=$((DONE_EXPECTED - DONE_RX))
+    EXPECTED_PER_X1000=$(((MISSED * 100000 + DONE_EXPECTED / 2) / DONE_EXPECTED))
+    PER_PERCENT="$(awk -v missed="${MISSED}" -v expected="${DONE_EXPECTED}" 'BEGIN { printf "%.2f", 100.0 * missed / expected }')"
+    if (( MISSED == 0 )); then
+        LINK_STATUS="PASS"
+    else
+        LINK_STATUS="LOSS"
     fi
-    DETAIL="CIR rows=${CSV_ROWS}; unique_frames=${UNIQUE_FRAMES}; unique_cycles=${UNIQUE_CYCLES}; EXP2_DONE=PASS"
+    if [[ "${DONE_LINK}" != "${LINK_STATUS}" ]] ||
+       (( DONE_PER_X1000 != EXPECTED_PER_X1000 )); then
+        echo "[verify] FAIL: firmware link/PER mismatch: ${EXP2_LINE}" >&2
+        exit 3
+    fi
+    DETAIL="collection=PASS; expected=${DONE_EXPECTED}; rx=${DONE_RX}; CIR rows=${CSV_ROWS}; PER=${PER_PERCENT}%; link=${LINK_STATUS}; firmware=PASS"
 else
-    TX_LINE="$(grep 'My TX: success=' "${RAW_LOG}" | tail -1 || true)"
-    ERROR_LINE="$(grep 'SYNC loss:' "${RAW_LOG}" | tail -1 || true)"
+    TX_DONE_LINE="$(grep '^EXP2_TX_DONE,' "${RAW_LOG}" | tail -1 || true)"
     BEACON_LINE="$(grep 'BRRS_BEACON_RX_CSV,' "${RAW_LOG}" | tail -1 || true)"
-    FINAL_HEADER="$(grep 'FINAL STATS.*sym)' "${RAW_LOG}" | tail -1 || true)"
-    if [[ "${TX_LINE}" != *"success=${EXPECTED_SAMPLES} attempts=${EXPECTED_SAMPLES} delayed_late=0"* ||
-          "${BEACON_LINE}" != *"m=${PREAMBLE},"* ||
-          "${FINAL_HEADER}" != *"${PREAMBLE}sym)"* ||
-          "${ERROR_LINE}" != *"beacon_config_errors=0"* ||
-          "${ERROR_LINE}" != *"data_config_errors=0"* ]]; then
-        echo "[verify] FAIL: TX final statistics are incomplete or inconsistent" >&2
+    if [[ -z "${TX_DONE_LINE}" ]]; then
+        echo "[verify] FAIL: EXP2_TX_DONE marker not found" >&2
         exit 3
     fi
-    DETAIL="${TX_LINE}; ${ERROR_LINE}"
+    read -r TX_PLEN TX_EXPECTED TX_ATTEMPTS TX_SUCCESS TX_LATE TX_BEACON_ERRORS TX_DATA_ERRORS TX_COLLECTION TX_LINK TX_STATUS <<EOF
+$(printf '%s\n' "${TX_DONE_LINE}" | awk -F, '
+    {
+        for (i = 2; i <= NF; i++) {
+            split($i, kv, "=");
+            value[kv[1]] = kv[2];
+        }
+        printf "%s %s %s %s %s %s %s %s %s %s\n",
+               value["plen"], value["expected"], value["attempts"],
+               value["success"], value["delayed_late"],
+               value["beacon_config_errors"], value["data_config_errors"],
+               value["collection"], value["link"], value["status"];
+    }
+')
+EOF
+    if [[ ! "${TX_PLEN:-}" =~ ^[0-9]+$ ||
+          ! "${TX_EXPECTED:-}" =~ ^[0-9]+$ ||
+          ! "${TX_ATTEMPTS:-}" =~ ^[0-9]+$ ||
+          ! "${TX_SUCCESS:-}" =~ ^[0-9]+$ ||
+          ! "${TX_LATE:-}" =~ ^[0-9]+$ ||
+          ! "${TX_BEACON_ERRORS:-}" =~ ^[0-9]+$ ||
+          ! "${TX_DATA_ERRORS:-}" =~ ^[0-9]+$ ]]; then
+        echo "[verify] FAIL: malformed EXP2_TX_DONE: ${TX_DONE_LINE}" >&2
+        exit 3
+    fi
+    if (( TX_PLEN != PREAMBLE ||
+          TX_EXPECTED != EXPECTED_SAMPLES ||
+          TX_SUCCESS != TX_ATTEMPTS ||
+          TX_ATTEMPTS == 0 ||
+          TX_ATTEMPTS > EXPECTED_SAMPLES ||
+          TX_LATE != 0 ||
+          TX_BEACON_ERRORS != 0 ||
+          TX_DATA_ERRORS != 0 )) ||
+       [[ "${TX_COLLECTION}" != "PASS" ||
+          "${TX_STATUS}" != "PASS" ||
+          "${BEACON_LINE}" != *"m=${PREAMBLE},"* ]]; then
+        echo "[verify] FAIL: inconsistent EXP2 TX collection: ${TX_DONE_LINE}" >&2
+        exit 3
+    fi
+    if (( TX_ATTEMPTS == EXPECTED_SAMPLES )); then
+        TX_LINK_STATUS="PASS"
+    else
+        TX_LINK_STATUS="LOSS"
+    fi
+    if [[ "${TX_LINK}" != "${TX_LINK_STATUS}" ]]; then
+        echo "[verify] FAIL: firmware TX link mismatch: ${TX_DONE_LINE}" >&2
+        exit 3
+    fi
+    DETAIL="collection=PASS; tx=${TX_SUCCESS}/${EXPECTED_SAMPLES}; link=${TX_LINK_STATUS}; firmware=PASS"
 fi
 
 if command -v sha256sum >/dev/null 2>&1; then
@@ -371,6 +475,20 @@ fi
     printf 'raw_log=%s\n' "${RAW_LOG}"
     printf 'raw_size_bytes=%s\n' "$(wc -c <"${RAW_LOG}" | tr -d '[:space:]')"
     printf 'raw_sha256=%s\n' "${RAW_SHA256}"
+    if [[ "${ROLE}" == "rx" ]]; then
+        printf 'expected_cycles=%s\n' "${DONE_EXPECTED}"
+        printf 'rx_success=%s\n' "${DONE_RX}"
+        printf 'valid_cir=%s\n' "${DONE_VALID}"
+        printf 'cir_csv_rows=%s\n' "${CSV_ROWS}"
+        printf 'per_percent=%s\n' "${PER_PERCENT}"
+        printf 'link_status=%s\n' "${LINK_STATUS}"
+    else
+        printf 'expected_cycles=%s\n' "${EXPECTED_SAMPLES}"
+        printf 'tx_success=%s\n' "${TX_SUCCESS}"
+        printf 'tx_attempts=%s\n' "${TX_ATTEMPTS}"
+        printf 'link_status=%s\n' "${TX_LINK_STATUS}"
+    fi
+    printf 'collection_status=PASS\n'
     printf 'status=PASS\n'
     printf 'detail=%s\n' "${DETAIL}"
 } >"${META_FILE}"

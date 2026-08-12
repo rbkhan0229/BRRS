@@ -69,7 +69,7 @@
  *           - END beacon 이후에도 source/observed-slot 진단용 슬롯 구성을 보존
  *           - measured re-arm guard 계산에서 status poll 중복 합산 제거
  *
- *           [v2.6 실험 조건 변경사항] (2026-08)
+ *           [v2.7 실험 조건 변경사항] (2026-08)
  *           - 실험 1~4 DATA를 8 B header + 16 B application + 2 B FCS로 통일
  *           - 실험 1~3의 기존 최대 PSDU 127 B 조건을 제출용 26 B 조건으로 교체
  *
@@ -109,7 +109,7 @@ extern void test_run_info(unsigned char *data);
 extern int SEGGER_RTT_ConfigUpBuffer(unsigned BufferIndex, const char* sName, void* pBuffer, unsigned BufferSize, unsigned Flags);
 extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 
-#define APP_NAME "BRRS INIT NODE v2.6 (beacon-scheduled delayed-RX)"
+#define APP_NAME "BRRS INIT NODE v2.7 (beacon-scheduled delayed-RX)"
 
 /* ========== 실험 모드 선택 ========== */
 #ifndef BRRS_EXPERIMENT
@@ -499,10 +499,21 @@ typedef struct {
 
 static ratio_stats_t fp_snr_ratio_stats[TOTAL_ARRAY_SIZE];
 static uint32_t cir_raw_logs = 0;
-static bool cir_final_pass = false;
+static bool cir_final_collection_pass = false;
+static bool cir_final_link_pass = false;
 static uint32_t cir_final_expected = 0;
 static uint32_t cir_final_rx = 0;
 static uint32_t cir_final_valid = 0;
+
+static uint32_t cir_final_per_x1000(void)
+{
+    uint32_t missed = (cir_final_expected >= cir_final_rx) ?
+                      (cir_final_expected - cir_final_rx) : 0U;
+
+    return (cir_final_expected > 0U) ?
+           (uint32_t)(((uint64_t)missed * 100000ULL +
+                       cir_final_expected / 2U) / cir_final_expected) : 0U;
+}
 
 #else
 
@@ -684,13 +695,16 @@ static void dump_cir_samples(void)
     static char csv_line[360];
 
     snprintf(csv_line, sizeof(csv_line),
-             "CIR_DUMP_START,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,status=%s",
+             "CIR_DUMP_START,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
              PREAMBLE_SYMBOLS,
              (unsigned long)cir_final_expected,
              (unsigned long)cir_final_rx,
              (unsigned long)cir_final_valid,
              (unsigned long)cir_sample_log_count,
-             cir_final_pass ? "PASS" : "FAIL");
+             cir_final_collection_pass ? "PASS" : "FAIL",
+             cir_final_link_pass ? "PASS" : "LOSS",
+             (unsigned long)cir_final_per_x1000(),
+             cir_final_collection_pass ? "PASS" : "FAIL");
     cir_log_info(csv_line);
     test_run_info((unsigned char *)csv_line);
 
@@ -720,40 +734,49 @@ static void dump_cir_samples(void)
     }
 
     snprintf(csv_line, sizeof(csv_line),
-             "CIR_DUMP_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,status=%s",
+             "CIR_DUMP_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
              PREAMBLE_SYMBOLS,
              (unsigned long)cir_final_expected,
              (unsigned long)cir_final_rx,
              (unsigned long)cir_final_valid,
              (unsigned long)cir_sample_log_count,
-             cir_final_pass ? "PASS" : "FAIL");
+             cir_final_collection_pass ? "PASS" : "FAIL",
+             cir_final_link_pass ? "PASS" : "LOSS",
+             (unsigned long)cir_final_per_x1000(),
+             cir_final_collection_pass ? "PASS" : "FAIL");
     cir_log_info(csv_line);
     test_run_info((unsigned char *)csv_line);
 
     snprintf(csv_line, sizeof(csv_line),
-             "EXP2_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,status=%s",
+             "EXP2_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
              PREAMBLE_SYMBOLS,
              (unsigned long)cir_final_expected,
              (unsigned long)cir_final_rx,
              (unsigned long)cir_final_valid,
              (unsigned long)cir_sample_log_count,
-             cir_final_pass ? "PASS" : "FAIL");
+             cir_final_collection_pass ? "PASS" : "FAIL",
+             cir_final_link_pass ? "PASS" : "LOSS",
+             (unsigned long)cir_final_per_x1000(),
+             cir_final_collection_pass ? "PASS" : "FAIL");
     cir_log_info(csv_line);
     test_run_info((unsigned char *)csv_line);
 }
 
 static void print_exp2_done_marker(void)
 {
-    static char csv_line[180];
+    static char csv_line[260];
 
     snprintf(csv_line, sizeof(csv_line),
-             "EXP2_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,status=%s",
+             "EXP2_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
              PREAMBLE_SYMBOLS,
              (unsigned long)cir_final_expected,
              (unsigned long)cir_final_rx,
              (unsigned long)cir_final_valid,
              (unsigned long)cir_sample_log_count,
-             cir_final_pass ? "PASS" : "FAIL");
+             cir_final_collection_pass ? "PASS" : "FAIL",
+             cir_final_link_pass ? "PASS" : "LOSS",
+             (unsigned long)cir_final_per_x1000(),
+             cir_final_collection_pass ? "PASS" : "FAIL");
     cir_log_info(csv_line);
     test_run_info((unsigned char *)csv_line);
 }
@@ -2445,7 +2468,7 @@ int brrs_init(void)
     {
         static char cfg_msg[240];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "BRRS v2.6: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
+                 "BRRS v2.7: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
                  BRRS_EXPERIMENT, SYNC_PLEN, DATA_PLEN, PREAMBLE_SYMBOLS,
                  PREAMBLE_US, SLOT_INTERVAL_US, RX_WINDOW_US,
                  RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US, PERIOD_US,
@@ -3152,19 +3175,47 @@ int brrs_init(void)
                 {
                     uint8_t i;
                     bool cir_has_expected = false;
-                    cir_final_pass = true;
+                    cir_final_collection_pass = true;
+                    cir_final_link_pass = true;
                     cir_final_expected = 0;
                     cir_final_rx = 0;
                     cir_final_valid = 0;
 
                     for (i = 0; i < TOTAL_ARRAY_SIZE; i++) {
+                        uint32_t expected = expected_rx[i];
+                        uint32_t received = per_stats[i].rx_count;
+                        uint32_t snr_count = fp_snr_ratio_stats[i].count;
+                        bool node_collection_pass;
+                        bool node_link_pass;
+                        uint32_t missed;
+                        uint32_t per_x1000;
+
+                        if (expected == 0U) {
+                            continue;
+                        }
+
+                        cir_has_expected = true;
+                        cir_final_expected += expected;
+                        cir_final_rx += received;
+                        cir_final_valid += snr_count;
+
+                        node_collection_pass = (received == snr_count);
+                        node_link_pass = (received == expected);
+                        missed = (expected >= received) ? (expected - received) : 0U;
+                        per_x1000 = (uint32_t)(((uint64_t)missed * 100000ULL +
+                                                expected / 2U) / expected);
+
+                        if (!node_collection_pass) {
+                            cir_final_collection_pass = false;
+                        }
+                        if (!node_link_pass) {
+                            cir_final_link_pass = false;
+                        }
+
                         if (rssi_stats[i].count > 0) {
                             int32_t rssi_avg = (int32_t)(rssi_stats[i].sum_x100 / (int64_t)rssi_stats[i].count);
                             int32_t fp_avg = (int32_t)(fp_power_stats[i].sum_x100 / (int64_t)fp_power_stats[i].count);
                             int32_t gap_avg = (int32_t)(fp_gap_stats[i].sum_x100 / (int64_t)fp_gap_stats[i].count);
-                            uint64_t snr_count = fp_snr_ratio_stats[i].count;
-                            bool node_pass = (expected_rx[i] == per_stats[i].rx_count &&
-                                              expected_rx[i] == snr_count);
                             uint64_t snr_ratio_min = (snr_count > 0) ? fp_snr_ratio_stats[i].min_x1000 : 0;
                             uint64_t snr_ratio_max = (snr_count > 0) ? fp_snr_ratio_stats[i].max_x1000 : 0;
                             uint64_t snr_ratio_avg = (snr_count > 0) ?
@@ -3208,43 +3259,31 @@ int brrs_init(void)
                                      (long)fp_power_stats[i].max_x100,
                                      (long)fp_avg);
                             final_log_info(s);
-
-                            snprintf(s, sizeof(s),
-                                     "CIR_RUN_RESULT,%s,%d,expected=%lu,rx=%lu,cir=%lu,status=%s",
-                                     get_slot_description(i), PREAMBLE_SYMBOLS,
-                                     (unsigned long)expected_rx[i],
-                                     (unsigned long)per_stats[i].rx_count,
-                                     (unsigned long)snr_count,
-                                     node_pass ? "PASS" : "FAIL");
-                            final_log_info(s);
-
-                            if (expected_rx[i] > 0) {
-                                cir_has_expected = true;
-                                cir_final_expected += expected_rx[i];
-                                cir_final_rx += per_stats[i].rx_count;
-                                cir_final_valid += (uint32_t)snr_count;
-                                if (!node_pass) {
-                                    cir_final_pass = false;
-                                }
-                            }
                         }
-                        else if (expected_rx[i] > 0) {
-                            static char s[160];
+
+                        {
+                            static char s[260];
                             snprintf(s, sizeof(s),
-                                     "CIR_RUN_RESULT,%s,%d,expected=%lu,rx=%lu,cir=0,status=FAIL",
+                                     "CIR_RUN_RESULT,%s,%d,expected=%lu,rx=%lu,cir=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
                                      get_slot_description(i), PREAMBLE_SYMBOLS,
-                                     (unsigned long)expected_rx[i],
-                                     (unsigned long)per_stats[i].rx_count);
+                                     (unsigned long)expected,
+                                     (unsigned long)received,
+                                     (unsigned long)snr_count,
+                                     node_collection_pass ? "PASS" : "FAIL",
+                                     node_link_pass ? "PASS" : "LOSS",
+                                     (unsigned long)per_x1000,
+                                     node_collection_pass ? "PASS" : "FAIL");
                             final_log_info(s);
-                            cir_has_expected = true;
-                            cir_final_expected += expected_rx[i];
-                            cir_final_rx += per_stats[i].rx_count;
-                            cir_final_pass = false;
                         }
                     }
 
-                    if (!cir_has_expected) {
-                        cir_final_pass = false;
+                    if (!cir_has_expected ||
+                        total_cycles != TARGET_CYCLES ||
+                        data_config_errors != 0U ||
+                        cir_final_rx == 0U ||
+                        cir_sample_log_count != cir_final_valid ||
+                        cir_final_valid != cir_final_rx) {
+                        cir_final_collection_pass = false;
                     }
                 }
 #endif

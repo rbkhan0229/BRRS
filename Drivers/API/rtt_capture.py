@@ -16,8 +16,6 @@ JLinkRTTLogger를 사용하지 않는다. J-Link DLL에 대한 연결을 하나�
       --channel 1 \
       --ready-marker "CIR_RTT_READY,channel=1" \
       --end-marker "EXP2_DONE," \
-      --require "status=PASS" \
-      --expect-lines "CIR_CSV,:1000" \
       --timeout 90 \
       --out exp2_32_r1_rx.log
 

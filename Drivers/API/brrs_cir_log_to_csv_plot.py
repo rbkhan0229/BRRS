@@ -47,6 +47,9 @@ SUMMARY_FIELDS = [
     "n",
     "expected_n",
     "missing_n",
+    "per_percent",
+    "link_status",
+    "collection_status",
     "status",
     "fp_snr_db_min",
     "fp_snr_db_max",
@@ -144,11 +147,82 @@ def parse_log(path: Path, run: str, environment: str, distance_m: str) -> list[d
     return rows
 
 
-def run_status(n: int, expected_samples: int) -> str:
-    return "PASS" if n == expected_samples else "FAIL"
+def link_status(n: int, expected_cycles: int) -> str:
+    return "PASS" if n == expected_cycles else "LOSS"
+
+
+def per_percent(n: int, expected_cycles: int) -> float:
+    if expected_cycles <= 0:
+        return float("nan")
+    return 100.0 * max(expected_cycles - n, 0) / expected_cycles
+
+
+def parse_exp2_done(path: Path) -> dict[str, int | str]:
+    completion: dict[str, int | str] | None = None
+    with path.open("r", errors="replace") as f:
+        for raw_line in f:
+            line = clean_line(raw_line)
+            idx = line.find("EXP2_DONE,")
+            if idx < 0:
+                continue
+            values: dict[str, str] = {}
+            for field in next(csv.reader([line[idx:]]))[1:]:
+                key, separator, value = field.partition("=")
+                if separator:
+                    values[key] = value
+            required = {
+                "plen", "expected", "rx", "valid_cir", "dump_count", "status"
+            }
+            if not required.issubset(values):
+                continue
+            completion = {
+                "plen": to_int(values["plen"]),
+                "expected": to_int(values["expected"]),
+                "rx": to_int(values["rx"]),
+                "valid_cir": to_int(values["valid_cir"]),
+                "dump_count": to_int(values["dump_count"]),
+                "collection": values.get("collection", "LEGACY"),
+                "link": values.get("link", "LEGACY"),
+                "per_x1000": to_int(values["per_x1000"])
+                if "per_x1000" in values else -1,
+                "status": values["status"],
+            }
+    if completion is None:
+        raise ValueError(f"{path}: EXP2_DONE not found or malformed")
+    return completion
 
 
 def validate_raw_log(path: Path, rows: list[dict[str, object]], expected_samples: int) -> None:
+    completion = parse_exp2_done(path)
+    if int(completion["expected"]) != expected_samples:
+        raise ValueError(
+            f"{path}: EXP2_DONE expected={completion['expected']}; "
+            f"expected {expected_samples} measurement cycles"
+        )
+    if int(completion["rx"]) <= 0:
+        raise ValueError(f"{path}: no successful RX frame; CIR analysis is unavailable")
+    expected_link = (
+        "PASS" if int(completion["rx"]) == int(completion["expected"])
+        else "LOSS"
+    )
+    expected_count = int(completion["expected"])
+    missed_count = expected_count - int(completion["rx"])
+    expected_per_x1000 = (
+        100000 * missed_count + expected_count // 2
+    ) // expected_count
+    if completion["collection"] != "LEGACY":
+        if completion["collection"] != "PASS" or completion["status"] != "PASS":
+            raise ValueError(f"{path}: firmware reports collection failure")
+        if completion["link"] != expected_link:
+            raise ValueError(
+                f"{path}: firmware link={completion['link']}; expected {expected_link}"
+            )
+        if int(completion["per_x1000"]) != expected_per_x1000:
+            raise ValueError(
+                f"{path}: firmware per_x1000={completion['per_x1000']}; "
+                f"expected {expected_per_x1000}"
+            )
+
     groups: dict[tuple[str, int], list[dict[str, object]]] = defaultdict(list)
     for row in rows:
         groups[(str(row["node"]), int(row["plen"]))].append(row)
@@ -167,17 +241,30 @@ def validate_raw_log(path: Path, rows: list[dict[str, object]], expected_samples
         ]
         sequences = [int(row["rx_seq"]) for row in group]
         unique_sequences = set(sequences)
-        expected_sequences = set(range(1, expected_samples + 1))
+        sample_count = len(group)
+        expected_sequences = set(range(1, sample_count + 1))
+        cycles = [int(row["cycle"]) for row in group]
+        unique_cycles = set(cycles)
 
-        if len(group) != expected_samples:
+        if plen != int(completion["plen"]):
             raise ValueError(
-                f"{path}: {node}/{plen}sym has {len(group)} raw CIR_CSV rows; "
-                f"expected exactly {expected_samples}"
+                f"{path}: raw plen={plen} disagrees with EXP2_DONE "
+                f"plen={completion['plen']}"
             )
-        if len(unique_sequences) != expected_samples:
+        if not (
+            sample_count == int(completion["rx"])
+            == int(completion["valid_cir"])
+            == int(completion["dump_count"])
+        ):
+            raise ValueError(
+                f"{path}: raw={sample_count}, rx={completion['rx']}, "
+                f"valid_cir={completion['valid_cir']}, "
+                f"dump_count={completion['dump_count']} disagree"
+            )
+        if len(unique_sequences) != sample_count:
             raise ValueError(
                 f"{path}: {node}/{plen}sym has duplicate rx_seq values "
-                f"({len(unique_sequences)} unique of {expected_samples})"
+                f"({len(unique_sequences)} unique of {sample_count})"
             )
         if unique_sequences != expected_sequences:
             missing = sorted(expected_sequences - unique_sequences)
@@ -186,10 +273,20 @@ def validate_raw_log(path: Path, rows: list[dict[str, object]], expected_samples
                 f"{path}: {node}/{plen}sym rx_seq is incomplete; "
                 f"missing={missing[:10]}, extra={extra[:10]}"
             )
-        if len(valid) != expected_samples:
+        if len(unique_cycles) != sample_count:
+            raise ValueError(
+                f"{path}: {node}/{plen}sym has duplicate cycle values "
+                f"({len(unique_cycles)} unique of {sample_count})"
+            )
+        if min(unique_cycles) < 1 or max(unique_cycles) > expected_samples:
+            raise ValueError(
+                f"{path}: cycle range {min(unique_cycles)}-{max(unique_cycles)} "
+                f"is outside 1-{expected_samples}"
+            )
+        if len(valid) != sample_count:
             raise ValueError(
                 f"{path}: {node}/{plen}sym has {len(valid)} valid first-path "
-                f"SNR samples; expected exactly {expected_samples}"
+                f"SNR samples for {sample_count} successful RX frames"
             )
 
 
@@ -248,7 +345,10 @@ def parse_summary_log(path: Path, run: str, environment: str, distance_m: str, e
                     "n": n_i,
                     "expected_n": expected_samples,
                     "missing_n": max(expected_samples - n_i, 0),
-                    "status": run_status(n_i, expected_samples),
+                    "per_percent": per_percent(n_i, expected_samples),
+                    "link_status": link_status(n_i, expected_samples),
+                    "collection_status": "PASS",
+                    "status": "PASS",
                     "fp_snr_db_min": ratio_x1000_to_db(snr_min_i),
                     "fp_snr_db_max": ratio_x1000_to_db(snr_max_i),
                     "fp_snr_db_mean": ratio_x1000_to_db(snr_avg_i),
@@ -323,7 +423,10 @@ def summarize(rows: list[dict[str, object]], expected_samples: int) -> list[dict
                 "n": n,
                 "expected_n": expected_samples,
                 "missing_n": max(expected_samples - n, 0),
-                "status": run_status(n, expected_samples),
+                "per_percent": per_percent(n, expected_samples),
+                "link_status": link_status(n, expected_samples),
+                "collection_status": "PASS",
+                "status": "PASS",
                 "fp_snr_db_min": min(snr_values),
                 "fp_snr_db_max": max(snr_values),
                 "fp_snr_db_mean": statistics.fmean(snr_values),
@@ -501,7 +604,7 @@ def main() -> int:
     parser.add_argument("--run", default="", help="Optional run label.")
     parser.add_argument("--environment", default="", help="Optional environment label.")
     parser.add_argument("--distance-m", default="", help="Optional distance label in meters.")
-    parser.add_argument("--expected-samples", type=int, default=1000, help="Expected valid CIR sample count per preamble run (submission default: 1000).")
+    parser.add_argument("--expected-samples", type=int, default=1000, help="Expected measurement-cycle count per preamble run (submission default: 1000). CIR sample count may be smaller when PER is nonzero.")
     args = parser.parse_args()
 
     rows: list[dict[str, object]] = []

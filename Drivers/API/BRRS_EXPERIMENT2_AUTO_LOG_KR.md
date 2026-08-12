@@ -5,8 +5,8 @@
 - 선택한 Exp2 펌웨어 빌드
 - 보드 플래시 및 실행
 - RTT 채널 1 원시 로그 저장
-- RX의 `CIR_CSV` 1000개 및 `EXP2_DONE` 검사
-- TX의 송신 1000회 및 설정 오류 검사
+- RX의 실제 성공 수와 `CIR_CSV`/`EXP2_DONE` 카운터 일치 검사
+- TX의 실제 송신 횟수, delayed-TX 및 설정 오류 검사
 - 원시 로그와 플래시된 HEX의 SHA-256 기록
 
 CSV와 그래프는 생성하지 않는다. 분석은 모든 원시 로그 수집이 끝난 뒤
@@ -21,13 +21,12 @@ Ubuntu에서는 압축을 푼 현재 경로로 이동한다. `/path/to/...`를 �
 입력하지 않는다. 현재 TX 노트북의 예시는 다음과 같다.
 
 ```bash
-cd "$HOME/Desktop/CHIEON/BRRS_FW_v2.6_exp2_autolog_20260811/DW3_QM33_SDK_1.0.2"
+cd "$HOME/Desktop/CHIEON/BRRS_FW_v2.7_exp2_per_aware_rev3_20260812/DW3_QM33_SDK_1.0.2"
 ```
 
-기본 방식은 `JLinkRTTLogger`를 사용하지 않는다. 하나의 `JLinkExe` 세션을
-flash 이후에도 유지하고, 같은 세션의 RTT TELNET 채널 1에서 데이터를
-수집한다. 따라서 별도 Logger의 두 번째 디버그 연결로 펌웨어가 초기화되던
-문제를 피한다.
+기본 방식은 `JLinkRTTLogger`를 사용하지 않는다. `pylink-square`가 flash와
+RTT 채널 1 수집을 하나의 J-Link 연결에서 수행한다. 따라서 별도 Logger의
+두 번째 디버그 연결로 펌웨어가 초기화되던 문제를 피한다.
 
 ### Ubuntu 첫 실행 주의
 
@@ -47,9 +46,9 @@ Drivers/API/brrs_exp2_capture.sh
 ```
 
 이 파일은 안정된 진입점이며 내부적으로 `brrs_exp2_capture_v3.sh`를 호출한다.
-기본 backend는 클로드 해결안과 동일한 `telnet`이다. 명령에 `--method`를
-붙이지 않으면 된다. `pylink-square` 방식은 비교 진단이 필요할 때만
-`--method pylink`로 선택한다.
+기본 backend는 두 번째 J-Link 연결 충돌이 없는 `pylink-square`다. 명령에
+`--method`를 붙이지 않으면 된다. `telnet` 방식은 비교 진단이 필요할 때만
+`--method telnet`으로 선택한다.
 
 현재 NLOS 측정 조건은 다음과 같다.
 
@@ -69,7 +68,7 @@ Drivers/API/brrs_exp2_capture.sh
 1. TX 노트북에서 먼저 실행한다.
 
 ```bash
-cd "$HOME/Desktop/CHIEON/BRRS_FW_v2.6_exp2_autolog_20260811/DW3_QM33_SDK_1.0.2"
+cd "$HOME/Desktop/CHIEON/BRRS_FW_v2.7_exp2_per_aware_rev3_20260812/DW3_QM33_SDK_1.0.2"
 Drivers/API/brrs_exp2_capture.sh tx 32 1 iron_door_nlos 6.9
 ```
 
@@ -80,7 +79,7 @@ Drivers/API/brrs_exp2_capture.sh tx 32 1 iron_door_nlos 6.9
 ```
 
 ```bash
-cd "$HOME/Desktop/CHIEON/BRRS_FW_v2.6_exp2_autolog_20260811/DW3_QM33_SDK_1.0.2"
+cd "$HOME/Desktop/CHIEON/BRRS_FW_v2.7_exp2_per_aware_rev3_20260812/DW3_QM33_SDK_1.0.2"
 Drivers/API/brrs_exp2_capture.sh rx 32 1 iron_door_nlos 6.9
 ```
 
@@ -90,10 +89,13 @@ Drivers/API/brrs_exp2_capture.sh rx 32 1 iron_door_nlos 6.9
    노트북의 같은 실험 폴더로 복사한다. 두 노트북은 파일을 자동으로
    공유하지 않는다.
 
-RX의 PASS는 CIR 행 수가 정확히 1000개인지뿐 아니라 frame 번호 1000개,
-cycle 번호 1000개, 노드 ID, 프리앰블 값과 열 개수까지 모두 확인한다.
-`EXP2_DONE`도 `status=PASS`여야 한다. TX는 송신 성공/시도 1000회,
-비컨의 프리앰블 값, delayed-late와 설정 오류를 함께 확인한다.
+RX에서 1000은 송신 기회와 측정 cycle 수다. CIR은 수신 성공 프레임에서만
+생성되므로 PER이 0이 아니면 CIR 행 수는 1000보다 작아지는 것이 정상이다.
+수집 PASS는 `expected=1000`이고 실제 `rx`, `valid_cir`, `dump_count`, CIR 행
+수와 고유 frame/cycle 수가 서로 일치하는지로 판정한다. 펌웨어와 수집기도
+`collection=PASS`, `link=PASS|LOSS`, `per_x1000`을 각각 기록하고 서로
+교차 검증한다. TX는 `EXP2_TX_DONE` 구조화 마커에서 실제 송신 성공/시도
+횟수, 비컨의 프리앰블 값, delayed-late와 설정 오류를 함께 확인한다.
 
 ## 조건 변경
 
@@ -149,9 +151,12 @@ grep -c '^CIR_CSV,' ../logs/exp2_iron_door_nlos_6.9m_YYYYMMDD/exp2_32_r1_rx.log
 grep 'EXP2_DONE' ../logs/exp2_iron_door_nlos_6.9m_YYYYMMDD/exp2_32_r1_rx.log
 ```
 
-첫 명령은 `1000`, 두 번째 명령은 `status=PASS`를 보여야 한다. 메타 파일에는
+첫 명령은 실제 RX 성공 프레임 수와 같아야 한다. 두 번째 명령의
+`expected=1000`, `rx`, `valid_cir`, `dump_count`와 CIR 행 수가 일치하고
+`collection=PASS,status=PASS`이면 원시 로그가 완전하게 수집된 것이다.
+비제로 PER은 실패로 합치지 않고 `link=LOSS`로 따로 표시된다. 메타 파일에는
 펌웨어와 원시 로그의 SHA-256, RTT 제어 블록 주소와 실행 조건이 기록된다.
 
-`CIR_CSV`가 0개이면서 `EXP2_DONE status=FAIL`인 로그가 정상적으로 저장됐다면
-자동 로깅은 동작한 것이고 무선 링크가 실패한 것이다. 이 경우 TX가 먼저
+`CIR_CSV`가 0개이면 CIR 품질을 분석할 표본이 없으므로 자동 검증은 실패한다.
+이 경우 TX가 먼저
 READY 상태였는지와 양쪽 비컨 설정을 점검한다.
