@@ -1,12 +1,12 @@
 BRRS firmware transfer package
 
-Source base commit: 7fc8705
-Local revision: full Exp2 PER-aware firmware, capture, and analysis
+Source base commit: 8f46b5b
+Local revision: Exp2/Exp3 plus Exp4 single-PyLink automatic capture
 Firmware banner: v2.7
 Beacon protocol: v3
 DATA PSDU: 26 bytes (8-byte BRRS header + 16-byte application payload + 2-byte FCS)
 Package date: 2026-08-12
-Package revision: rev3 (structured EXP2_TX_DONE verification)
+Package revision: Exp4 automatic-capture full SDK package
 
 Open this SES project:
 Drivers/API/Build_Platforms/nRF52840-DK/dw3000_api.emProject
@@ -29,6 +29,28 @@ Automatic capture:
   cd Drivers/API
   ./brrs_exp2_capture.sh tx 32 1 <environment> [distance]
   ./brrs_exp2_capture.sh rx 32 1 <environment> [distance]
+
+Experiment 3 automatic capture:
+  cd Drivers/API
+  ./brrs_exp3_capture.sh tx A 1 <environment> [distance]
+  ./brrs_exp3_capture.sh rx A 1 <environment> [distance]
+
+Run 1 uses A -> B -> C and run 2 uses C -> B -> A. Start TX first, then RX.
+TX verification requires exactly 1,000 EXP3_TX_CSV rows and a successful
+EXP3_TX_DUMP_DONE marker. The legacy brrs_exp3_flash_and_log.sh is disabled
+because its separate J-Link connections could lose RTT data.
+
+Experiment 4 automatic capture (default guard 200 us):
+  cd Drivers/API
+  ./brrs_exp4_capture.sh N2   32 2 1 <environment> [distance]
+  ./brrs_exp4_capture.sh N3   32 2 1 <environment> [distance]
+  ./brrs_exp4_capture.sh init 32 2 1 <environment> [distance]
+
+Start every sensor command first and INIT last. The script builds only its own
+role with the requested preamble, sensor count, and guard. It then flashes,
+captures RTT channel 1 through the same PyLink connection, verifies revision 20
+schedule/double-buffer/node totals, and writes a raw log plus metadata. See
+Drivers/API/BRRS_EXPERIMENT4_AUTO_CAPTURE_KR.md.
 
 The default capture backend is pylink and requires:
   python3 -m pip install pylink-square

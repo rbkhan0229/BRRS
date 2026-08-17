@@ -51,6 +51,9 @@
  *           [v2.7 실험 조건 변경사항] (2026-08)
  *           - 실험 1~4 DATA를 8 B header + 16 B application + 2 B FCS로 통일
  *           - 실험 1~3의 기존 최대 PSDU 127 B 조건을 제출용 26 B 조건으로 교체
+ *
+ *           [v2.8 패키지 동기화] (2026-08)
+ *           - Exp4 coordinator의 명시적 double-buffer 판독 수정과 버전 표기 통일
  */
 
 #include "deca_probe_interface.h"
@@ -128,31 +131,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v2.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v2.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v2.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v2.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v2.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v2.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v2.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v2.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v2.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v2.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v2.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v2.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v2.7 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v2.8 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -1045,7 +1048,7 @@ int brrs_normal(void)
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=20,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=21,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,timing_metric=uwb_signed_slot_error");
     }
 #endif
 

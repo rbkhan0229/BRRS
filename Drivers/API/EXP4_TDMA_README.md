@@ -1,7 +1,9 @@
 # BRRS Experiment 4: fixed-superframe TDMA capacity
 
-This procedure requires the visible v2.6 firmware banner and Exp4 diagnostic
-revision 18 or newer on the coordinator and sensor nodes.
+This procedure requires the visible v2.7 firmware banner and Exp4 diagnostic
+revision 20 or newer on the coordinator and sensor nodes. For automatic
+build, capture, and verification, start with
+`BRRS_EXPERIMENT4_AUTO_CAPTURE_KR.md`.
 
 ## Purpose
 
@@ -49,7 +51,7 @@ SYNC beacon (PLEN 256)
   in DATA.
 - PSDU: 8-byte protocol header + 16-byte payload + 2-byte FCS = 26 bytes.
 - Beacon PSDU: 39 bytes, including the packed 32-entry slot-owner table and FCS.
-- Default inter-frame guard: 100 us. This includes the coordinator's immediate
+- Submission baseline inter-frame guard: 200 us. This includes the coordinator's immediate
   RX re-arm service and receiver turn-on margin; it is a firmware implementation
   overhead and must be reported with the result.
 - Retransmission and ACK: disabled.
@@ -130,14 +132,14 @@ decodable DATA header, so their per-node attribution uses the nearest scheduled
 slot at the error-event read time; aggregate error and PER counts remain the
 authoritative result.
 
-With the current 26-byte PSDU and 100 us guard, the compiled timing model is:
+With the current 26-byte PSDU and 200 us guard, the compiled timing model is:
 
 | DATA preamble | Frame airtime | Slot interval | Calculated slots |
 |---:|---:|---:|---:|
-| 32 sym | 97 us | 197 us | 23 |
-| 64 sym | 130 us | 230 us | 19 |
-| 128 sym | 195 us | 295 us | 15 |
-| 256 sym | 325 us | 425 us | 11 |
+| 32 sym | 97 us | 297 us | 15 |
+| 64 sym | 130 us | 330 us | 13 |
+| 128 sym | 195 us | 395 us | 11 |
+| 256 sym | 325 us | 525 us | 9 |
 
 Slot capacity is calculated in the same SYNC-RMARKER clock domain used by the
 beacon's slot offsets. The capacity calculation reserves the final slot's guard
@@ -208,17 +210,19 @@ does not shift or suppress the later-slot collection state.
 ## Build any N2-N8 combination
 
 Build all images for one preamble and sensor count. The optional third argument
-is guard time in microseconds and defaults to 100:
+is guard time in microseconds. The submission baseline is 200 us. An optional
+fourth argument builds only one role:
 
 ```bash
 chmod +x Drivers/API/brrs_exp4_build.sh
-Drivers/API/brrs_exp4_build.sh 32 7 100
+Drivers/API/brrs_exp4_build.sh 32 7 200
+Drivers/API/brrs_exp4_build.sh 32 7 200 N5
 ```
 
-The default 100-us example creates one INIT image and N2-N8 images in:
+The 200-us example creates one INIT image and N2-N8 images in:
 
 ```text
-Drivers/API/Build_Platforms/nRF52840-DK/Output/Debug/Exe/exp4/plen32_sensors7/
+Drivers/API/Build_Platforms/nRF52840-DK/Output/Debug/Exe/exp4/plen32_sensors7_guard200/
 ```
 
 On Linux, set `EMBUILD` if `emBuild` is not on `PATH`:
@@ -232,27 +236,24 @@ universal `Exp4_N2` through `Exp4_N8` configurations can instead be reused;
 their DATA preamble and owned slots come from the beacon. A non-default INIT
 guard is stored in a separate directory such as `plen32_sensors2_guard50`.
 
-To flash one generated image and capture RTT channel 1 in one command:
+To build, flash, capture RTT channel 1, and verify one role in one command:
 
 ```bash
-chmod +x Drivers/API/brrs_exp4_flash_and_log.sh
+chmod +x Drivers/API/brrs_exp4_capture.sh
 
 # Run each sensor first, on the laptop connected to that board.
-Drivers/API/brrs_exp4_flash_and_log.sh 32 7 N2 \
-  ~/Desktop/DWM3000/result4/exp4_32_s7_N2.log 100
+Drivers/API/brrs_exp4_capture.sh N2 32 7 1 iron_door_nlos 6.9
 
 # Run INIT last. Its 10-second startup grace gives the sensors time to wait.
-Drivers/API/brrs_exp4_flash_and_log.sh 32 7 init \
-  ~/Desktop/DWM3000/result4/exp4_32_s7_init.log 100
+Drivers/API/brrs_exp4_capture.sh init 32 7 1 iron_door_nlos 6.9
 ```
 
 For a guard sweep, rebuild and flash every board with the same value:
 
 ```bash
-Drivers/API/brrs_exp4_build.sh 32 2 50
-Drivers/API/brrs_exp4_flash_and_log.sh 32 2 N2 /path/to/N2.log 50
-Drivers/API/brrs_exp4_flash_and_log.sh 32 2 N3 /path/to/N3.log 50
-Drivers/API/brrs_exp4_flash_and_log.sh 32 2 init /path/to/init.log 50
+Drivers/API/brrs_exp4_capture.sh N2   32 2 1 guard_sweep 1.0 --guard 220
+Drivers/API/brrs_exp4_capture.sh N3   32 2 1 guard_sweep 1.0 --guard 220
+Drivers/API/brrs_exp4_capture.sh init 32 2 1 guard_sweep 1.0 --guard 220
 ```
 
 For multiple sensors, the practical requirement is:
@@ -263,7 +264,7 @@ guard >= maximum coordinator immediate-RX re-arm time + receiver safety margin
 
 Here the re-arm budget includes worst-case status-poll detection latency, the
 detecting status read, the RX fast command, and the configured RX startup
-allowance. Use `EXP4_REARM_CSV` and PER to reduce guard from 100 us. An S1
+allowance. Use `EXP4_REARM_CSV` and PER in a separate guard sweep. An S1
 result cannot validate this because it does not contain a back-to-back RX
 re-arm requirement, even though the firmware still measures the provisional
 final-slot re-arm.

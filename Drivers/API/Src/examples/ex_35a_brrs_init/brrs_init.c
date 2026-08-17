@@ -73,6 +73,10 @@
  *           - 실험 1~4 DATA를 8 B header + 16 B application + 2 B FCS로 통일
  *           - 실험 1~3의 기존 최대 PSDU 127 B 조건을 제출용 26 B 조건으로 교체
  *
+ *           [v2.8 변경사항] (2026-08)
+ *           - Exp4 double buffer의 완료 버퍼 번호로 RX timestamp/FINFO/header를 명시 판독
+ *           - 잘못된 frame length의 슬롯/버퍼/raw value 진단 추가
+ *
  *           지원 실험:
  *           - 실험 1: 프리앰블 축소 PER 측정 (DATA_PLEN 변경)
  *           - 실험 2: CIR 수집 (ENABLE_CIR=1)
@@ -109,7 +113,7 @@ extern void test_run_info(unsigned char *data);
 extern int SEGGER_RTT_ConfigUpBuffer(unsigned BufferIndex, const char* sName, void* pBuffer, unsigned BufferSize, unsigned Flags);
 extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 
-#define APP_NAME "BRRS INIT NODE v2.7 (beacon-scheduled delayed-RX)"
+#define APP_NAME "BRRS INIT NODE v2.8 (beacon-scheduled delayed-RX)"
 
 /* ========== 실험 모드 선택 ========== */
 #ifndef BRRS_EXPERIMENT
@@ -1078,6 +1082,9 @@ static uint32_t exp4_rdb_dispatches = 0;
 static uint32_t exp4_rdb_host_mismatches = 0;
 static uint32_t exp4_rdb_incomplete_events = 0;
 static uint8_t exp4_rx_host_buffer = 0;
+static uint32_t exp4_wrong_length_by_slot[BRRS_MAX_DATA_SLOTS + 1U] = {0};
+static uint32_t exp4_wrong_length_by_buffer[2] = {0};
+static uint32_t exp4_wrong_length_hist[128] = {0};
 #endif
 
 /* ========== 노드별 UWB 타이밍 및 진단 통계 ========== */
@@ -2024,17 +2031,48 @@ static uint8_t exp4_slot_from_event_time(void)
            (uint8_t)candidate : current_rx_slot;
 }
 
-static uint32_t exp4_read_rx_timestamp_high32(void)
+static uint32_t exp4_read_rx_timestamp_high32(uint8_t host_buffer)
 {
     uint8_t timestamp[5];
 
-    /* The hi32 convenience API always reads the single-buffer register.
-     * This API follows the driver's current double-buffer host pointer. */
-    dwt_readrxtimestamp(timestamp, DWT_COMPAT_NONE);
+    /* Read the completed swinging set explicitly.  This avoids coupling the
+     * event being classified to the driver's mutable double-buffer pointer. */
+    if ((host_buffer & 1U) == 0U) {
+        dwt_readfromdevice(BUF0_RX_TIME, 0U, RX_TIME_RX_STAMP_LEN,
+                           timestamp);
+    } else {
+        dwt_readfromdevice(INDIRECT_POINTER_B_ID,
+                           (uint16_t)(BUF1_RX_TIME - BUF1_RX_FINFO),
+                           RX_TIME_RX_STAMP_LEN, timestamp);
+    }
     return ((uint32_t)timestamp[4] << 24) |
            ((uint32_t)timestamp[3] << 16) |
            ((uint32_t)timestamp[2] << 8) |
            (uint32_t)timestamp[1];
+}
+
+static uint16_t exp4_read_rx_frame_length(uint8_t host_buffer)
+{
+    uint8_t finfo[2];
+    uint16_t finfo16;
+
+    if ((host_buffer & 1U) == 0U) {
+        dwt_readfromdevice(BUF0_RX_FINFO, 0U, sizeof(finfo), finfo);
+    } else {
+        dwt_readfromdevice(INDIRECT_POINTER_B_ID, 0U,
+                           sizeof(finfo), finfo);
+    }
+    finfo16 = (uint16_t)finfo[0] | ((uint16_t)finfo[1] << 8);
+    return finfo16 & (uint16_t)RX_FINFO_STD_RXFLEN_MASK;
+}
+
+static void exp4_read_rx_buffer(uint8_t host_buffer, uint8_t *buffer,
+                                uint16_t length, uint16_t offset)
+{
+    uint32_t buffer_id = ((host_buffer & 1U) == 0U) ?
+                         RX_BUFFER_0_ID : RX_BUFFER_1_ID;
+
+    dwt_readfromdevice(buffer_id, offset, length, buffer);
 }
 
 static void exp4_clear_rx_status(uint32_t mask, latency_stats_t *stats)
@@ -2468,7 +2506,7 @@ int brrs_init(void)
     {
         static char cfg_msg[240];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "BRRS v2.7: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
+                 "BRRS v2.8: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
                  BRRS_EXPERIMENT, SYNC_PLEN, DATA_PLEN, PREAMBLE_SYMBOLS,
                  PREAMBLE_US, SLOT_INTERVAL_US, RX_WINDOW_US,
                  RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US, PERIOD_US,
@@ -2522,7 +2560,7 @@ int brrs_init(void)
                  EXP4_MAX_DATA_SLOTS);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=20,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,rx_timestamp=immediate_post_rearm_before_rdb_status,rdb_status=validate_current_host_buffer_post_timestamp,slot_class_diag=source_observed_host,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+            "EXP4_FIRMWARE_REV,rev=21,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,rx_buffer_reads=explicit_completed_host_buffer,rdb_status=validate_current_host_buffer_post_timestamp,slot_class_diag=source_observed_host,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -2798,6 +2836,41 @@ int brrs_init(void)
                                  (unsigned long long)prep_avg_x1000,
                                  (unsigned long)exp4_sync_tx_delayed_late);
                         final_log_info(s);
+                    }
+
+                    snprintf(s, sizeof(s),
+                             "EXP4_FRAME_LENGTH_CSV,source=explicit_completed_host_buffer,expected=%u,wrong=%lu,buffer0=%lu,buffer1=%lu",
+                             (unsigned int)PSDU_BYTES,
+                             (unsigned long)exp4_wrong_length_frames,
+                             (unsigned long)exp4_wrong_length_by_buffer[0],
+                             (unsigned long)exp4_wrong_length_by_buffer[1]);
+                    final_log_info(s);
+                    {
+                        uint8_t slot;
+                        uint16_t frame_len;
+
+                        for (slot = 0U; slot <= BRRS_MAX_DATA_SLOTS; slot++) {
+                            if (exp4_wrong_length_by_slot[slot] > 0U) {
+                                snprintf(s, sizeof(s),
+                                         "EXP4_WRONG_LENGTH_SLOT_CSV,slot_index=%u,valid=%u,count=%lu",
+                                         (unsigned int)slot,
+                                         (unsigned int)(slot !=
+                                             EXP4_SLOT_CLASS_INVALID),
+                                         (unsigned long)
+                                             exp4_wrong_length_by_slot[slot]);
+                                final_log_info(s);
+                            }
+                        }
+                        for (frame_len = 0U; frame_len < 128U; frame_len++) {
+                            if (exp4_wrong_length_hist[frame_len] > 0U) {
+                                snprintf(s, sizeof(s),
+                                         "EXP4_WRONG_LENGTH_VALUE_CSV,length=%u,count=%lu",
+                                         (unsigned int)frame_len,
+                                         (unsigned long)
+                                             exp4_wrong_length_hist[frame_len]);
+                                final_log_info(s);
+                            }
+                        }
                     }
 
                     snprintf(s, sizeof(s),
@@ -3604,7 +3677,8 @@ int brrs_init(void)
                  * diagnostic swinging set. Reading RDB_STATUS first made this
                  * 30-us SPI transaction overlap the next frame at 100-us guard. */
                 exp4_phase_start_cycles = dwt_timer_get_cycles();
-                rx_ts_high32 = exp4_read_rx_timestamp_high32();
+                rx_ts_high32 =
+                    exp4_read_rx_timestamp_high32(completed_host_buffer);
                 exp4_phase_cycles =
                     dwt_timer_get_cycles() - exp4_phase_start_cycles;
                 exp4_phase_us =
@@ -3669,13 +3743,20 @@ int brrs_init(void)
                                      exp4_rearm_needed ?
                                          &exp4_rearm_status_clear_post_stats : NULL);
 
-                rx_frame_len = dwt_getframelength(0);
+                rx_frame_len =
+                    exp4_read_rx_frame_length(completed_host_buffer);
+                observed_slot_valid = exp4_find_slot_by_rx_timestamp(
+                    rx_ts_high32, &observed_rx_slot);
                 frame_length_valid = (rx_frame_len == PSDU_BYTES);
                 if (!frame_length_valid) {
                     exp4_wrong_length_frames++;
+                    exp4_wrong_length_by_buffer[completed_host_buffer & 1U]++;
+                    exp4_wrong_length_by_slot[observed_slot_valid ?
+                        observed_rx_slot : EXP4_SLOT_CLASS_INVALID]++;
+                    if (rx_frame_len < 128U) {
+                        exp4_wrong_length_hist[rx_frame_len]++;
+                    }
                 }
-                observed_slot_valid = exp4_find_slot_by_rx_timestamp(
-                    rx_ts_high32, &observed_rx_slot);
 
                 /* Exp4 validates only the protocol header. Avoid copying the
                  * unused payload while the next slot is already receiving. */
@@ -3684,7 +3765,8 @@ int brrs_init(void)
                 header_read_len = (rx_frame_len < IDX_DATA_PAYLOAD) ?
                                   rx_frame_len : IDX_DATA_PAYLOAD;
                 if (header_read_len > 0U) {
-                    dwt_readrxdata(rx_buffer, header_read_len, 0);
+                    exp4_read_rx_buffer(completed_host_buffer, rx_buffer,
+                                        header_read_len, 0U);
                 }
                 exp4_phase_cycles =
                     dwt_timer_get_cycles() - exp4_phase_start_cycles;

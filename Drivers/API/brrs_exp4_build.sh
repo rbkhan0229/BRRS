@@ -3,18 +3,19 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us]"
-    echo "Example: $0 32 7 50"
+    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|init|N2..N8]"
+    echo "Example: $0 32 2 200 N3"
 }
 
-if [[ $# -lt 2 || $# -gt 3 ]]; then
+if [[ $# -lt 2 || $# -gt 4 ]]; then
     usage
     exit 2
 fi
 
 plen="$1"
 sensor_count="$2"
-guard_us="${3:-100}"
+guard_us="${3:-200}"
+requested_role="${4:-all}"
 
 case "${plen}" in
     32|64|128|256) plen_define="DWT_PLEN_${plen}" ;;
@@ -32,6 +33,19 @@ if ! [[ "${guard_us}" =~ ^[0-9]+$ ]] || (( guard_us > 1000 )); then
 fi
 if (( sensor_count > 1 && guard_us < 12 )); then
     echo "ERROR: multi-sensor guard must be at least the 12 us RX lead margin" >&2
+    exit 2
+fi
+
+if [[ "${requested_role}" == "init" || "${requested_role}" == "all" ]]; then
+    :
+elif [[ "${requested_role}" =~ ^N([2-8])$ ]]; then
+    requested_node="${BASH_REMATCH[1]}"
+    if (( requested_node > sensor_count + 1 )); then
+        echo "ERROR: ${requested_role} is outside a ${sensor_count}-sensor run" >&2
+        exit 2
+    fi
+else
+    echo "ERROR: role must be all, init, or N2 through N8" >&2
     exit 2
 fi
 
@@ -86,14 +100,19 @@ build_image() {
     echo "  OK: ${dest_dir}/${base}.hex"
 }
 
-build_image init TEST_BRRS_INIT TEST_NODE_2
+if [[ "${requested_role}" == "all" || "${requested_role}" == "init" ]]; then
+    build_image init TEST_BRRS_INIT TEST_NODE_2
+fi
 
 last_node=$((sensor_count + 1))
 for node in $(seq 2 "${last_node}"); do
-    build_image "N${node}" TEST_BRRS_NORMAL "TEST_NODE_${node}"
+    if [[ "${requested_role}" == "all" || "${requested_role}" == "N${node}" ]]; then
+        build_image "N${node}" TEST_BRRS_NORMAL "TEST_NODE_${node}"
+    fi
 done
 
 echo
 echo "Experiment 4 firmware images are ready in:"
 echo "${dest_dir}"
 echo "Guard: ${guard_us} us"
+echo "Role: ${requested_role}"
