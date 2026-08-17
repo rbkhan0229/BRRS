@@ -1,18 +1,37 @@
 BRRS firmware transfer package
 
-Source base commit: 8f46b5b
-Local revision: Exp2/Exp3 plus Exp4 single-PyLink automatic capture
-Firmware banner: v2.7
+Source base commit: 2bb0f7d
+Local revision: Stage0/Exp1 through Exp4 single-PyLink automatic capture
+Firmware banner: v2.9
 Beacon protocol: v3
 DATA PSDU: 26 bytes (8-byte BRRS header + 16-byte application payload + 2-byte FCS)
-Package date: 2026-08-12
-Package revision: Exp4 automatic-capture full SDK package
+Package date: 2026-08-18
+Package revision: Stage0-Exp4 automatic-capture full SDK package
 
 Open this SES project:
 Drivers/API/Build_Platforms/nRF52840-DK/dw3000_api.emProject
 
 Select the named build configuration for the required experiment and node.
 Do not use generic Debug/Release for submission experiment runs.
+
+Stage0 automatic capture (32-symbol preamble, tail margin 0 us):
+  cd Drivers/API
+  ./brrs_stage0_capture.sh tx 15 1 <environment> [distance]
+  ./brrs_stage0_capture.sh rx 15 1 <environment> [distance]
+
+The lead argument selects an existing Stage0_L<lead>_T0_Init configuration.
+Lead values 0 through 40 us are available. Start TX first, then RX.
+
+Experiment 1 automatic capture (fixed lead 15 us, tail 0 us):
+  cd Drivers/API
+  ./brrs_exp1_capture.sh tx 32 1 <environment> [distance]
+  ./brrs_exp1_capture.sh rx 32 1 <environment> [distance]
+
+Preamble values 32, 64, 128, and 256 symbols are available. Each run has
+2,000 measurement opportunities. collection=PASS means that the requested
+configuration ran to completion without scheduling/configuration faults.
+link=LOSS and the reported PER preserve real RF loss and do not invalidate a
+complete log.
 
 Experiment 2 result semantics:
 - expected=1000 is the number of measurement opportunities.
@@ -48,8 +67,9 @@ Experiment 4 automatic capture (default guard 200 us):
 
 Start every sensor command first and INIT last. The script builds only its own
 role with the requested preamble, sensor count, and guard. It then flashes,
-captures RTT channel 1 through the same PyLink connection, verifies revision 20
-schedule/double-buffer/node totals, and writes a raw log plus metadata. See
+captures RTT channel 1 through the same PyLink connection, verifies the current
+revision 21 schedule/double-buffer/node totals, and writes a raw log plus
+metadata. See
 Drivers/API/BRRS_EXPERIMENT4_AUTO_CAPTURE_KR.md.
 
 The default capture backend is pylink and requires:

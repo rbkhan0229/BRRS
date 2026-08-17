@@ -1,0 +1,53 @@
+# Stage0 / Experiment 1 자동 수집
+
+두 실험 모두 `build -> flash -> RTT channel 1 저장 -> 내부 일관성 검증 -> meta 생성`을 한 명령으로 수행한다.
+
+## 준비
+
+```bash
+cd Drivers/API
+chmod +x brrs_stage0_capture.sh brrs_exp1_capture.sh brrs_exp1_verify.py
+python3 -m pip install pylink-square
+```
+
+한 컴퓨터에 J-Link가 여러 개 연결되면 각 명령 뒤에 `--serial <S/N>`을 붙인다.
+
+## Stage0: lead margin sweep
+
+TX를 먼저 실행하고 `READY marker seen`을 확인한 뒤 RX를 실행한다.
+
+```bash
+# TX 노트북
+./brrs_stage0_capture.sh tx 15 1 iron_door_nlos 6.9
+
+# RX/INIT 노트북
+./brrs_stage0_capture.sh rx 15 1 iron_door_nlos 6.9
+```
+
+두 번째 반복은 run 번호만 `2`로 바꾼다. Lead 0~40 us의 준비된 구성을 사용할 수 있다. Tail 비교용으로 준비된 구성은 다음 두 개다.
+
+```bash
+./brrs_stage0_capture.sh rx 0  1 iron_door_nlos 6.9 --tail 100
+./brrs_stage0_capture.sh rx 12 1 iron_door_nlos 6.9 --tail 100
+```
+
+## Experiment 1: preamble sweep
+
+Stage0에서 고정한 lead 15 us, tail 0 us 조건으로 32/64/128/256 symbols를 측정한다.
+
+```bash
+# 예: 32 symbols, run 1
+./brrs_exp1_capture.sh tx 32 1 iron_door_nlos 6.9
+./brrs_exp1_capture.sh rx 32 1 iron_door_nlos 6.9
+```
+
+같은 방법으로 `32`를 `64`, `128`, `256`으로 바꾸고, 두 번째 반복은 run 번호를 `2`로 바꾼다.
+
+## 판정 의미
+
+- `collection=PASS`: 2,000회가 끝났고 설정, delayed scheduling, 구조화 로그가 서로 일치한다.
+- `link=PASS`: 2,000/2,000 성공이다.
+- `link=LOSS`: 실제 무선 손실이 있었다. 원시 로그 저장 실패가 아니다.
+- `[verify] PASS`: 링크 손실 여부와 무관하게 해당 실험 결과가 분석 가능한 형태로 온전히 저장되었다.
+
+원시 로그와 메타데이터는 SDK 상위의 `logs/stage0_*` 또는 `logs/exp1_*` 폴더에 저장된다. 같은 run 번호를 의도적으로 다시 쓸 때만 `--force`를 붙인다.

@@ -131,31 +131,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v2.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v2.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v2.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v2.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v2.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v2.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v2.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v2.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v2.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v2.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v2.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v2.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v2.8 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v2.9 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -1311,6 +1311,35 @@ int brrs_normal(void)
 
                     snprintf(s, sizeof(s),
                              "EXP2_TX_DONE,node=N%u,plen=%d,expected=%d,attempts=%lu,success=%lu,delayed_late=%lu,beacon_config_errors=%lu,data_config_errors=%lu,collection=%s,link=%s,status=%s",
+                             MY_NODE_SEQ,
+                             current_data_preamble_symbols,
+                             TARGET_CYCLES,
+                             (unsigned long)total_tx_attempts,
+                             (unsigned long)tx_success,
+                             (unsigned long)total_tx_delayed_late,
+                             (unsigned long)beacon_config_errors,
+                             (unsigned long)data_config_errors,
+                             collection_pass ? "PASS" : "FAIL",
+                             link_pass ? "PASS" : "LOSS",
+                             collection_pass ? "PASS" : "FAIL");
+                    final_log_info(s);
+                }
+#endif
+
+#if BRRS_EXPERIMENT == 1
+                {
+                    uint32_t tx_success = per_stats[my_slot_idx()].tx_count;
+                    bool collection_pass =
+                        (tx_success == total_tx_attempts &&
+                         total_tx_attempts > 0U &&
+                         total_tx_delayed_late == 0U &&
+                         beacon_config_errors == 0U &&
+                         data_config_errors == 0U);
+                    bool link_pass = (total_tx_attempts == TARGET_CYCLES);
+                    static char s[280];
+
+                    snprintf(s, sizeof(s),
+                             "EXP1_TX_DONE,node=N%u,plen=%d,expected=%d,attempts=%lu,success=%lu,delayed_late=%lu,beacon_config_errors=%lu,data_config_errors=%lu,collection=%s,link=%s,status=%s",
                              MY_NODE_SEQ,
                              current_data_preamble_symbols,
                              TARGET_CYCLES,

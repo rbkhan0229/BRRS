@@ -113,7 +113,7 @@ extern void test_run_info(unsigned char *data);
 extern int SEGGER_RTT_ConfigUpBuffer(unsigned BufferIndex, const char* sName, void* pBuffer, unsigned BufferSize, unsigned Flags);
 extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 
-#define APP_NAME "BRRS INIT NODE v2.8 (beacon-scheduled delayed-RX)"
+#define APP_NAME "BRRS INIT NODE v2.9 (beacon-scheduled delayed-RX)"
 
 /* ========== 실험 모드 선택 ========== */
 #ifndef BRRS_EXPERIMENT
@@ -3408,22 +3408,32 @@ int brrs_init(void)
                 {
                     uint32_t expected = expected_rx[1];
                     uint32_t received = per_stats[1].rx_count;
+                    uint32_t missed = (expected >= received) ?
+                                      (expected - received) : 0U;
+                    uint32_t per_x1000 =
+                        (expected > 0U) ?
+                        (uint32_t)(((uint64_t)missed * 100000ULL +
+                                    expected / 2U) / expected) : 0U;
                     bool collection_pass =
                         (total_cycles == TARGET_CYCLES &&
                          expected == TARGET_CYCLES &&
+                         total_rx_delayed_fallbacks == 0U &&
                          data_config_errors == 0U);
                     bool link_pass = (received == expected);
-                    static char line[220];
+                    static char line[300];
 
                     snprintf(line, sizeof(line),
-                             "EXP1_DONE,plen=%d,lead_us=%d,tail_us=%d,expected=%lu,rx=%lu,collection=%s,link=%s,status=%s",
+                             "EXP1_DONE,plen=%d,lead_us=%d,tail_us=%d,expected=%lu,rx=%lu,delayed_late=%lu,data_config_errors=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
                              PREAMBLE_SYMBOLS,
                              RX_LEAD_MARGIN_US,
                              RX_TAIL_MARGIN_US,
                              (unsigned long)expected,
                              (unsigned long)received,
+                             (unsigned long)total_rx_delayed_fallbacks,
+                             (unsigned long)data_config_errors,
                              collection_pass ? "PASS" : "FAIL",
                              link_pass ? "PASS" : "LOSS",
+                             (unsigned long)per_x1000,
                              collection_pass ? "PASS" : "FAIL");
                     final_log_info(line);
                 }
