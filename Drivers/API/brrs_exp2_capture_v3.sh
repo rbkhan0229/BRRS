@@ -336,16 +336,17 @@ EOF
         exit 3
     fi
 
-    read -r DONE_PLEN DONE_EXPECTED DONE_RX DONE_VALID DONE_DUMP DONE_COLLECTION DONE_LINK DONE_PER_X1000 DONE_STATUS <<EOF
+    read -r DONE_PLEN DONE_EXPECTED DONE_RX DONE_VALID DONE_DUMP DONE_END_TX DONE_COLLECTION DONE_LINK DONE_PER_X1000 DONE_STATUS <<EOF
 $(printf '%s\n' "${EXP2_LINE}" | awk -F, '
     {
         for (i = 2; i <= NF; i++) {
             split($i, kv, "=");
             value[kv[1]] = kv[2];
         }
-        printf "%s %s %s %s %s %s %s %s %s\n",
+        printf "%s %s %s %s %s %s %s %s %s %s\n",
                value["plen"], value["expected"], value["rx"],
                value["valid_cir"], value["dump_count"],
+               value["end_tx"],
                value["collection"], value["link"],
                value["per_x1000"], value["status"];
     }
@@ -357,6 +358,7 @@ EOF
           ! "${DONE_RX}" =~ ^[0-9]+$ ||
           ! "${DONE_VALID}" =~ ^[0-9]+$ ||
           ! "${DONE_DUMP}" =~ ^[0-9]+$ ||
+          ! "${DONE_END_TX}" =~ ^[0-9]+$ ||
           ! "${DONE_PER_X1000}" =~ ^[0-9]+$ ||
           "${DONE_COLLECTION}" != "PASS" ||
           "${DONE_STATUS}" != "PASS" ]]; then
@@ -371,6 +373,7 @@ EOF
           CSV_ROWS != DONE_RX ||
           DONE_VALID != DONE_RX ||
           DONE_DUMP != DONE_RX ||
+          DONE_END_TX != 3 ||
           UNIQUE_FRAMES != CSV_ROWS ||
           UNIQUE_CYCLES != CSV_ROWS ||
           FRAME_MIN != 1 ||
@@ -403,17 +406,18 @@ else
         echo "[verify] FAIL: EXP2_TX_DONE marker not found" >&2
         exit 3
     fi
-    read -r TX_PLEN TX_EXPECTED TX_ATTEMPTS TX_SUCCESS TX_LATE TX_BEACON_ERRORS TX_DATA_ERRORS TX_COLLECTION TX_LINK TX_STATUS <<EOF
+    read -r TX_PLEN TX_EXPECTED TX_ATTEMPTS TX_SUCCESS TX_LATE TX_BEACON_ERRORS TX_DATA_ERRORS TX_END TX_COLLECTION TX_LINK TX_STATUS <<EOF
 $(printf '%s\n' "${TX_DONE_LINE}" | awk -F, '
     {
         for (i = 2; i <= NF; i++) {
             split($i, kv, "=");
             value[kv[1]] = kv[2];
         }
-        printf "%s %s %s %s %s %s %s %s %s %s\n",
+        printf "%s %s %s %s %s %s %s %s %s %s %s\n",
                value["plen"], value["expected"], value["attempts"],
                value["success"], value["delayed_late"],
                value["beacon_config_errors"], value["data_config_errors"],
+               value["end"],
                value["collection"], value["link"], value["status"];
     }
 ')
@@ -424,7 +428,8 @@ EOF
           ! "${TX_SUCCESS:-}" =~ ^[0-9]+$ ||
           ! "${TX_LATE:-}" =~ ^[0-9]+$ ||
           ! "${TX_BEACON_ERRORS:-}" =~ ^[0-9]+$ ||
-          ! "${TX_DATA_ERRORS:-}" =~ ^[0-9]+$ ]]; then
+          ! "${TX_DATA_ERRORS:-}" =~ ^[0-9]+$ ||
+          ! "${TX_END:-}" =~ ^[0-9]+$ ]]; then
         echo "[verify] FAIL: malformed EXP2_TX_DONE: ${TX_DONE_LINE}" >&2
         exit 3
     fi
@@ -435,7 +440,8 @@ EOF
           TX_ATTEMPTS > EXPECTED_SAMPLES ||
           TX_LATE != 0 ||
           TX_BEACON_ERRORS != 0 ||
-          TX_DATA_ERRORS != 0 )) ||
+          TX_DATA_ERRORS != 0 ||
+          TX_END != 1 )) ||
        [[ "${TX_COLLECTION}" != "PASS" ||
           "${TX_STATUS}" != "PASS" ||
           "${BEACON_LINE}" != *"m=${PREAMBLE},"* ]]; then

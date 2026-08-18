@@ -465,6 +465,7 @@ static per_stats_t per_stats[TOTAL_ARRAY_SIZE] = {0};
 static uint32_t total_rx_errors = 0;
 static uint32_t total_tx_attempts = 0;
 static uint32_t total_tx_delayed_late = 0;
+static bool run_end_received = false;
 #if BRRS_EXPERIMENT == 4
 static uint32_t exp4_sync_frames_received = 0;
 static uint32_t exp4_sync_frames_missed = 0;
@@ -633,7 +634,8 @@ static void exp3_tx_print_summary(void)
     }
 
     exp3_tx_final_pass =
-        (total_tx_attempts == TARGET_CYCLES &&
+        (run_end_received &&
+         total_tx_attempts == TARGET_CYCLES &&
          per_stats[MY_NODE_SEQ - 1].tx_count == TARGET_CYCLES &&
          count == TARGET_CYCLES &&
          exp3_invalid_edges == 0 &&
@@ -665,11 +667,12 @@ static void exp3_tx_print_summary(void)
     final_log_info(line);
 
     snprintf(line, sizeof(line),
-             "EXP3_TX_RESULT,variant=%s,attempts=%lu,success=%lu,captures=%lu,status=%s",
+             "EXP3_TX_RESULT,variant=%s,attempts=%lu,success=%lu,captures=%lu,end=%u,status=%s",
              EXP3_VARIANT_NAME,
              (unsigned long)total_tx_attempts,
              (unsigned long)per_stats[MY_NODE_SEQ - 1].tx_count,
              (unsigned long)count,
+             run_end_received ? 1U : 0U,
              exp3_tx_final_pass ? "PASS" : "FAIL");
     final_log_info(line);
 }
@@ -1184,13 +1187,7 @@ int brrs_normal(void)
         /* ========== [B] Final Statistics ========== */
         if (last_sync_cycles != 0 && !final_stats_printed) {
             bool by_timeout = dwt_timer_elapsed(last_sync_cycles, final_timeout_cycles);
-#if BRRS_EXPERIMENT == 4
-            bool by_cycle   = exp4_end_received;
-#else
-            bool by_cycle   =
-                (current_cycle >= TARGET_CYCLES &&
-                 total_tx_attempts >= TARGET_CYCLES);
-#endif
+            bool by_cycle = run_end_received;
 
             if (by_timeout || by_cycle) {
                 final_stats_printed = true;
@@ -1301,7 +1298,8 @@ int brrs_normal(void)
                 {
                     uint32_t tx_success = per_stats[my_slot_idx()].tx_count;
                     bool collection_pass =
-                        (tx_success == total_tx_attempts &&
+                        (run_end_received &&
+                         tx_success == total_tx_attempts &&
                          total_tx_attempts > 0U &&
                          total_tx_delayed_late == 0U &&
                          beacon_config_errors == 0U &&
@@ -1310,7 +1308,7 @@ int brrs_normal(void)
                     static char s[260];
 
                     snprintf(s, sizeof(s),
-                             "EXP2_TX_DONE,node=N%u,plen=%d,expected=%d,attempts=%lu,success=%lu,delayed_late=%lu,beacon_config_errors=%lu,data_config_errors=%lu,collection=%s,link=%s,status=%s",
+                             "EXP2_TX_DONE,node=N%u,plen=%d,expected=%d,attempts=%lu,success=%lu,delayed_late=%lu,beacon_config_errors=%lu,data_config_errors=%lu,end=%u,collection=%s,link=%s,status=%s",
                              MY_NODE_SEQ,
                              current_data_preamble_symbols,
                              TARGET_CYCLES,
@@ -1319,6 +1317,7 @@ int brrs_normal(void)
                              (unsigned long)total_tx_delayed_late,
                              (unsigned long)beacon_config_errors,
                              (unsigned long)data_config_errors,
+                             run_end_received ? 1U : 0U,
                              collection_pass ? "PASS" : "FAIL",
                              link_pass ? "PASS" : "LOSS",
                              collection_pass ? "PASS" : "FAIL");
@@ -1330,7 +1329,8 @@ int brrs_normal(void)
                 {
                     uint32_t tx_success = per_stats[my_slot_idx()].tx_count;
                     bool collection_pass =
-                        (tx_success == total_tx_attempts &&
+                        (run_end_received &&
+                         tx_success == total_tx_attempts &&
                          total_tx_attempts > 0U &&
                          total_tx_delayed_late == 0U &&
                          beacon_config_errors == 0U &&
@@ -1339,7 +1339,7 @@ int brrs_normal(void)
                     static char s[280];
 
                     snprintf(s, sizeof(s),
-                             "EXP1_TX_DONE,node=N%u,plen=%d,expected=%d,attempts=%lu,success=%lu,delayed_late=%lu,beacon_config_errors=%lu,data_config_errors=%lu,collection=%s,link=%s,status=%s",
+                             "EXP1_TX_DONE,node=N%u,plen=%d,expected=%d,attempts=%lu,success=%lu,delayed_late=%lu,beacon_config_errors=%lu,data_config_errors=%lu,end=%u,collection=%s,link=%s,status=%s",
                              MY_NODE_SEQ,
                              current_data_preamble_symbols,
                              TARGET_CYCLES,
@@ -1348,6 +1348,7 @@ int brrs_normal(void)
                              (unsigned long)total_tx_delayed_late,
                              (unsigned long)beacon_config_errors,
                              (unsigned long)data_config_errors,
+                             run_end_received ? 1U : 0U,
                              collection_pass ? "PASS" : "FAIL",
                              link_pass ? "PASS" : "LOSS",
                              collection_pass ? "PASS" : "FAIL");
@@ -1512,16 +1513,37 @@ int brrs_normal(void)
                     continue;
                 }
 
-#if BRRS_EXPERIMENT == 4
                 if (msg_type == MSG_TYPE_END && src_node == NODE_INIT) {
-                    exp4_end_received = true;
-                    synchronized = true;
-                    last_sync_cycles = dwt_timer_get_cycles();
+                    bool valid_end =
+                        (synchronized &&
+                         current_beacon_config.superframe_seq == TARGET_CYCLES);
+
+                    if (valid_end) {
+                        run_end_received = true;
+#if BRRS_EXPERIMENT == 4
+                        exp4_end_received = true;
+#endif
+                        last_sync_cycles = dwt_timer_get_cycles();
+                    } else {
+                        static char ignored_line[144];
+                        snprintf(ignored_line, sizeof(ignored_line),
+                                 "BRRS_END_IGNORED,seq=%u,expected=%u,synchronized=%u",
+                                 current_beacon_config.superframe_seq,
+                                 TARGET_CYCLES,
+                                 synchronized ? 1U : 0U);
+                        test_run_info((unsigned char *)ignored_line);
+                    }
                     dwt_forcetrxoff();
                     dwt_writesysstatuslo(0xFFFFFFFF);
+                    if (!valid_end) {
+                        if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+                            config_is_sync = true;
+                        }
+                        dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
+                        dwt_rxenable(DWT_START_RX_IMMEDIATE);
+                    }
                     continue;
                 }
-#endif
 
                 /* [D-1] SYNC 수신 - 핵심 타이밍 기준 */
                 if (msg_type == MSG_TYPE_SYNC) {

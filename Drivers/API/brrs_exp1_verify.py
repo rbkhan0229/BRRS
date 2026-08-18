@@ -40,6 +40,7 @@ def validate_rx(text: str, args: argparse.Namespace) -> str:
     received = integer(values, "rx")
     delayed_late = integer(values, "delayed_late")
     data_errors = integer(values, "data_config_errors")
+    end_tx = integer(values, "end_tx")
     per_x1000 = integer(values, "per_x1000")
 
     if plen != args.preamble or lead != args.lead or tail != args.tail:
@@ -49,10 +50,10 @@ def validate_rx(text: str, args: argparse.Namespace) -> str:
         )
     if expected != args.expected or received > expected:
         fail(f"invalid RX totals: rx={received}, expected={expected}")
-    if delayed_late != 0 or data_errors != 0:
+    if delayed_late != 0 or data_errors != 0 or end_tx != 3:
         fail(
             f"RX schedule/config failure: delayed_late={delayed_late}, "
-            f"data_config_errors={data_errors}"
+            f"data_config_errors={data_errors}, end_tx={end_tx}"
         )
     if values.get("collection") != "PASS" or values.get("status") != "PASS":
         fail(f"firmware collection failed: {values}")
@@ -96,6 +97,7 @@ def validate_tx(text: str, args: argparse.Namespace) -> str:
     delayed_late = integer(values, "delayed_late")
     beacon_errors = integer(values, "beacon_config_errors")
     data_errors = integer(values, "data_config_errors")
+    end_received = integer(values, "end")
 
     if plen != args.preamble or expected != args.expected:
         fail(
@@ -104,11 +106,16 @@ def validate_tx(text: str, args: argparse.Namespace) -> str:
         )
     if not (0 < attempts <= expected) or success != attempts:
         fail(f"invalid TX totals: success={success}, attempts={attempts}")
-    if delayed_late != 0 or beacon_errors != 0 or data_errors != 0:
+    if (
+        delayed_late != 0
+        or beacon_errors != 0
+        or data_errors != 0
+        or end_received != 1
+    ):
         fail(
             "TX schedule/config failure: "
             f"late={delayed_late}, beacon_errors={beacon_errors}, "
-            f"data_errors={data_errors}"
+            f"data_errors={data_errors}, end={end_received}"
         )
     if values.get("collection") != "PASS" or values.get("status") != "PASS":
         fail(f"firmware collection failed: {values}")

@@ -209,10 +209,10 @@ $(awk -F, -v variant="${VARIANT}" -v sfd="${SFD_SYMBOLS}" \
 ' "${RAW_LOG}")
 EOF
 
-    read -r ATTEMPTS SUCCESS CAPTURES RESULT_STATUS <<EOF
+    read -r ATTEMPTS SUCCESS CAPTURES END_RECEIVED RESULT_STATUS <<EOF
 $(printf '%s\n' "${RESULT_LINE}" | awk -F, '
     { for (i=2; i<=NF; i++) { split($i, kv, "="); v[kv[1]]=kv[2] } }
-    END { printf "%s %s %s %s\n", v["attempts"], v["success"], v["captures"], v["status"] }
+    END { printf "%s %s %s %s %s\n", v["attempts"], v["success"], v["captures"], v["end"], v["status"] }
 ')
 EOF
     read -r DUMP_EXPECTED DUMP_COUNT DUMP_STATUS <<EOF
@@ -225,10 +225,12 @@ EOF
     if [[ ! "${ATTEMPTS:-}" =~ ^[0-9]+$ ||
           ! "${SUCCESS:-}" =~ ^[0-9]+$ ||
           ! "${CAPTURES:-}" =~ ^[0-9]+$ ||
+          ! "${END_RECEIVED:-}" =~ ^[0-9]+$ ||
           ! "${DUMP_EXPECTED:-}" =~ ^[0-9]+$ ||
           ! "${DUMP_COUNT:-}" =~ ^[0-9]+$ ]] ||
        (( ATTEMPTS != EXPECTED_SAMPLES || SUCCESS != EXPECTED_SAMPLES ||
           CAPTURES != EXPECTED_SAMPLES || DUMP_EXPECTED != EXPECTED_SAMPLES ||
+          END_RECEIVED != 1 ||
           DUMP_COUNT != EXPECTED_SAMPLES || CSV_ROWS != EXPECTED_SAMPLES ||
           UNIQUE_SEQS != EXPECTED_SAMPLES || SEQ_MIN != 1 ||
           SEQ_MAX != EXPECTED_SAMPLES || BAD_ROWS != 0 )) ||
@@ -243,10 +245,10 @@ else
 
     IFS=, read -r RX_TAG RX_VARIANT RX_SFD RX_PHR RX_PSDU RX_EXPECTED \
         RX_COUNT RX_MISSED RX_PER_X1000 RX_MODEL RX_RESULT_STATUS <<<"${RESULT_LINE}"
-    read -r DONE_EXPECTED DONE_RX DONE_PER_X1000 DONE_STATUS <<EOF
+    read -r DONE_EXPECTED DONE_RX DONE_PER_X1000 DONE_END_TX DONE_STATUS <<EOF
 $(printf '%s\n' "${DONE_LINE}" | awk -F, '
     { for (i=2; i<=NF; i++) { split($i, kv, "="); v[kv[1]]=kv[2] } }
-    END { printf "%s %s %s %s\n", v["expected"], v["rx"], v["per_x1000"], v["status"] }
+    END { printf "%s %s %s %s %s\n", v["expected"], v["rx"], v["per_x1000"], v["end_tx"], v["status"] }
 ')
 EOF
 
@@ -261,11 +263,12 @@ EOF
           ! "${RX_PER_X1000:-}" =~ ^[0-9]+$ ||
           ! "${DONE_EXPECTED:-}" =~ ^[0-9]+$ ||
           ! "${DONE_RX:-}" =~ ^[0-9]+$ ||
-          ! "${DONE_PER_X1000:-}" =~ ^[0-9]+$ ]] ||
+          ! "${DONE_PER_X1000:-}" =~ ^[0-9]+$ ||
+          ! "${DONE_END_TX:-}" =~ ^[0-9]+$ ]] ||
        (( RX_EXPECTED != EXPECTED_SAMPLES || RX_COUNT <= 0 ||
           RX_COUNT > RX_EXPECTED || RX_MISSED != RX_EXPECTED - RX_COUNT ||
           DONE_EXPECTED != RX_EXPECTED || DONE_RX != RX_COUNT ||
-          DONE_PER_X1000 != RX_PER_X1000 )) ||
+          DONE_PER_X1000 != RX_PER_X1000 || DONE_END_TX != 3 )) ||
        [[ "${RX_RESULT_STATUS}" != "PASS" || "${DONE_STATUS}" != "PASS" ]]; then
         echo "[verify] FAIL: inconsistent Exp3 RX collection" >&2
         echo "  ${RESULT_LINE}" >&2

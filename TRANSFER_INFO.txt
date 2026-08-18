@@ -1,12 +1,25 @@
 BRRS firmware transfer package
 
-Source base commit: 2bb0f7d
+Source base commit: 2bfb119
 Local revision: Stage0/Exp1 through Exp4 single-PyLink automatic capture
 Firmware banner: v2.9
 Beacon protocol: v3
 DATA PSDU: 26 bytes (8-byte BRRS header + 16-byte application payload + 2-byte FCS)
 Package date: 2026-08-18
 Package revision: Stage0-Exp4 automatic-capture full SDK package
+
+Submission experiment block runner:
+  cd Drivers/API
+  ./brrs_run_experiment.sh <stage0|exp1|exp2|exp3|exp4> <role> \
+    <environment> [distance] [options]
+
+This selects one experiment only and then runs its complete condition/repetition
+matrix for the current physical placement. See
+Drivers/API/BRRS_SUBMISSION_AUTO_RUN_KR.md.
+
+Every experiment defaults to one run per condition. Add --repeats N explicitly
+when collecting repeated paper data. Stage0 defaults to all 41 integer lead
+values from 0 through 40 us in a fixed randomized order.
 
 Open this SES project:
 Drivers/API/Build_Platforms/nRF52840-DK/dw3000_api.emProject
@@ -21,6 +34,10 @@ Stage0 automatic capture (32-symbol preamble, tail margin 0 us):
 
 The lead argument selects an existing Stage0_L<lead>_T0_Init configuration.
 Lead values 0 through 40 us are available. Start TX first, then RX.
+
+Experiments 1-3 use an explicit three-copy END beacon handshake. Their automatic
+verifiers require end=1 on TX and end_tx=3 on INIT so two independent laptops
+cannot silently advance on different case boundaries.
 
 Experiment 1 automatic capture (fixed lead 15 us, tail 0 us):
   cd Drivers/API
@@ -54,7 +71,8 @@ Experiment 3 automatic capture:
   ./brrs_exp3_capture.sh tx A 1 <environment> [distance]
   ./brrs_exp3_capture.sh rx A 1 <environment> [distance]
 
-Run 1 uses A -> B -> C and run 2 uses C -> B -> A. Start TX first, then RX.
+The submission block runner rotates A/B/C across three runs as A-B-C, B-C-A,
+and C-A-B. Start TX first, then RX.
 TX verification requires exactly 1,000 EXP3_TX_CSV rows and a successful
 EXP3_TX_DUMP_DONE marker. The legacy brrs_exp3_flash_and_log.sh is disabled
 because its separate J-Link connections could lose RTT data.

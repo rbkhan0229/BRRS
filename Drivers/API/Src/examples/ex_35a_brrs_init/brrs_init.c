@@ -328,6 +328,8 @@ _Static_assert(PSDU_BYTES <= 127U, "DATA PSDU exceeds the IEEE 802.15.4 maximum"
 #define RX_TAIL_MARGIN_US   BRRS_RX_TAIL_MARGIN_US
 #define RX_EARLY_US         (PREAMBLE_US + SFD_US + RX_LEAD_MARGIN_US)
 #define RX_WINDOW_US        (RX_EARLY_US + PHR_PSDU_US + RX_TAIL_MARGIN_US)
+#define BRRS_END_REPEAT_COUNT 3
+#define BRRS_END_REPEAT_DELAY_MS 5
 #if BRRS_EXPERIMENT == 4
 _Static_assert(BRRS_SENSOR_NODES == 1 || SLOT_GUARD_US >= RX_LEAD_MARGIN_US,
                "Multi-slot Exp4 guard must not be shorter than the RX lead margin");
@@ -344,8 +346,8 @@ _Static_assert(BRRS_SENSOR_NODES == 1 || SLOT_GUARD_US >= RX_LEAD_MARGIN_US,
 #endif
 #define EXP4_SYNC_PREP_US   BRRS_EXP4_SYNC_PREP_US
 #define EXP4_TX_WAIT_TIMEOUT_US 3000
-#define EXP4_END_REPEAT_COUNT 3
-#define EXP4_END_REPEAT_DELAY_MS 5
+#define EXP4_END_REPEAT_COUNT BRRS_END_REPEAT_COUNT
+#define EXP4_END_REPEAT_DELAY_MS BRRS_END_REPEAT_DELAY_MS
 #define CONFIG_SWITCH_US    (BRRS_SUPERFRAME_US - EXP4_SYNC_PREP_US)
 #define PERIOD_US           BRRS_SUPERFRAME_US
 #define EXP4_SLOT_BUDGET_US (CONFIG_SWITCH_US - SYNC_BUFFER_US)
@@ -463,6 +465,7 @@ static uint32_t total_rx_errors = 0;
 static uint32_t total_rx_timeouts = 0;
 static uint32_t total_rx_delayed_fallbacks = 0;
 static uint32_t data_config_errors = 0;
+static uint32_t run_end_tx_count = 0;
 
 /* [DIAG] 실패 원인 세분화: "수신 실패"와 "예약 실패"를 구분하기 위한 카운터 */
 static uint32_t rx_to_frame = 0;     /* RXFTO: 창 내 preamble 미검출 (frame wait TO) */
@@ -752,12 +755,13 @@ static void dump_cir_samples(void)
     test_run_info((unsigned char *)csv_line);
 
     snprintf(csv_line, sizeof(csv_line),
-             "EXP2_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
+             "EXP2_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,end_tx=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
              PREAMBLE_SYMBOLS,
              (unsigned long)cir_final_expected,
              (unsigned long)cir_final_rx,
              (unsigned long)cir_final_valid,
              (unsigned long)cir_sample_log_count,
+             (unsigned long)run_end_tx_count,
              cir_final_collection_pass ? "PASS" : "FAIL",
              cir_final_link_pass ? "PASS" : "LOSS",
              (unsigned long)cir_final_per_x1000(),
@@ -771,12 +775,13 @@ static void print_exp2_done_marker(void)
     static char csv_line[260];
 
     snprintf(csv_line, sizeof(csv_line),
-             "EXP2_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
+             "EXP2_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,end_tx=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
              PREAMBLE_SYMBOLS,
              (unsigned long)cir_final_expected,
              (unsigned long)cir_final_rx,
              (unsigned long)cir_final_valid,
              (unsigned long)cir_sample_log_count,
+             (unsigned long)run_end_tx_count,
              cir_final_collection_pass ? "PASS" : "FAIL",
              cir_final_link_pass ? "PASS" : "LOSS",
              (unsigned long)cir_final_per_x1000(),
@@ -2367,6 +2372,42 @@ static bool exp4_send_end_beacons(bool *config_is_sync)
 }
 #endif
 
+#if BRRS_EXPERIMENT != 4
+static bool brrs_send_end_beacons(bool *config_is_sync)
+{
+    uint32_t repeat;
+
+    run_end_tx_count = 0U;
+    for (repeat = 0U; repeat < BRRS_END_REPEAT_COUNT; repeat++) {
+        uint32_t tx_status = 0U;
+
+        if (repeat > 0U) {
+            Sleep(BRRS_END_REPEAT_DELAY_MS);
+        }
+        dwt_forcetrxoff();
+        dwt_writesysstatuslo(0xFFFFFFFF);
+        if (dwt_configure(&config_sync) != DWT_SUCCESS) {
+            continue;
+        }
+        *config_is_sync = true;
+        brrs_prepare_beacon(MSG_TYPE_END, TARGET_CYCLES, 0U);
+        dwt_setrxaftertxdelay(0);
+        dwt_writetxdata(BRRS_BEACON_PSDU_BYTES, beacon_msg, 0);
+        dwt_writetxfctrl(BRRS_BEACON_PSDU_BYTES, 0, 0);
+        if (dwt_starttx(DWT_START_TX_IMMEDIATE) != DWT_SUCCESS) {
+            continue;
+        }
+        waitforsysstatus(&tx_status, NULL, DWT_INT_TXFRS_BIT_MASK, 0);
+        if (tx_status & DWT_INT_TXFRS_BIT_MASK) {
+            dwt_writesysstatuslo(DWT_INT_TXFRS_BIT_MASK);
+            run_end_tx_count++;
+        }
+    }
+
+    return run_end_tx_count == BRRS_END_REPEAT_COUNT;
+}
+#endif
+
 /* ========== 유틸리티 함수 ========== */
 
 static uint8_t node_id_to_index(uint8_t node_id) {
@@ -2506,7 +2547,7 @@ int brrs_init(void)
     {
         static char cfg_msg[240];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "BRRS v2.8: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
+                 "BRRS v2.9: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
                  BRRS_EXPERIMENT, SYNC_PLEN, DATA_PLEN, PREAMBLE_SYMBOLS,
                  PREAMBLE_US, SLOT_INTERVAL_US, RX_WINDOW_US,
                  RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US, PERIOD_US,
@@ -2714,6 +2755,17 @@ int brrs_init(void)
                 final_stats_printed = true;
 #if BRRS_EXPERIMENT == 4
                 bool exp4_end_ok = exp4_send_end_beacons(&config_is_sync);
+#else
+                bool run_end_ok = brrs_send_end_beacons(&config_is_sync);
+                {
+                    static char end_line[112];
+                    snprintf(end_line, sizeof(end_line),
+                             "BRRS_END_TX_CSV,count=%lu,expected=%u,status=%s",
+                             (unsigned long)run_end_tx_count,
+                             BRRS_END_REPEAT_COUNT,
+                             run_end_ok ? "PASS" : "FAIL");
+                    final_log_info(end_line);
+                }
 #endif
                 static char hdr[80];
                 snprintf(hdr, sizeof(hdr), "\n===== BRRS FINAL STATS (PLEN=%d, %d sym) =====",
@@ -3248,7 +3300,7 @@ int brrs_init(void)
                 {
                     uint8_t i;
                     bool cir_has_expected = false;
-                    cir_final_collection_pass = true;
+                    cir_final_collection_pass = run_end_ok;
                     cir_final_link_pass = true;
                     cir_final_expected = 0;
                     cir_final_rx = 0;
@@ -3378,7 +3430,8 @@ int brrs_init(void)
                     bool collection_pass =
                         (total_cycles == TARGET_CYCLES &&
                          expected == TARGET_CYCLES &&
-                         data_config_errors == 0U);
+                         data_config_errors == 0U &&
+                         run_end_ok);
                     static char line[260];
 
                     final_log_info("--- Experiment 3 RX link validation ---");
@@ -3395,11 +3448,12 @@ int brrs_init(void)
                     final_log_info(line);
 
                     snprintf(line, sizeof(line),
-                             "EXP3_RX_DONE,variant=%s,expected=%lu,rx=%lu,per_x1000=%lu,status=%s",
+                             "EXP3_RX_DONE,variant=%s,expected=%lu,rx=%lu,per_x1000=%lu,end_tx=%lu,status=%s",
                              EXP3_VARIANT_NAME,
                              (unsigned long)expected,
                              (unsigned long)received,
                              (unsigned long)per_x1000,
+                             (unsigned long)run_end_tx_count,
                              collection_pass ? "PASS" : "FAIL");
                     final_log_info(line);
                 }
@@ -3418,12 +3472,13 @@ int brrs_init(void)
                         (total_cycles == TARGET_CYCLES &&
                          expected == TARGET_CYCLES &&
                          total_rx_delayed_fallbacks == 0U &&
-                         data_config_errors == 0U);
+                         data_config_errors == 0U &&
+                         run_end_ok);
                     bool link_pass = (received == expected);
                     static char line[300];
 
                     snprintf(line, sizeof(line),
-                             "EXP1_DONE,plen=%d,lead_us=%d,tail_us=%d,expected=%lu,rx=%lu,delayed_late=%lu,data_config_errors=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
+                             "EXP1_DONE,plen=%d,lead_us=%d,tail_us=%d,expected=%lu,rx=%lu,delayed_late=%lu,data_config_errors=%lu,end_tx=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
                              PREAMBLE_SYMBOLS,
                              RX_LEAD_MARGIN_US,
                              RX_TAIL_MARGIN_US,
@@ -3431,6 +3486,7 @@ int brrs_init(void)
                              (unsigned long)received,
                              (unsigned long)total_rx_delayed_fallbacks,
                              (unsigned long)data_config_errors,
+                             (unsigned long)run_end_tx_count,
                              collection_pass ? "PASS" : "FAIL",
                              link_pass ? "PASS" : "LOSS",
                              (unsigned long)per_x1000,

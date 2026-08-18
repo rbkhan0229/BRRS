@@ -10,11 +10,16 @@ chmod +x brrs_stage0_capture.sh brrs_exp1_capture.sh brrs_exp1_verify.py
 python3 -m pip install pylink-square
 ```
 
+제출용 조건과 반복 전체를 실험별 한 명령으로 실행하려면
+`BRRS_SUBMISSION_AUTO_RUN_KR.md`와 `brrs_run_experiment.sh`를 사용한다. 아래
+내용은 단일 조건만 직접 실행할 때의 방법이다.
+
 한 컴퓨터에 J-Link가 여러 개 연결되면 각 명령 뒤에 `--serial <S/N>`을 붙인다.
 
 ## Stage0: lead margin sweep
 
-TX를 먼저 실행하고 `READY marker seen`을 확인한 뒤 RX를 실행한다.
+TX를 먼저 실행하고 `READY marker seen`을 확인한 뒤 RX를 실행한다. 전체 자동 탐색은
+`brrs_run_experiment.sh stage0 ...`로 lead 0~40 us를 1 us 간격으로 수행한다.
 
 ```bash
 # TX 노트북
@@ -49,5 +54,6 @@ Stage0에서 고정한 lead 15 us, tail 0 us 조건으로 32/64/128/256 symbols�
 - `link=PASS`: 2,000/2,000 성공이다.
 - `link=LOSS`: 실제 무선 손실이 있었다. 원시 로그 저장 실패가 아니다.
 - `[verify] PASS`: 링크 손실 여부와 무관하게 해당 실험 결과가 분석 가능한 형태로 온전히 저장되었다.
+- `end=1`/`end_tx=3`: TX가 현재 실행의 END를 받았고 INIT이 END 비컨 3회를 송신했다.
 
 원시 로그와 메타데이터는 SDK 상위의 `logs/stage0_*` 또는 `logs/exp1_*` 폴더에 저장된다. 같은 run 번호를 의도적으로 다시 쓸 때만 `--force`를 붙인다.
