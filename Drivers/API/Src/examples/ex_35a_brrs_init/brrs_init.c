@@ -3736,6 +3736,20 @@ int brrs_init(void)
             if (status_reg & DWT_INT_RXOVRR_BIT_MASK) {
                 exp4_rx_buffer_overruns++;
                 total_rx_errors++;
+                {
+                    uint8_t rdb_at_overrun = 0U;
+                    static char overrun_line[170];
+                    dwt_readfromdevice(RDB_STATUS_ID, 0U, 1U, &rdb_at_overrun);
+                    snprintf(overrun_line, sizeof(overrun_line),
+                             "EXP4_RDB_OVERRUN_CSV,count=%lu,slot=%u,host_buffer=%u,burst_active=%u,rdb_status=0x%02X,sys_status=0x%08lX",
+                             (unsigned long)exp4_rx_buffer_overruns,
+                             (unsigned int)current_rx_slot,
+                             (unsigned int)exp4_rx_host_buffer,
+                             exp4_data_burst_active ? 1U : 0U,
+                             (unsigned int)rdb_at_overrun,
+                             (unsigned long)status_reg);
+                    test_run_info((unsigned char *)overrun_line);
+                }
                 exp4_close_data_burst(EXP4_BURST_CLOSE_DEADLINE);
                 dwt_setdblrxbuffmode(DBL_BUF_STATE_DIS, DBL_BUF_MODE_MAN);
                 dwt_setdblrxbuffmode(DBL_BUF_STATE_EN, DBL_BUF_MODE_MAN);
