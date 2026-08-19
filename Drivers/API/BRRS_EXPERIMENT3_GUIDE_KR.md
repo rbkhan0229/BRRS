@@ -22,9 +22,12 @@ Exp2와 같은 단일 J-Link/PyLink 연결을 사용한다. 두 노트북 모두
 `Drivers/API`에서 실행한다. TX를 먼저 실행해 대기시킨 다음 RX를 실행한다.
 
 ```bash
-./brrs_exp3_capture.sh tx A 1 iron_door_nlos 6.9
-./brrs_exp3_capture.sh rx A 1 iron_door_nlos 6.9
+./brrs_exp3_capture.sh tx A 1 iron_door_nlos 6.9 --lead 15
+./brrs_exp3_capture.sh rx A 1 iron_door_nlos 6.9 --lead 15
 ```
+
+`15`는 기본값 예시다. Stage0에서 다른 값을 선택했다면 A/B/C 전체의 TX와 RX
+명령에 같은 `--lead`를 사용한다. 실제 RX 창에는 RX/INIT 빌드의 값이 적용된다.
 
 로그는 SDK 상위의 다음 폴더에 자동 저장된다.
 

@@ -16,6 +16,7 @@ Usage:
 
 Options:
   --guard <us>         Inter-slot guard used by every board (default: 200).
+  --lead <us>          Coordinator RX lead margin (default: 15).
   --serial <S/N>       Select a J-Link when multiple probes are attached.
   --no-build           Reuse an image previously made with the same parameters.
   --timeout <seconds>  Override capture timeout (INIT 90 s, sensor 180 s).
@@ -48,6 +49,7 @@ shift 5
 
 DISTANCE="na"
 GUARD_US=200
+LEAD_US=15
 SERIAL=""
 NO_BUILD=0
 TIMEOUT=""
@@ -61,6 +63,10 @@ while (( $# > 0 )); do
         --guard)
             (( $# >= 2 )) || { echo "--guard requires a value" >&2; exit 2; }
             GUARD_US="$2"; shift 2
+            ;;
+        --lead)
+            (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }
+            LEAD_US="$2"; shift 2
             ;;
         --serial)
             (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }
@@ -92,8 +98,10 @@ if [[ "${DISTANCE}" != "na" && ! "${DISTANCE}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
 fi
 [[ "${GUARD_US}" =~ ^[0-9]+$ ]] && (( GUARD_US <= 1000 )) \
     || { echo "guard must be an integer between 0 and 1000 us" >&2; exit 2; }
-if (( SENSOR_COUNT > 1 && GUARD_US < 12 )); then
-    echo "multi-sensor guard must be at least the 12 us RX lead margin" >&2
+[[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
+    || { echo "lead must be an integer between 0 and 1000 us" >&2; exit 2; }
+if (( SENSOR_COUNT > 1 && GUARD_US < LEAD_US )); then
+    echo "multi-sensor guard must be at least the ${LEAD_US} us RX lead margin" >&2
     exit 2
 fi
 
@@ -126,14 +134,17 @@ IMAGE_DIR="${OUTPUT_DIR}/Debug/Exe/exp4/plen${PREAMBLE}_sensors${SENSOR_COUNT}"
 if (( GUARD_US != 100 )); then
     IMAGE_DIR+="_guard${GUARD_US}"
 fi
+if (( LEAD_US != 15 )); then
+    IMAGE_DIR+="_lead${LEAD_US}"
+fi
 IMAGE_BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_${IMAGE_ROLE}"
 HEX_FILE="${IMAGE_DIR}/${IMAGE_BASE}.hex"
 ELF_FILE="${IMAGE_DIR}/${IMAGE_BASE}.elf"
-CONFIG="Generated_Exp4_${PREAMBLE}_S${SENSOR_COUNT}_G${GUARD_US}_${ROLE_LABEL}"
+CONFIG="Generated_Exp4_${PREAMBLE}_S${SENSOR_COUNT}_G${GUARD_US}_L${LEAD_US}_${ROLE_LABEL}"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
-OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_${DATE_TAG}"
+OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_${DATE_TAG}"
 mkdir -p "${OUTDIR}"
 
 ROLE_TAG="$(printf '%s' "${ROLE_LABEL}" | tr '[:upper:]' '[:lower:]')"
@@ -198,15 +209,16 @@ fi
 echo "[${ROLE_LABEL}] Experiment 4: ${PREAMBLE} sym, S${SENSOR_COUNT}"
 echo "  Configuration: ${CONFIG}"
 echo "  Guard:         ${GUARD_US} us"
+echo "  RX lead:       ${LEAD_US} us"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
 echo "  Raw log:       ${RAW_LOG}"
 
 if (( NO_BUILD == 0 )); then
-    echo "[build] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / guard ${GUARD_US} us"
+    echo "[build] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / guard ${GUARD_US} us / lead ${LEAD_US} us"
     EMBUILD="${EMBUILD}" "${SCRIPT_DIR}/brrs_exp4_build.sh" \
-        "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" \
+        "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}" \
         >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
 fi
@@ -235,7 +247,7 @@ PYLINK_ARGS=(
 
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     "${VERIFY_ARGS[@]}" --preamble "${PREAMBLE}" \
-    --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}")"
+    --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}")"
 echo "${VERIFY_OUTPUT}"
 DETAIL="${VERIFY_OUTPUT#\[verify\] PASS: }"
 
@@ -253,6 +265,7 @@ fi
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
     printf 'sensor_count=%s\n' "${SENSOR_COUNT}"
     printf 'guard_us=%s\n' "${GUARD_US}"
+    printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"
     printf 'distance_m=%s\n' "${DISTANCE}"
@@ -260,6 +273,7 @@ fi
     printf 'firmware_sha256=%s\n' "${FIRMWARE_SHA256}"
     printf 'rtt_address=%s\n' "${RTT_ADDR}"
     printf 'capture_method=pylink\n'
+    printf 'probe_serial=%s\n' "${SERIAL:-auto-single-probe}"
     printf 'raw_log=%s\n' "${RAW_LOG}"
     printf 'raw_size_bytes=%s\n' "$(wc -c <"${RAW_LOG}" | tr -d '[:space:]')"
     printf 'raw_sha256=%s\n' "${RAW_SHA256}"

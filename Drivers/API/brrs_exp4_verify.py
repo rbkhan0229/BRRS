@@ -67,7 +67,7 @@ def expected_owners(sensors):
     return "".join(str(node) for node in range(2, sensors + 2))
 
 
-def verify_init(lines, preamble, sensors, expected_guard):
+def verify_init(lines, preamble, sensors, expected_guard, expected_lead):
     expected = 1000 * sensors
 
     config = key_values(last_line(lines, "EXP4_CONFIG_CSV,"))
@@ -81,6 +81,9 @@ def verify_init(lines, preamble, sensors, expected_guard):
     guard_us = integer(config, "guard_us")
     if guard_us != expected_guard:
         fail(f"guard_us={guard_us}, expected {expected_guard}")
+    lead_us = integer(config, "lead_us")
+    if lead_us != expected_lead:
+        fail(f"lead_us={lead_us}, expected {expected_lead}")
     require(config, "frame_airtime_us", FRAME_AIRTIME_US[preamble])
     require(config, "slot_us", FRAME_AIRTIME_US[preamble] + expected_guard)
 
@@ -232,7 +235,7 @@ def verify_init(lines, preamble, sensors, expected_guard):
         f"collection=PASS; superframes=1000; rx={rx}/{expected}; "
         f"PER={per_percent:.3f}%; link={expected_link}; "
         f"period={period_avg_x1000 / 1000:.3f}us; "
-        f"guard={guard_us}us(required={required_guard}us)"
+        f"guard={guard_us}us(required={required_guard}us); lead={lead_us}us"
     )
 
 
@@ -295,8 +298,12 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard):
 
     sync_rx = key_values(last_line(lines, "EXP4_TX_SYNC_RX_CSV,"))
     require(sync_rx, "delayed_late", 0)
-    if integer(sync_rx, "scheduled") != beacons:
-        fail("scheduled SYNC RX count does not match received beacons")
+    # The final superframe's post-TX rearm waits for the coordinator's END
+    # beacon on an immediate wide RX window instead of the narrow
+    # delayed-schedule window used between data superframes (brrs_normal.c,
+    # BRRS_EXPERIMENT == 4 branch), so it is not counted in "scheduled".
+    if integer(sync_rx, "scheduled") != beacons - 1:
+        fail("scheduled SYNC RX count does not match received beacons - 1")
 
     tx_timing = key_values(last_line(lines, "EXP4_TX_SLOT_TIMING_CSV,"))
     require(tx_timing, "node", f"N{node}")
@@ -323,6 +330,8 @@ def main():
     parser.add_argument("--node", type=int, choices=range(2, 9))
     parser.add_argument("--guard", required=True, type=int,
                         choices=range(0, 1001))
+    parser.add_argument("--lead", required=True, type=int,
+                        choices=range(0, 1001))
     args = parser.parse_args()
 
     if args.role == "sensor" and args.node is None:
@@ -336,7 +345,7 @@ def main():
         lines = args.log.read_text(errors="replace").splitlines()
         if args.role == "init":
             detail = verify_init(lines, args.preamble, args.sensors,
-                                 args.guard)
+                                 args.guard, args.lead)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard)

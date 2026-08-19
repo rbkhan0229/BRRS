@@ -32,6 +32,7 @@ Usage:
   $(basename "$0") <tx|rx> <32|64|128|256> <run> <environment> [distance] [options]
 
 Options:
+  --lead <us>                RX lead margin (default: 15).
   --serial <S/N>             Select a J-Link when multiple probes are attached.
   --no-build                 Reuse the existing ELF and HEX.
   --timeout <seconds>        Override the capture timeout.
@@ -52,11 +53,12 @@ fi
 
 ROLE="${1:?role tx|rx}"; PREAMBLE="${2:?preamble}"; RUN_NUMBER="${3:?run}"
 ENVIRONMENT="${4:?environment}"; shift 4
-DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="${BRRS_EXP2_CAPTURE_METHOD:-pylink}"; FORCE=0
+DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="${BRRS_EXP2_CAPTURE_METHOD:-pylink}"; FORCE=0; LEAD_US=15
 if (( $# > 0 )) && [[ "${1}" != --* ]]; then DISTANCE="$1"; shift; fi
 while (( $# > 0 )); do
     case "$1" in
-        --serial)  SERIAL="$2"; shift 2 ;;
+        --lead)   (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }; LEAD_US="$2"; shift 2 ;;
+        --serial) (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }; SERIAL="$2"; shift 2 ;;
         --no-build) NO_BUILD=1; shift ;;
         --timeout) TIMEOUT="$2"; shift 2 ;;
         --method)  METHOD="$2"; shift 2 ;;
@@ -71,6 +73,8 @@ case "${PREAMBLE}" in
 esac
 [[ "${RUN_NUMBER}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "run must be a positive integer" >&2; exit 2; }
+[[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
+    || { echo "lead must be between 0 and 1000 us" >&2; exit 2; }
 case "${METHOD}" in
     pylink|telnet) ;;
     *) echo "method must be pylink or telnet" >&2; exit 2 ;;
@@ -90,12 +94,13 @@ esac
 
 HEX_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.hex"
 ELF_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.elf"
+LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
 OUTDIR="${SDK_ROOT}/../logs/exp2_${ENVIRONMENT}${DISTANCE_TAG}_${DATE_TAG}"
 mkdir -p "${OUTDIR}"
-BASE="exp2_${PREAMBLE}_r${RUN_NUMBER}_${ROLE}"
+BASE="exp2_${PREAMBLE}_l${LEAD_US}_r${RUN_NUMBER}_${ROLE}"
 RAW_LOG="${OUTDIR}/${BASE}.log"
 META_FILE="${OUTDIR}/${BASE}.meta.txt"
 FLASH_LOG="${OUTDIR}/${BASE}.flash.log"
@@ -159,12 +164,23 @@ fi
 # ---------------------------------------------------------------- build
 if (( NO_BUILD == 0 )); then
     echo "[build] ${CONFIG}"
-    "${EMBUILD}" -config "${CONFIG}" -project dw3000_api -rebuild \
-        "${PROJECT}" >"${BUILD_LOG}" 2>&1 \
+    BUILD_ARGS=(-threadnum "${EMBUILD_THREADS:-1}")
+    if [[ "${ROLE}" == "rx" ]]; then
+        BUILD_ARGS+=(-sproperty "c_additional_options=-DBRRS_RX_LEAD_MARGIN_US=${LEAD_US}")
+    fi
+    BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
+    "${EMBUILD}" "${BUILD_ARGS[@]}" >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
+    if [[ "${ROLE}" == "rx" ]]; then
+        printf '%s\n' "${LEAD_US}" >"${LEAD_STAMP}"
+    fi
 fi
 [[ -f "${HEX_FILE}" && -f "${ELF_FILE}" ]] \
     || { echo "firmware image missing" >&2; exit 1; }
+if (( NO_BUILD == 1 )) && [[ "${ROLE}" == "rx" ]]; then
+    [[ -f "${LEAD_STAMP}" && "$(<"${LEAD_STAMP}")" == "${LEAD_US}" ]] \
+        || { echo "cached ${CONFIG} was not built with lead ${LEAD_US} us" >&2; exit 1; }
+fi
 
 # ELF에서 매 빌드마다 RTT 제어 블록 주소를 다시 추출 (주소 하드코딩 금지)
 RTT_ADDR="0x$("${ARM_NM}" -n "${ELF_FILE}" \
@@ -306,6 +322,10 @@ if (( CAPTURE_RC != 0 )); then
     exit "${CAPTURE_RC}"
 fi
 if [[ "${ROLE}" == "rx" ]]; then
+    if ! grep -Fxq "EXP_LOG_CONFIG_CSV,experiment=2,plen=${PREAMBLE},lead_us=${LEAD_US},tail_us=0,target=1000,cir=1" "${RAW_LOG}"; then
+        echo "[verify] FAIL: firmware did not report requested lead ${LEAD_US} us" >&2
+        exit 3
+    fi
     CSV_ROWS="$(grep -c '^CIR_CSV,' "${RAW_LOG}" || true)"
     read -r UNIQUE_FRAMES UNIQUE_CYCLES BAD_ROWS FRAME_MIN FRAME_MAX CYCLE_MIN CYCLE_MAX <<EOF
 $(awk -F, -v expected_m="${PREAMBLE}" '
@@ -398,7 +418,7 @@ EOF
         echo "[verify] FAIL: firmware link/PER mismatch: ${EXP2_LINE}" >&2
         exit 3
     fi
-    DETAIL="collection=PASS; expected=${DONE_EXPECTED}; rx=${DONE_RX}; CIR rows=${CSV_ROWS}; PER=${PER_PERCENT}%; link=${LINK_STATUS}; firmware=PASS"
+    DETAIL="collection=PASS; expected=${DONE_EXPECTED}; rx=${DONE_RX}; CIR rows=${CSV_ROWS}; PER=${PER_PERCENT}%; link=${LINK_STATUS}; lead=${LEAD_US}us; firmware=PASS"
 else
     TX_DONE_LINE="$(grep '^EXP2_TX_DONE,' "${RAW_LOG}" | tail -1 || true)"
     BEACON_LINE="$(grep 'BRRS_BEACON_RX_CSV,' "${RAW_LOG}" | tail -1 || true)"
@@ -471,6 +491,7 @@ fi
     printf 'role=%s\n' "${ROLE}"
     printf 'configuration=%s\n' "${CONFIG}"
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
+    printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"
     printf 'distance_m=%s\n' "${DISTANCE}"

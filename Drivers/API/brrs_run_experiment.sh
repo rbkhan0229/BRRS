@@ -16,7 +16,7 @@ Usage:
 
 Roles:
   stage0-exp3: tx | rx
-  exp4:        init | N2 .. N8
+  exp4:        init | tx | N2 .. N8
 
 Submission defaults for one fixed physical placement:
   stage0: fixed randomized 0..40 us sweep at 1 us spacing, 1 run per lead
@@ -31,11 +31,14 @@ Options:
   --repeats <N>          Run every condition N times (default: 1).
   --preambles <list>     Override M list, e.g. 32,64,128,256.
   --leads <list>         Stage0 lead list, e.g. 14,15,16 or 0-20.
+  --lead <us>            Fixed RX lead for Exp1-Exp4 (default: 15).
   --tail <us>            Stage0 tail margin (default: 0).
   --sensors <1..7>       Exp4 physical sensor count (required for Exp4).
   --guard <us>           Exp4 guard (default: 200).
   --method <pylink|telnet> Exp2 backend (default: pylink).
   --timeout <seconds>    Override every case's capture timeout.
+  --peer-ready-delay <s> Wait before each case so the peer can become ready.
+                         Default: 20 for Exp3 RX, otherwise 0.
   --no-build             Require and reuse existing images for every case.
   --force                Preserve existing case logs and repeat them.
   --dry-run              Print the complete case sequence without hardware.
@@ -47,6 +50,8 @@ Examples:
   brrs_run_experiment.sh stage0 rx iron_door_nlos 6.9 \
       --leads 14,15,16 --repeats 5
   brrs_run_experiment.sh exp4 N3 iron_door_nlos 6.9 --sensors 3
+  brrs_run_experiment.sh exp4 tx iron_door_nlos 6.9 \
+      --sensors 3 --repeats 3
 EOF
 }
 
@@ -70,6 +75,8 @@ RUN_START=1
 REPEATS=""
 PREAMBLE_SPEC=""
 LEAD_SPEC=""
+FIXED_LEAD_US=15
+FIXED_LEAD_SET=0
 TAIL_US=0
 SENSOR_COUNT=""
 GUARD_US=200
@@ -77,6 +84,7 @@ METHOD="pylink"
 GUARD_SET=0
 METHOD_SET=0
 TIMEOUT=""
+PEER_READY_DELAY=""
 NO_BUILD=0
 FORCE=0
 DRY_RUN=0
@@ -102,6 +110,9 @@ while (( $# > 0 )); do
         --leads)
             (( $# >= 2 )) || { echo "--leads requires a value" >&2; exit 2; }
             LEAD_SPEC="$2"; shift 2 ;;
+        --lead)
+            (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }
+            FIXED_LEAD_US="$2"; FIXED_LEAD_SET=1; shift 2 ;;
         --tail)
             (( $# >= 2 )) || { echo "--tail requires a value" >&2; exit 2; }
             TAIL_US="$2"; shift 2 ;;
@@ -117,6 +128,9 @@ while (( $# > 0 )); do
         --timeout)
             (( $# >= 2 )) || { echo "--timeout requires a value" >&2; exit 2; }
             TIMEOUT="$2"; shift 2 ;;
+        --peer-ready-delay)
+            (( $# >= 2 )) || { echo "--peer-ready-delay requires a value" >&2; exit 2; }
+            PEER_READY_DELAY="$2"; shift 2 ;;
         --no-build) NO_BUILD=1; shift ;;
         --force) FORCE=1; shift ;;
         --dry-run) DRY_RUN=1; shift ;;
@@ -133,16 +147,22 @@ ROLE_LOWER="$(printf '%s' "${ROLE_INPUT}" | tr '[:upper:]' '[:lower:]')"
 if [[ "${EXPERIMENT}" == "exp4" ]]; then
     if [[ "${ROLE_LOWER}" == "init" ]]; then
         ROLE="init"
+    elif [[ "${ROLE_LOWER}" == "tx" || "${ROLE_LOWER}" == "tx-auto" || "${ROLE_LOWER}" == "auto" ]]; then
+        ROLE="tx-auto"
     elif [[ "${ROLE_INPUT}" =~ ^[Nn]([2-8])$ ]]; then
         ROLE="N${BASH_REMATCH[1]}"
     else
-        echo "Exp4 role must be init or N2 through N8" >&2
+        echo "Exp4 role must be init, tx, or N2 through N8" >&2
         exit 2
     fi
     [[ "${SENSOR_COUNT}" =~ ^[1-7]$ ]] \
         || { echo "Exp4 requires --sensors 1..7" >&2; exit 2; }
     if [[ "${ROLE}" =~ ^N([2-8])$ ]] && (( BASH_REMATCH[1] > SENSOR_COUNT + 1 )); then
         echo "${ROLE} is outside a ${SENSOR_COUNT}-sensor run" >&2
+        exit 2
+    fi
+    if [[ "${ROLE}" == "tx-auto" && -n "${SERIAL}" ]]; then
+        echo "Exp4 tx auto-discovers every probe; do not pass --serial" >&2
         exit 2
     fi
 else
@@ -166,14 +186,26 @@ fi
     || { echo "repeats must be a positive integer" >&2; exit 2; }
 [[ "${TAIL_US}" =~ ^[0-9]+$ ]] \
     || { echo "tail must be a non-negative integer" >&2; exit 2; }
+[[ "${FIXED_LEAD_US}" =~ ^[0-9]+$ ]] && (( FIXED_LEAD_US <= 1000 )) \
+    || { echo "lead must be between 0 and 1000 us" >&2; exit 2; }
 [[ "${GUARD_US}" =~ ^[0-9]+$ ]] && (( GUARD_US <= 1000 )) \
     || { echo "guard must be between 0 and 1000 us" >&2; exit 2; }
 [[ -z "${TIMEOUT}" || "${TIMEOUT}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "timeout must be a positive integer" >&2; exit 2; }
+[[ -z "${PEER_READY_DELAY}" || "${PEER_READY_DELAY}" =~ ^[0-9]+$ ]] \
+    || { echo "peer-ready-delay must be a non-negative integer" >&2; exit 2; }
 case "${METHOD}" in
     pylink|telnet) ;;
     *) echo "method must be pylink or telnet" >&2; exit 2 ;;
 esac
+
+if [[ -z "${PEER_READY_DELAY}" ]]; then
+    if [[ "${EXPERIMENT}" == "exp3" && "${ROLE}" == "rx" ]]; then
+        PEER_READY_DELAY=20
+    else
+        PEER_READY_DELAY=0
+    fi
+fi
 
 PARSED_VALUES=()
 parse_integer_list() {
@@ -266,6 +298,10 @@ if [[ "${EXPERIMENT}" != "stage0" && -n "${LEAD_SPEC}" ]]; then
     echo "--leads is only valid for Stage0" >&2
     exit 2
 fi
+if [[ "${EXPERIMENT}" == "stage0" && ${FIXED_LEAD_SET} -eq 1 ]]; then
+    echo "Stage0 sweeps --leads; do not pass the fixed --lead option" >&2
+    exit 2
+fi
 if [[ "${EXPERIMENT}" == "stage0" && -n "${PREAMBLE_SPEC}" ]]; then
     echo "Stage0 uses a fixed 32-symbol preamble; do not pass --preambles" >&2
     exit 2
@@ -280,6 +316,10 @@ if [[ "${EXPERIMENT}" != "exp2" && ${METHOD_SET} -eq 1 ]]; then
 fi
 if [[ "${EXPERIMENT}" != "exp4" && ${GUARD_SET} -eq 1 ]]; then
     echo "--guard is only valid for Exp4" >&2
+    exit 2
+fi
+if [[ "${EXPERIMENT}" == "exp4" ]] && (( SENSOR_COUNT > 1 && GUARD_US < FIXED_LEAD_US )); then
+    echo "Exp4 guard ${GUARD_US} us must be at least lead ${FIXED_LEAD_US} us" >&2
     exit 2
 fi
 
@@ -334,6 +374,12 @@ run_case() {
 
     CASE_NUMBER=$((CASE_NUMBER + 1))
     record "CASE_START ${CASE_NUMBER}/${TOTAL_CASES} ${description}"
+    if (( PEER_READY_DELAY > 0 )); then
+        record "PEER_READY_WAIT case=${CASE_NUMBER}/${TOTAL_CASES} seconds=${PEER_READY_DELAY}"
+        if (( DRY_RUN == 0 )); then
+            sleep "${PEER_READY_DELAY}"
+        fi
+    fi
     if (( DRY_RUN )); then
         printf '  '
         printf '%q ' "${command[@]}"
@@ -372,8 +418,34 @@ ordered_values_for_run() {
 }
 
 record "SUITE_START experiment=${EXPERIMENT} role=${ROLE} environment=${ENVIRONMENT} distance=${DISTANCE} run_start=${RUN_START} repeats=${REPEATS} cases=${TOTAL_CASES}"
+if [[ "${EXPERIMENT}" != "stage0" ]]; then
+    record "SUITE_PARAMETER rx_lead_us=${FIXED_LEAD_US}"
+fi
+record "SUITE_PARAMETER peer_ready_delay_s=${PEER_READY_DELAY}"
 record "NOTE Start every TX/sensor suite before the matching RX/INIT suite."
 (( DRY_RUN == 1 )) || record "MANIFEST ${MANIFEST}"
+
+# Exp4 runs on separate computers. Build the complete condition matrix before
+# the first radio run so later conditions only flash and cannot outrun the
+# matching computer while it is still compiling multiple sensor images.
+if [[ "${EXPERIMENT}" == "exp4" && ${NO_BUILD} -eq 0 ]]; then
+    if (( DRY_RUN )); then
+        record "SUITE_PREBUILD exp4 role=${ROLE} preambles=${PREAMBLES[*]} status=DRY_RUN"
+    else
+        record "SUITE_PREBUILD_START exp4 role=${ROLE} preambles=${PREAMBLES[*]}"
+        for preamble in "${PREAMBLES[@]}"; do
+            if [[ "${ROLE}" == "tx-auto" ]]; then
+                build_role="tx"
+            else
+                build_role="${ROLE}"
+            fi
+            "${SCRIPT_DIR}/brrs_exp4_build.sh" \
+                "${preamble}" "${SENSOR_COUNT}" "${GUARD_US}" "${build_role}" "${FIXED_LEAD_US}"
+            mark_key_built "exp4_${ROLE}_m${preamble}_s${SENSOR_COUNT}_g${GUARD_US}_l${FIXED_LEAD_US}"
+        done
+        record "SUITE_PREBUILD_DONE exp4 role=${ROLE} status=PASS"
+    fi
+fi
 
 for (( offset=0; offset<REPEATS; offset++ )); do
     run=$((RUN_START + offset))
@@ -399,10 +471,11 @@ for (( offset=0; offset<REPEATS; offset++ )); do
                 if [[ "${ROLE}" == "tx" ]]; then
                     key="${EXPERIMENT}_tx"
                 else
-                    key="${EXPERIMENT}_rx_m${preamble}"
+                    key="${EXPERIMENT}_rx_m${preamble}_l${FIXED_LEAD_US}"
                 fi
                 args=("${ROLE}" "${preamble}" "${run}" "${ENVIRONMENT}")
                 [[ "${DISTANCE}" == "na" ]] || args+=("${DISTANCE}")
+                args+=(--lead "${FIXED_LEAD_US}")
                 if [[ "${EXPERIMENT}" == "exp2" && "${METHOD}" != "pylink" ]]; then
                     args+=(--method "${METHOD}")
                 fi
@@ -421,9 +494,14 @@ for (( offset=0; offset<REPEATS; offset++ )); do
                 esac
             fi
             for variant in "${VARIANTS[@]}"; do
-                key="exp3_${ROLE}_${variant}"
+                if [[ "${ROLE}" == "rx" ]]; then
+                    key="exp3_${ROLE}_${variant}_l${FIXED_LEAD_US}"
+                else
+                    key="exp3_${ROLE}_${variant}"
+                fi
                 args=("${ROLE}" "${variant}" "${run}" "${ENVIRONMENT}")
                 [[ "${DISTANCE}" == "na" ]] || args+=("${DISTANCE}")
+                args+=(--lead "${FIXED_LEAD_US}")
                 run_case "${key}" "exp3 variant=${variant} run=${run}" \
                     "${SCRIPT_DIR}/brrs_exp3_capture.sh" "${args[@]}"
             done
@@ -431,12 +509,22 @@ for (( offset=0; offset<REPEATS; offset++ )); do
         exp4)
             ordered_values_for_run "${run}" "${PREAMBLES[@]}"
             for preamble in "${ORDERED_VALUES[@]}"; do
-                key="exp4_${ROLE}_m${preamble}_s${SENSOR_COUNT}_g${GUARD_US}"
-                args=("${ROLE}" "${preamble}" "${SENSOR_COUNT}" "${run}" "${ENVIRONMENT}")
-                [[ "${DISTANCE}" == "na" ]] || args+=("${DISTANCE}")
-                [[ "${GUARD_US}" == "200" ]] || args+=(--guard "${GUARD_US}")
-                run_case "${key}" "exp4 M=${preamble} sensors=${SENSOR_COUNT} guard=${GUARD_US} run=${run}" \
-                    "${SCRIPT_DIR}/brrs_exp4_capture.sh" "${args[@]}"
+                key="exp4_${ROLE}_m${preamble}_s${SENSOR_COUNT}_g${GUARD_US}_l${FIXED_LEAD_US}"
+                if [[ "${ROLE}" == "tx-auto" ]]; then
+                    args=("${preamble}" "${SENSOR_COUNT}" "${run}" "${ENVIRONMENT}")
+                    [[ "${DISTANCE}" == "na" ]] || args+=("${DISTANCE}")
+                    [[ "${GUARD_US}" == "200" ]] || args+=(--guard "${GUARD_US}")
+                    args+=(--lead "${FIXED_LEAD_US}")
+                    run_case "${key}" "exp4 auto-TX M=${preamble} sensors=${SENSOR_COUNT} guard=${GUARD_US} run=${run}" \
+                        "${SCRIPT_DIR}/brrs_exp4_multi_tx.sh" "${args[@]}"
+                else
+                    args=("${ROLE}" "${preamble}" "${SENSOR_COUNT}" "${run}" "${ENVIRONMENT}")
+                    [[ "${DISTANCE}" == "na" ]] || args+=("${DISTANCE}")
+                    [[ "${GUARD_US}" == "200" ]] || args+=(--guard "${GUARD_US}")
+                    args+=(--lead "${FIXED_LEAD_US}")
+                    run_case "${key}" "exp4 M=${preamble} sensors=${SENSOR_COUNT} guard=${GUARD_US} run=${run}" \
+                        "${SCRIPT_DIR}/brrs_exp4_capture.sh" "${args[@]}"
+                fi
             done
             ;;
     esac

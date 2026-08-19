@@ -131,31 +131,31 @@ static void terminal_log_info(unsigned char *data)
 //#define TEST_NODE_8
 
 #ifdef TEST_NODE_2
-    #define APP_NAME "BRRS NODE 2 v2.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 2 v2.10 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '2'
     #define MY_NODE_SEQ 2
 #elif defined(TEST_NODE_3)
-    #define APP_NAME "BRRS NODE 3 v2.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 3 v2.10 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '3'
     #define MY_NODE_SEQ 3
 #elif defined(TEST_NODE_4)
-    #define APP_NAME "BRRS NODE 4 v2.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 4 v2.10 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '4'
     #define MY_NODE_SEQ 4
 #elif defined(TEST_NODE_5)
-    #define APP_NAME "BRRS NODE 5 v2.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 5 v2.10 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '5'
     #define MY_NODE_SEQ 5
 #elif defined(TEST_NODE_6)
-    #define APP_NAME "BRRS NODE 6 v2.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 6 v2.10 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '6'
     #define MY_NODE_SEQ 6
 #elif defined(TEST_NODE_7)
-    #define APP_NAME "BRRS NODE 7 v2.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 7 v2.10 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '7'
     #define MY_NODE_SEQ 7
 #elif defined(TEST_NODE_8)
-    #define APP_NAME "BRRS NODE 8 v2.9 (beacon-scheduled delayed-TX)"
+    #define APP_NAME "BRRS NODE 8 v2.10 (beacon-scheduled delayed-TX)"
     #define MY_NODE_ID  '8'
     #define MY_NODE_SEQ 8
 #else
@@ -1051,7 +1051,7 @@ int brrs_normal(void)
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=21,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=22,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,end_rx=immediate_wide_on_last_cycle,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -1696,7 +1696,32 @@ int brrs_normal(void)
                     dwt_writesysstatuslo(0xFFFFFFFF);
 
 #if BRRS_EXPERIMENT == 4
-                    if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+                    /* 마지막 슈퍼프레임 뒤에는 다음 SYNC가 아니라 코디네이터의
+                     * 명시적 END 비컨이 온다. INIT은 마지막 데이터 슬롯 처리와
+                     * 통계 정리 때문에 정확한 다음-SYNC 시각에 END를 보내지
+                     * 못할 수 있어, exp4_schedule_next_sync_rx()의 좁은 지연
+                     * RX 창을 쓰면 END를 놓치고 무한정 대기하게 된다. 마지막
+                     * 사이클만 EXP1/2/3과 동일하게 즉시-광창 RX로 대기한다. */
+                    if (current_cycle >= TARGET_CYCLES) {
+                        int end_rx_result = DWT_ERROR;
+
+                        if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+                            config_is_sync = true;
+                            dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
+                            end_rx_result = dwt_rxenable(DWT_START_RX_IMMEDIATE);
+                        } else {
+                            exp4_sync_rx_delayed_late++;
+                        }
+
+                        {
+                            static char end_rx_line[112];
+                            snprintf(end_rx_line, sizeof(end_rx_line),
+                                     "BRRS_END_RX_ARMED,seq=%lu,status=%s",
+                                     (unsigned long)current_cycle,
+                                     end_rx_result == DWT_SUCCESS ? "PASS" : "FAIL");
+                            test_run_info((unsigned char *)end_rx_line);
+                        }
+                    } else if (dwt_configure(&config_sync) == DWT_SUCCESS) {
                         config_is_sync = true;
                         exp4_schedule_next_sync_rx();
                     } else {
@@ -1705,9 +1730,27 @@ int brrs_normal(void)
 #endif
 
 #if BRRS_EXPERIMENT == 1 || BRRS_EXPERIMENT == 2 || BRRS_EXPERIMENT == 3
-                    /* 실험 1/2: Normal은 RX 안 함 (TX 전용)
-                     * 다음 SYNC를 위해 config switch 타이밍에 SYNC config로 복귀
-                     */
+                    /* 마지막 DATA 이후에는 다음 DATA 슬롯이 없다. 즉시 SYNC PHY로
+                     * 복귀해 코디네이터의 명시적 END 비컨을 수신한다. 중간
+                     * 슈퍼프레임은 기존 CONFIG_SWITCH_US 경로를 계속 사용한다. */
+                    if (current_cycle >= TARGET_CYCLES) {
+                        int end_rx_result = DWT_ERROR;
+
+                        if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+                            config_is_sync = true;
+                            dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
+                            end_rx_result = dwt_rxenable(DWT_START_RX_IMMEDIATE);
+                        }
+
+                        {
+                            static char end_rx_line[112];
+                            snprintf(end_rx_line, sizeof(end_rx_line),
+                                     "BRRS_END_RX_ARMED,seq=%lu,status=%s",
+                                     (unsigned long)current_cycle,
+                                     end_rx_result == DWT_SUCCESS ? "PASS" : "FAIL");
+                            test_run_info((unsigned char *)end_rx_line);
+                        }
+                    }
 #endif
 
                     synchronized = true;

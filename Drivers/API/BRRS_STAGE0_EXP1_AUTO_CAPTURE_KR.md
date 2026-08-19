@@ -38,12 +38,13 @@ TX를 먼저 실행하고 `READY marker seen`을 확인한 뒤 RX를 실행한�
 
 ## Experiment 1: preamble sweep
 
-Stage0에서 고정한 lead 15 us, tail 0 us 조건으로 32/64/128/256 symbols를 측정한다.
+Stage0에서 선택한 lead와 tail 0 us 조건으로 32/64/128/256 symbols를 측정한다.
+아래 예시는 lead 15 us이며, 다른 값이면 TX와 RX 명령에 같은 `--lead`를 붙인다.
 
 ```bash
 # 예: 32 symbols, run 1
-./brrs_exp1_capture.sh tx 32 1 iron_door_nlos 6.9
-./brrs_exp1_capture.sh rx 32 1 iron_door_nlos 6.9
+./brrs_exp1_capture.sh tx 32 1 iron_door_nlos 6.9 --lead 15
+./brrs_exp1_capture.sh rx 32 1 iron_door_nlos 6.9 --lead 15
 ```
 
 같은 방법으로 `32`를 `64`, `128`, `256`으로 바꾸고, 두 번째 반복은 run 번호를 `2`로 바꾼다.

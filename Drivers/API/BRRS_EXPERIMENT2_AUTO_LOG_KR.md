@@ -62,14 +62,14 @@ Drivers/API/brrs_exp2_capture.sh
 
 ## 실행 순서
 
-같은 조건은 TX와 RX에서 preamble, run, environment, distance를 동일하게
-입력한다.
+같은 조건은 TX와 RX에서 preamble, run, environment, distance, lead를 동일하게
+입력한다. Stage0에서 선택한 lead가 15 us라면 `--lead 15`를 사용한다.
 
 1. TX 노트북에서 먼저 실행한다.
 
 ```bash
 cd "$HOME/Desktop/CHIEON/BRRS_FW_v2.7_exp2_per_aware_rev3_20260812/DW3_QM33_SDK_1.0.2"
-Drivers/API/brrs_exp2_capture.sh tx 32 1 iron_door_nlos 6.9
+Drivers/API/brrs_exp2_capture.sh tx 32 1 iron_door_nlos 6.9 --lead 15
 ```
 
 2. TX에 아래 문구가 나오면 RX 노트북에서 실행한다.
@@ -80,7 +80,7 @@ Drivers/API/brrs_exp2_capture.sh tx 32 1 iron_door_nlos 6.9
 
 ```bash
 cd "$HOME/Desktop/CHIEON/BRRS_FW_v2.7_exp2_per_aware_rev3_20260812/DW3_QM33_SDK_1.0.2"
-Drivers/API/brrs_exp2_capture.sh rx 32 1 iron_door_nlos 6.9
+Drivers/API/brrs_exp2_capture.sh rx 32 1 iron_door_nlos 6.9 --lead 15
 ```
 
 3. 양쪽 모두 마지막에 `[verify] PASS`가 나오는지 확인한다.
@@ -99,11 +99,11 @@ RX에서 1000은 송신 기회와 측정 cycle 수다. CIR은 수신 성공 프�
 
 ## 조건 변경
 
-프리앰블과 반복 번호만 변경한다.
+프리앰블과 반복 번호만 변경하고 lead는 고정한다.
 
 ```bash
-Drivers/API/brrs_exp2_capture.sh tx 64 2 iron_door_nlos 6.9
-Drivers/API/brrs_exp2_capture.sh rx 64 2 iron_door_nlos 6.9
+Drivers/API/brrs_exp2_capture.sh tx 64 2 iron_door_nlos 6.9 --lead 15
+Drivers/API/brrs_exp2_capture.sh rx 64 2 iron_door_nlos 6.9 --lead 15
 ```
 
 TX 펌웨어는 항상 `Exp2_Normal`이지만, 각 독립 반복을 새로 시작하기 위해
@@ -116,10 +116,10 @@ TX 펌웨어는 항상 `Exp2_Normal`이지만, 각 독립 반복을 새로 시�
 
 ```text
 DWM3000/logs/exp2_iron_door_nlos_6.9m_20260811/
-  exp2_32_r1_tx.log
-  exp2_32_r1_tx.meta.txt
-  exp2_32_r1_rx.log
-  exp2_32_r1_rx.meta.txt
+  exp2_32_l15_r1_tx.log
+  exp2_32_l15_r1_tx.meta.txt
+  exp2_32_l15_r1_rx.log
+  exp2_32_l15_r1_rx.meta.txt
 ```
 
 기존 원시 로그가 있으면 덮어쓰지 않고 실패한다. 같은 조건을 다시 측정할
@@ -129,7 +129,7 @@ DWM3000/logs/exp2_iron_door_nlos_6.9m_20260811/
 
 ```bash
 Drivers/API/brrs_exp2_capture.sh rx 32 1 iron_door_nlos 6.9 \
-  --serial 1050270933
+  --lead 15 --serial 1050270933
 ```
 
 ## 기존 HEX 사용
@@ -137,7 +137,7 @@ Drivers/API/brrs_exp2_capture.sh rx 32 1 iron_door_nlos 6.9 \
 빌드를 생략하려면 `--no-build`를 추가한다.
 
 ```bash
-Drivers/API/brrs_exp2_capture.sh rx 32 1 iron_door_nlos 6.9 --no-build
+Drivers/API/brrs_exp2_capture.sh rx 32 1 iron_door_nlos 6.9 --lead 15 --no-build
 ```
 
 논문용 원시 로그는 기본 동작처럼 매번 다시 빌드하는 것을 권장한다.
@@ -147,8 +147,8 @@ Drivers/API/brrs_exp2_capture.sh rx 32 1 iron_door_nlos 6.9 --no-build
 정상 완료 후 같은 폴더에 원시 로그와 메타데이터가 생성된다.
 
 ```bash
-grep -c '^CIR_CSV,' ../logs/exp2_iron_door_nlos_6.9m_YYYYMMDD/exp2_32_r1_rx.log
-grep 'EXP2_DONE' ../logs/exp2_iron_door_nlos_6.9m_YYYYMMDD/exp2_32_r1_rx.log
+grep -c '^CIR_CSV,' ../logs/exp2_iron_door_nlos_6.9m_YYYYMMDD/exp2_32_l15_r1_rx.log
+grep 'EXP2_DONE' ../logs/exp2_iron_door_nlos_6.9m_YYYYMMDD/exp2_32_l15_r1_rx.log
 ```
 
 첫 명령은 실제 RX 성공 프레임 수와 같아야 한다. 두 번째 명령의

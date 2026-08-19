@@ -1,0 +1,242 @@
+#!/usr/bin/env bash
+
+# Exp4 multi-sensor TX orchestrator: discover, rotate, flash, and capture all nodes.
+
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SDK_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+usage() {
+    cat <<EOF
+Usage:
+  $(basename "$0") <32|64|128|256> <sensor-count:1..7> <run> \
+      <environment> [distance] [options]
+
+Options:
+  --guard <us>              Inter-slot guard (default: 200).
+  --lead <us>               Coordinator RX lead margin (default: 15).
+  --timeout <seconds>       Sensor capture timeout (default: 180).
+  --probe-serials <csv>     Diagnostic override; default discovers every USB probe.
+  --no-build                Reuse previously built node images.
+  --force                   Preserve existing artifacts and repeat the run.
+  -h, --help                Show this help.
+
+The TX computer must have exactly sensor-count J-Link probes connected. Probes
+are sorted by serial number and cyclically rotated across roles for each run.
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+    exit 0
+fi
+if (( $# < 4 )); then
+    usage >&2
+    exit 2
+fi
+
+PREAMBLE="$1"
+SENSOR_COUNT="$2"
+RUN_NUMBER="$3"
+ENVIRONMENT="$4"
+shift 4
+
+DISTANCE="na"
+GUARD_US=200
+LEAD_US=15
+TIMEOUT=180
+PROBE_SERIALS=""
+NO_BUILD=0
+FORCE=0
+if (( $# > 0 )) && [[ "$1" != --* ]]; then
+    DISTANCE="$1"
+    shift
+fi
+while (( $# > 0 )); do
+    case "$1" in
+        --guard)
+            (( $# >= 2 )) || { echo "--guard requires a value" >&2; exit 2; }
+            GUARD_US="$2"; shift 2 ;;
+        --lead)
+            (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }
+            LEAD_US="$2"; shift 2 ;;
+        --timeout)
+            (( $# >= 2 )) || { echo "--timeout requires a value" >&2; exit 2; }
+            TIMEOUT="$2"; shift 2 ;;
+        --probe-serials)
+            (( $# >= 2 )) || { echo "--probe-serials requires a value" >&2; exit 2; }
+            PROBE_SERIALS="$2"; shift 2 ;;
+        --no-build) NO_BUILD=1; shift ;;
+        --force) FORCE=1; shift ;;
+        *) echo "unknown option: $1" >&2; exit 2 ;;
+    esac
+done
+
+case "${PREAMBLE}" in
+    32|64|128|256) ;;
+    *) echo "preamble must be 32, 64, 128, or 256" >&2; exit 2 ;;
+esac
+[[ "${SENSOR_COUNT}" =~ ^[1-7]$ ]] \
+    || { echo "sensor-count must be between 1 and 7" >&2; exit 2; }
+[[ "${RUN_NUMBER}" =~ ^[1-9][0-9]*$ ]] \
+    || { echo "run must be a positive integer" >&2; exit 2; }
+[[ "${ENVIRONMENT}" =~ ^[A-Za-z0-9._-]+$ ]] \
+    || { echo "invalid environment name" >&2; exit 2; }
+if [[ "${DISTANCE}" != "na" && ! "${DISTANCE}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    echo "distance must be a non-negative number in meters" >&2
+    exit 2
+fi
+[[ "${GUARD_US}" =~ ^[0-9]+$ ]] && (( GUARD_US <= 1000 )) \
+    || { echo "guard must be between 0 and 1000 us" >&2; exit 2; }
+[[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
+    || { echo "lead must be between 0 and 1000 us" >&2; exit 2; }
+if (( SENSOR_COUNT > 1 && GUARD_US < LEAD_US )); then
+    echo "multi-sensor guard must be at least the ${LEAD_US} us RX lead margin" >&2
+    exit 2
+fi
+[[ "${TIMEOUT}" =~ ^[1-9][0-9]*$ ]] \
+    || { echo "timeout must be a positive integer" >&2; exit 2; }
+
+ASSIGN_ARGS=(--sensors "${SENSOR_COUNT}" --run "${RUN_NUMBER}" --format tsv)
+[[ -z "${PROBE_SERIALS}" ]] || ASSIGN_ARGS+=(--serials "${PROBE_SERIALS}")
+ASSIGNMENT_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_probe_assign.py" "${ASSIGN_ARGS[@]}")"
+
+ROLES=()
+SERIALS=()
+while IFS=$'\t' read -r role serial; do
+    [[ -n "${role}" && -n "${serial}" ]] || continue
+    ROLES+=("${role}")
+    SERIALS+=("${serial}")
+done <<<"${ASSIGNMENT_OUTPUT}"
+(( ${#ROLES[@]} == SENSOR_COUNT )) \
+    || { echo "failed to create ${SENSOR_COUNT} probe assignments" >&2; exit 1; }
+
+DATE_TAG="$(date '+%Y%m%d')"
+DISTANCE_TAG=""
+[[ "${DISTANCE}" != "na" ]] && DISTANCE_TAG="_${DISTANCE}m"
+OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_${DATE_TAG}"
+mkdir -p "${OUTDIR}"
+BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_r${RUN_NUMBER}_multi_tx"
+ASSIGNMENT_FILE="${OUTDIR}/${BASE}.assignments.csv"
+ORCHESTRATOR_LOG="${OUTDIR}/${BASE}.console.log"
+
+if [[ -e "${ASSIGNMENT_FILE}" || -e "${ORCHESTRATOR_LOG}" ]]; then
+    if (( FORCE )); then
+        BACKUP_TAG="$(date '+%H%M%S')"
+        for artifact in "${ASSIGNMENT_FILE}" "${ORCHESTRATOR_LOG}"; do
+            [[ ! -e "${artifact}" ]] || mv "${artifact}" "${artifact}.prev.${BACKUP_TAG}"
+        done
+    else
+        echo "refusing to overwrite ${ASSIGNMENT_FILE}" >&2
+        echo "  (retry with --force or increment the run number)" >&2
+        exit 1
+    fi
+fi
+
+exec > >(tee -a "${ORCHESTRATOR_LOG}") 2>&1
+
+ROTATION=$(( (RUN_NUMBER - 1) % SENSOR_COUNT ))
+echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us"
+echo "[multi-tx] probe source: $([[ -z "${PROBE_SERIALS}" ]] && echo auto-discovery || echo diagnostic-override)"
+echo "[multi-tx] cyclic rotation: ${ROTATION}"
+printf 'run,preamble_symbols,sensor_count,rotation,role,serial\n' >"${ASSIGNMENT_FILE}"
+for (( index=0; index<SENSOR_COUNT; index++ )); do
+    role="${ROLES[index]}"
+    serial="${SERIALS[index]}"
+    echo "EXP4_PROBE_ASSIGNMENT_CSV,run=${RUN_NUMBER},rotation=${ROTATION},role=${role},serial=${serial}"
+    printf '%s,%s,%s,%s,%s,%s\n' \
+        "${RUN_NUMBER}" "${PREAMBLE}" "${SENSOR_COUNT}" "${ROTATION}" \
+        "${role}" "${serial}" >>"${ASSIGNMENT_FILE}"
+done
+
+if (( NO_BUILD == 0 )); then
+    echo "[build] preparing every TX role once"
+    "${SCRIPT_DIR}/brrs_exp4_build.sh" \
+        "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" tx "${LEAD_US}"
+fi
+
+PIDS=()
+CONSOLE_LOGS=()
+cleanup_children() {
+    local pid
+    for pid in "${PIDS[@]:-}"; do
+        kill -0 "${pid}" 2>/dev/null && kill "${pid}" 2>/dev/null || true
+    done
+    wait 2>/dev/null || true
+}
+trap 'cleanup_children; exit 130' INT TERM
+
+for (( index=0; index<SENSOR_COUNT; index++ )); do
+    role="${ROLES[index]}"
+    serial="${SERIALS[index]}"
+    role_lower="$(printf '%s' "${role}" | tr '[:upper:]' '[:lower:]')"
+    console_log="${OUTDIR}/${BASE}_${role_lower}.worker.log"
+    if [[ -e "${console_log}" ]]; then
+        if (( FORCE )); then
+            mv "${console_log}" "${console_log}.prev.$(date '+%H%M%S')"
+        else
+            echo "refusing to overwrite ${console_log}" >&2
+            exit 1
+        fi
+    fi
+    command=(
+        "${SCRIPT_DIR}/brrs_exp4_capture.sh"
+        "${role}" "${PREAMBLE}" "${SENSOR_COUNT}" "${RUN_NUMBER}"
+        "${ENVIRONMENT}"
+    )
+    [[ "${DISTANCE}" == "na" ]] || command+=("${DISTANCE}")
+    command+=(--guard "${GUARD_US}" --lead "${LEAD_US}" --serial "${serial}" --timeout "${TIMEOUT}" --no-build)
+    (( FORCE == 0 )) || command+=(--force)
+    "${command[@]}" >"${console_log}" 2>&1 &
+    PIDS+=("$!")
+    CONSOLE_LOGS+=("${console_log}")
+    echo "[multi-tx] started ${role} on J-Link ${serial}"
+done
+
+READY_DEADLINE=$(( $(date '+%s') + 60 ))
+while :; do
+    ready_count=0
+    for (( index=0; index<SENSOR_COUNT; index++ )); do
+        if ! kill -0 "${PIDS[index]}" 2>/dev/null; then
+            echo "ERROR: ${ROLES[index]} exited before READY" >&2
+            cat "${CONSOLE_LOGS[index]}" >&2
+            cleanup_children
+            exit 1
+        elif grep -q "READY marker seen" "${CONSOLE_LOGS[index]}" 2>/dev/null; then
+            ready_count=$((ready_count + 1))
+        fi
+    done
+    (( ready_count == SENSOR_COUNT )) && break
+    if (( $(date '+%s') >= READY_DEADLINE )); then
+        echo "ERROR: only ${ready_count}/${SENSOR_COUNT} TX nodes reached READY in 60 seconds" >&2
+        cleanup_children
+        exit 1
+    fi
+    sleep 0.2
+done
+
+echo "EXP4_MULTI_TX_READY,run=${RUN_NUMBER},preamble=${PREAMBLE},sensors=${SENSOR_COUNT},status=PASS"
+echo "[multi-tx] all nodes are listening for the INIT beacon; start INIT now"
+
+FAILED=0
+for (( index=0; index<SENSOR_COUNT; index++ )); do
+    if wait "${PIDS[index]}"; then
+        verify_line="$(grep -F '[verify] PASS:' "${CONSOLE_LOGS[index]}" | tail -1 || true)"
+        echo "[multi-tx] ${ROLES[index]} PASS ${verify_line}"
+    else
+        FAILED=1
+        echo "[multi-tx] ${ROLES[index]} FAIL; console follows" >&2
+        cat "${CONSOLE_LOGS[index]}" >&2
+    fi
+done
+trap - INT TERM
+
+if (( FAILED )); then
+    echo "EXP4_MULTI_TX_DONE,run=${RUN_NUMBER},preamble=${PREAMBLE},sensors=${SENSOR_COUNT},status=FAIL"
+    exit 1
+fi
+
+echo "EXP4_MULTI_TX_DONE,run=${RUN_NUMBER},preamble=${PREAMBLE},sensors=${SENSOR_COUNT},status=PASS"
+echo "[done] assignments=${ASSIGNMENT_FILE}"
+echo "[done] console=${ORCHESTRATOR_LOG}"

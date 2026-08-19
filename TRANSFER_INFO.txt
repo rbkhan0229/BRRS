@@ -1,8 +1,8 @@
 BRRS firmware transfer package
 
-Source base commit: 2bfb119
-Local revision: Stage0/Exp1 through Exp4 single-PyLink automatic capture
-Firmware banner: v2.9
+Source base commit: de3c76b
+Local revision: Stage0/Exp1 through Exp4 automatic capture, dynamic fixed-lead selection, and cyclic multi-probe TX assignment
+Firmware banner: v2.10
 Beacon protocol: v3
 DATA PSDU: 26 bytes (8-byte BRRS header + 16-byte application payload + 2-byte FCS)
 Package date: 2026-08-18
@@ -19,7 +19,9 @@ Drivers/API/BRRS_SUBMISSION_AUTO_RUN_KR.md.
 
 Every experiment defaults to one run per condition. Add --repeats N explicitly
 when collecting repeated paper data. Stage0 defaults to all 41 integer lead
-values from 0 through 40 us in a fixed randomized order.
+values from 0 through 40 us in a fixed randomized order. Stage0 uses --leads
+to select sweep points; Experiments 1-4 use --lead <us> to freeze the lead
+selected from Stage0. The Experiment 1-4 default is --lead 15.
 
 Open this SES project:
 Drivers/API/Build_Platforms/nRF52840-DK/dw3000_api.emProject
@@ -38,11 +40,14 @@ Lead values 0 through 40 us are available. Start TX first, then RX.
 Experiments 1-3 use an explicit three-copy END beacon handshake. Their automatic
 verifiers require end=1 on TX and end_tx=3 on INIT so two independent laptops
 cannot silently advance on different case boundaries.
+After the final DATA transmission, the TX node immediately returns to the SYNC
+PHY and logs BRRS_END_RX_ARMED before waiting for the END beacon. This avoids
+depending on the ordinary mid-superframe CONFIG_SWITCH_US path at run end.
 
-Experiment 1 automatic capture (fixed lead 15 us, tail 0 us):
+Experiment 1 automatic capture (Stage0-selected fixed lead, tail 0 us):
   cd Drivers/API
-  ./brrs_exp1_capture.sh tx 32 1 <environment> [distance]
-  ./brrs_exp1_capture.sh rx 32 1 <environment> [distance]
+  ./brrs_exp1_capture.sh tx 32 1 <environment> [distance] --lead 15
+  ./brrs_exp1_capture.sh rx 32 1 <environment> [distance] --lead 15
 
 Preamble values 32, 64, 128, and 256 symbols are available. Each run has
 2,000 measurement opportunities. collection=PASS means that the requested
@@ -63,13 +68,13 @@ Experiment 2 result semantics:
 
 Automatic capture:
   cd Drivers/API
-  ./brrs_exp2_capture.sh tx 32 1 <environment> [distance]
-  ./brrs_exp2_capture.sh rx 32 1 <environment> [distance]
+  ./brrs_exp2_capture.sh tx 32 1 <environment> [distance] --lead 15
+  ./brrs_exp2_capture.sh rx 32 1 <environment> [distance] --lead 15
 
 Experiment 3 automatic capture:
   cd Drivers/API
-  ./brrs_exp3_capture.sh tx A 1 <environment> [distance]
-  ./brrs_exp3_capture.sh rx A 1 <environment> [distance]
+  ./brrs_exp3_capture.sh tx A 1 <environment> [distance] --lead 15
+  ./brrs_exp3_capture.sh rx A 1 <environment> [distance] --lead 15
 
 The submission block runner rotates A/B/C across three runs as A-B-C, B-C-A,
 and C-A-B. Start TX first, then RX.
@@ -77,11 +82,11 @@ TX verification requires exactly 1,000 EXP3_TX_CSV rows and a successful
 EXP3_TX_DUMP_DONE marker. The legacy brrs_exp3_flash_and_log.sh is disabled
 because its separate J-Link connections could lose RTT data.
 
-Experiment 4 automatic capture (default guard 200 us):
+Experiment 4 automatic capture (default guard 200 us, default lead 15 us):
   cd Drivers/API
-  ./brrs_exp4_capture.sh N2   32 2 1 <environment> [distance]
-  ./brrs_exp4_capture.sh N3   32 2 1 <environment> [distance]
-  ./brrs_exp4_capture.sh init 32 2 1 <environment> [distance]
+  ./brrs_exp4_capture.sh N2   32 2 1 <environment> [distance] --lead 15
+  ./brrs_exp4_capture.sh N3   32 2 1 <environment> [distance] --lead 15
+  ./brrs_exp4_capture.sh init 32 2 1 <environment> [distance] --lead 15
 
 Start every sensor command first and INIT last. The script builds only its own
 role with the requested preamble, sensor count, and guard. It then flashes,
@@ -89,6 +94,17 @@ captures RTT channel 1 through the same PyLink connection, verifies the current
 revision 21 schedule/double-buffer/node totals, and writes a raw log plus
 metadata. See
 Drivers/API/BRRS_EXPERIMENT4_AUTO_CAPTURE_KR.md.
+
+Experiment 4 automatic multi-probe TX capture:
+  cd Drivers/API
+  ./brrs_run_experiment.sh exp4 tx <environment> [distance] \
+    --sensors 3 --repeats 3 --lead 15
+
+The TX runner discovers exactly --sensors USB J-Link probes, sorts their serial
+numbers, and cyclically rotates the N2..N(S+1) roles on each run. It prints and
+saves every role-to-serial assignment, starts all node captures concurrently,
+and prints EXP4_MULTI_TX_READY when INIT may be started. Run the matching INIT
+suite on the other computer with the same sensor count and repeat count.
 
 The default capture backend is pylink and requires:
   python3 -m pip install pylink-square

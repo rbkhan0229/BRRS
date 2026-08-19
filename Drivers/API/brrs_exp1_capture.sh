@@ -16,6 +16,7 @@ Usage:
   $(basename "$0") <tx|rx> <32|64|128|256> <run> <environment> [distance] [options]
 
 Options:
+  --lead <us>          RX lead margin for Exp1 (default: 15).
   --serial <S/N>       Select a J-Link when multiple probes are attached.
   --no-build           Reuse the existing ELF and HEX.
   --timeout <seconds>  Override capture timeout (RX 120 s, TX 600 s).
@@ -95,7 +96,8 @@ if [[ "${DISTANCE}" != "na" && ! "${DISTANCE}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
     exit 2
 fi
 [[ "${LEAD_US}" =~ ^[0-9]+$ && "${TAIL_US}" =~ ^[0-9]+$ ]] \
-    || { echo "lead and tail must be non-negative integers" >&2; exit 2; }
+    && (( LEAD_US <= 1000 && TAIL_US <= 1000 )) \
+    || { echo "lead and tail must be between 0 and 1000 us" >&2; exit 2; }
 [[ -z "${TIMEOUT}" || "${TIMEOUT}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "timeout must be a positive integer" >&2; exit 2; }
 
@@ -110,7 +112,6 @@ if [[ "${MODE}" == "stage0" ]]; then
     EXPERIMENT_LABEL="Stage0: lead ${LEAD_US} us, tail ${TAIL_US} us"
     LOG_PREFIX="stage0_l${LEAD_US}_t${TAIL_US}"
 else
-    LEAD_US=15
     TAIL_US=0
     if [[ "${ROLE}" == "rx" ]]; then
         CONFIG="Exp1_${PREAMBLE}_Init"
@@ -118,7 +119,7 @@ else
         CONFIG="Exp1_Normal"
     fi
     EXPERIMENT_LABEL="Experiment 1: ${PREAMBLE} symbols"
-    LOG_PREFIX="exp1_${PREAMBLE}"
+    LOG_PREFIX="exp1_${PREAMBLE}_l${LEAD_US}"
 fi
 
 grep -Fq "Name=\"${CONFIG}\"" "${PROJECT}" \
@@ -136,6 +137,7 @@ fi
 
 HEX_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.hex"
 ELF_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.elf"
+LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
@@ -200,6 +202,7 @@ fi
 
 echo "[${ROLE_LABEL}] ${EXPERIMENT_LABEL}"
 echo "  Configuration: ${CONFIG}"
+echo "  RX lead:       ${LEAD_US} us"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
@@ -207,12 +210,23 @@ echo "  Raw log:       ${RAW_LOG}"
 
 if (( NO_BUILD == 0 )); then
     echo "[build] ${CONFIG}"
-    "${EMBUILD}" -config "${CONFIG}" -project dw3000_api -rebuild \
-        "${PROJECT}" >"${BUILD_LOG}" 2>&1 \
+    BUILD_ARGS=(-threadnum "${EMBUILD_THREADS:-1}")
+    if [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
+        BUILD_ARGS+=(-sproperty "c_additional_options=-DBRRS_RX_LEAD_MARGIN_US=${LEAD_US}")
+    fi
+    BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
+    "${EMBUILD}" "${BUILD_ARGS[@]}" >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
+    if [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
+        printf '%s\n' "${LEAD_US}" >"${LEAD_STAMP}"
+    fi
 fi
 [[ -f "${HEX_FILE}" && -f "${ELF_FILE}" ]] \
     || { echo "firmware image missing for ${CONFIG}" >&2; exit 1; }
+if (( NO_BUILD == 1 )) && [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
+    [[ -f "${LEAD_STAMP}" && "$(<"${LEAD_STAMP}")" == "${LEAD_US}" ]] \
+        || { echo "cached ${CONFIG} was not built with lead ${LEAD_US} us" >&2; exit 1; }
+fi
 
 RTT_SYMBOL="$("${ARM_NM}" -n "${ELF_FILE}" \
     | awk '$3 == "_SEGGER_RTT" { print $1; exit }')"
