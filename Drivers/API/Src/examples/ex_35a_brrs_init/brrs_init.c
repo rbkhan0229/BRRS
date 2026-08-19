@@ -1095,6 +1095,7 @@ static uint32_t exp4_rdb_host_mismatches = 0;
 static uint32_t exp4_rdb_incomplete_events = 0;
 static uint32_t exp4_rdb_incomplete_recovered = 0;
 static uint32_t exp4_rdb_incomplete_ciaerr = 0;
+static uint32_t exp4_rdb_resync_count = 0;
 static uint8_t exp4_rx_host_buffer = 0;
 static uint32_t exp4_wrong_length_by_slot[BRRS_MAX_DATA_SLOTS + 1U] = {0};
 static uint32_t exp4_wrong_length_by_buffer[2] = {0};
@@ -3018,13 +3019,14 @@ int brrs_init(void)
                             (exp4_rx_buffer_free_stats.sum_us * 1000ULL /
                              exp4_rx_buffer_free_stats.count) : 0;
                         snprintf(s, sizeof(s),
-                                 "EXP4_DOUBLE_BUFFER_CSV,mode=manual,rx_good_events=%lu,rdb_good_events=%lu,rdb_dispatches=%lu,rdb_host_mismatch=%lu,rdb_incomplete=%lu,rdb_incomplete_recovered=%lu,free_count=%lu,free_min_us=%lu,free_max_us=%lu,free_avg_x1000_us=%llu,overrun=%lu",
+                                 "EXP4_DOUBLE_BUFFER_CSV,mode=manual,rx_good_events=%lu,rdb_good_events=%lu,rdb_dispatches=%lu,rdb_host_mismatch=%lu,rdb_incomplete=%lu,rdb_incomplete_recovered=%lu,rdb_resync=%lu,free_count=%lu,free_min_us=%lu,free_max_us=%lu,free_avg_x1000_us=%llu,overrun=%lu",
                                  (unsigned long)exp4_rx_good_events,
                                  (unsigned long)exp4_rdb_good_events,
                                  (unsigned long)exp4_rdb_dispatches,
                                  (unsigned long)exp4_rdb_host_mismatches,
                                  (unsigned long)exp4_rdb_incomplete_events,
                                  (unsigned long)exp4_rdb_incomplete_recovered,
+                                 (unsigned long)exp4_rdb_resync_count,
                                  (unsigned long)exp4_rx_buffer_free_stats.count,
                                  (unsigned long)(exp4_rx_buffer_free_stats.count ?
                                      exp4_rx_buffer_free_stats.min_us : 0),
@@ -3774,8 +3776,58 @@ int brrs_init(void)
                  * complete and assert a fresh RXFCG. */
                 exp4_rearm_after_event(exp4_event_start_cycles);
 
+                /* Read RDB_STATUS before touching any buffer-specific
+                 * register (DW3000 manual section 4.4, Figure 17: "Check
+                 * RDB_STATUS" determines SET_1 vs SET_2 before reading
+                 * either). exp4_rx_host_buffer is our own bookkeeping and
+                 * can drift from the DW3000's actual double-buffer swing
+                 * state; resync from RDB_STATUS truth instead of trusting
+                 * the tracked index blindly. */
+                exp4_phase_start_cycles = dwt_timer_get_cycles();
+                dwt_readfromdevice(RDB_STATUS_ID, 0U, 1U,
+                                   &exp4_rdb_status);
+                exp4_phase_cycles =
+                    dwt_timer_get_cycles() - exp4_phase_start_cycles;
+                exp4_phase_us =
+                    (exp4_phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
+                    (CPU_FREQ_HZ / 1000000UL);
+                if (exp4_rearm_needed) {
+                    update_node_latency(&exp4_rearm_rdb_status_stats,
+                                        exp4_phase_us);
+                }
+                {
+                    bool good0 = (exp4_rdb_status &
+                                  DWT_RDB_STATUS_RXFCG0_BIT_MASK) != 0U;
+                    bool good1 = (exp4_rdb_status &
+                                  DWT_RDB_STATUS_RXFCG1_BIT_MASK) != 0U;
+                    if (good0 && !good1) {
+                        completed_host_buffer = 0U;
+                    } else if (good1 && !good0) {
+                        completed_host_buffer = 1U;
+                    }
+                    /* Else neither (handled as a mismatch below) or both
+                     * appear ready -- keep the tracked guess. */
+                    if (completed_host_buffer != exp4_rx_host_buffer) {
+                        exp4_rdb_resync_count++;
+                        {
+                            static char resync_line[150];
+                            snprintf(resync_line, sizeof(resync_line),
+                                     "EXP4_RDB_RESYNC_CSV,count=%lu,slot=%u,tracked=%u,actual=%u,rdb_status=0x%02X",
+                                     (unsigned long)exp4_rdb_resync_count,
+                                     (unsigned int)completed_rx_slot,
+                                     (unsigned int)exp4_rx_host_buffer,
+                                     (unsigned int)completed_host_buffer,
+                                     (unsigned int)exp4_rdb_status);
+                            test_run_info((unsigned char *)resync_line);
+                        }
+                        exp4_rx_host_buffer = completed_host_buffer;
+                    }
+                }
+
                 /* Cache adjacent FINFO and RX_TIME in one transaction before
-                 * the next slot can advance the double-buffer swinging set. */
+                 * the next slot can advance the double-buffer swinging set.
+                 * completed_host_buffer is now resynced against hardware
+                 * truth above. */
                 exp4_phase_start_cycles = dwt_timer_get_cycles();
                 exp4_read_rx_metadata(completed_host_buffer, &rx_ts_high32,
                                       &rx_frame_len);
@@ -3789,24 +3841,12 @@ int brrs_init(void)
                                         exp4_phase_us);
                 }
 
-                exp4_phase_start_cycles = dwt_timer_get_cycles();
-                dwt_readfromdevice(RDB_STATUS_ID, 0U, 1U,
-                                   &exp4_rdb_status);
-                exp4_phase_cycles =
-                    dwt_timer_get_cycles() - exp4_phase_start_cycles;
-                exp4_phase_us =
-                    (exp4_phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
-                    (CPU_FREQ_HZ / 1000000UL);
-                if (exp4_rearm_needed) {
-                    update_node_latency(&exp4_rearm_rdb_status_stats,
-                                        exp4_phase_us);
-                }
                 /* RXFR + RXFCG identifies a complete CRC-valid frame;
                  * CIADONE validates the adjusted receive timestamp. */
-                exp4_rdb_current_good_mask = (exp4_rx_host_buffer == 0U) ?
+                exp4_rdb_current_good_mask = (completed_host_buffer == 0U) ?
                     DWT_RDB_STATUS_RXFCG0_BIT_MASK :
                     DWT_RDB_STATUS_RXFCG1_BIT_MASK;
-                exp4_rdb_current_ready_mask = (exp4_rx_host_buffer == 0U) ?
+                exp4_rdb_current_ready_mask = (completed_host_buffer == 0U) ?
                     (DWT_RDB_STATUS_RXFCG0_BIT_MASK |
                      DWT_RDB_STATUS_RXFR0_BIT_MASK |
                      DWT_RDB_STATUS_CIADONE0_BIT_MASK) :
