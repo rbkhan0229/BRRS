@@ -1094,6 +1094,7 @@ static uint32_t exp4_rdb_dispatches = 0;
 static uint32_t exp4_rdb_host_mismatches = 0;
 static uint32_t exp4_rdb_incomplete_events = 0;
 static uint32_t exp4_rdb_incomplete_recovered = 0;
+static uint32_t exp4_rdb_incomplete_ciaerr = 0;
 static uint8_t exp4_rx_host_buffer = 0;
 static uint32_t exp4_wrong_length_by_slot[BRRS_MAX_DATA_SLOTS + 1U] = {0};
 static uint32_t exp4_wrong_length_by_buffer[2] = {0};
@@ -3038,9 +3039,10 @@ int brrs_init(void)
                             (exp4_rdb_incomplete_retry_stats.sum_us * 1000ULL /
                              exp4_rdb_incomplete_retry_stats.count);
                         snprintf(s, sizeof(s),
-                                 "EXP4_RDB_RETRY_CSV,count=%lu,recovered=%lu,min_us=%lu,max_us=%lu,avg_x1000_us=%llu,timeout_us=%d",
+                                 "EXP4_RDB_RETRY_CSV,count=%lu,recovered=%lu,ciaerr=%lu,min_us=%lu,max_us=%lu,avg_x1000_us=%llu,timeout_us=%d",
                                  (unsigned long)exp4_rdb_incomplete_retry_stats.count,
                                  (unsigned long)exp4_rdb_incomplete_recovered,
+                                 (unsigned long)exp4_rdb_incomplete_ciaerr,
                                  (unsigned long)exp4_rdb_incomplete_retry_stats.min_us,
                                  (unsigned long)exp4_rdb_incomplete_retry_stats.max_us,
                                  (unsigned long long)retry_avg_x1000,
@@ -3814,6 +3816,17 @@ int brrs_init(void)
                 if ((exp4_rdb_status & exp4_rdb_current_good_mask) == 0U) {
                     exp4_rdb_host_mismatches++;
                     total_rx_errors++;
+                    {
+                        static char diag_line[160];
+                        snprintf(diag_line, sizeof(diag_line),
+                                 "EXP4_RDB_DIAG_CSV,kind=mismatch,count=%lu,slot=%u,host_buffer=%u,rdb_status=0x%02X,sys_status=0x%08lX",
+                                 (unsigned long)exp4_rdb_host_mismatches,
+                                 (unsigned int)completed_rx_slot,
+                                 (unsigned int)exp4_rx_host_buffer,
+                                 (unsigned int)exp4_rdb_status,
+                                 (unsigned long)dwt_readsysstatuslo());
+                        test_run_info((unsigned char *)diag_line);
+                    }
                     exp4_close_data_burst(EXP4_BURST_CLOSE_DEADLINE);
                     dwt_setdblrxbuffmode(DBL_BUF_STATE_DIS,
                                          DBL_BUF_MODE_MAN);
@@ -3824,32 +3837,69 @@ int brrs_init(void)
                 }
                 if ((exp4_rdb_status & exp4_rdb_current_ready_mask) !=
                     exp4_rdb_current_ready_mask) {
-                    /* RXFCG passed (checked above) but CIADONE has not
-                     * settled yet for this buffer. The next slot's RX is
-                     * already re-armed at this point, so waiting here does
-                     * not cost any guard budget -- it just avoids failing a
-                     * good frame that was polled a moment too early. Bound
-                     * by elapsed time (not a fixed SPI-read count): a fixed
-                     * count of back-to-back reads was not always enough. */
+                    /* RXFCG passed (checked above), but per the DW3000
+                     * manual (SYS_STATUS RXFR/CIADONE description, section
+                     * 4.4), RXFRx is only set once CIA processing has
+                     * concluded -- either successfully (CIADONEx) or with
+                     * an error, reported via the *global* SYS_STATUS
+                     * CIAERR bit (RDB_STATUS has no per-buffer CIAERR0/1).
+                     * If CIA erred, CIADONEx will never be set, so a short
+                     * settling wait is still worth trying (in case this is
+                     * genuinely just late), but stop immediately once
+                     * CIAERR appears instead of waiting out the full
+                     * timeout for a bit that cannot arrive. The next
+                     * slot's RX is already re-armed at this point, so this
+                     * wait does not cost any guard budget. */
                     uint32_t retry_start_cycles = dwt_timer_get_cycles();
-                    uint32_t retry_elapsed_us;
-                    do {
+                    uint32_t retry_elapsed_us = 0U;
+                    bool cia_error = false;
+                    for (;;) {
                         dwt_readfromdevice(RDB_STATUS_ID, 0U, 1U,
                                            &exp4_rdb_status);
+                        if ((exp4_rdb_status & exp4_rdb_current_ready_mask) ==
+                            exp4_rdb_current_ready_mask) {
+                            break;
+                        }
+                        if (dwt_readsysstatuslo() & DWT_INT_CIAERR_BIT_MASK) {
+                            cia_error = true;
+                            dwt_writesysstatuslo(DWT_INT_CIAERR_BIT_MASK);
+                            break;
+                        }
                         retry_elapsed_us =
                             (dwt_timer_get_cycles() - retry_start_cycles) /
                             (CPU_FREQ_HZ / 1000000UL);
-                    } while ((exp4_rdb_status & exp4_rdb_current_ready_mask) !=
-                                 exp4_rdb_current_ready_mask &&
-                             retry_elapsed_us < EXP4_RDB_CIADONE_RETRY_TIMEOUT_US);
+                        if (retry_elapsed_us >= EXP4_RDB_CIADONE_RETRY_TIMEOUT_US) {
+                            break;
+                        }
+                    }
+                    retry_elapsed_us =
+                        (dwt_timer_get_cycles() - retry_start_cycles) /
+                        (CPU_FREQ_HZ / 1000000UL);
                     update_node_latency(&exp4_rdb_incomplete_retry_stats,
                                         retry_elapsed_us);
                     if ((exp4_rdb_status & exp4_rdb_current_ready_mask) ==
                         exp4_rdb_current_ready_mask) {
                         exp4_rdb_incomplete_recovered++;
                     } else {
+                        if (cia_error) {
+                            exp4_rdb_incomplete_ciaerr++;
+                        }
                         exp4_rdb_incomplete_events++;
                         total_rx_errors++;
+                        {
+                            static char diag_line[190];
+                            snprintf(diag_line, sizeof(diag_line),
+                                     "EXP4_RDB_DIAG_CSV,kind=incomplete,count=%lu,slot=%u,host_buffer=%u,rdb_status=0x%02X,expected_mask=0x%02X,sys_status=0x%08lX,ciaerr=%u,wait_us=%lu",
+                                     (unsigned long)exp4_rdb_incomplete_events,
+                                     (unsigned int)completed_rx_slot,
+                                     (unsigned int)exp4_rx_host_buffer,
+                                     (unsigned int)exp4_rdb_status,
+                                     (unsigned int)exp4_rdb_current_ready_mask,
+                                     (unsigned long)dwt_readsysstatuslo(),
+                                     cia_error ? 1U : 0U,
+                                     (unsigned long)retry_elapsed_us);
+                            test_run_info((unsigned char *)diag_line);
+                        }
                         exp4_close_data_burst(EXP4_BURST_CLOSE_DEADLINE);
                         dwt_setdblrxbuffmode(DBL_BUF_STATE_DIS,
                                              DBL_BUF_MODE_MAN);
