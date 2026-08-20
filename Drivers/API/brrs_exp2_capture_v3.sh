@@ -14,7 +14,7 @@
 #     JLinkExe RTT TELNET 방식을 선택할 수 있다.
 #
 # 사용:
-#   ./brrs_exp2_capture_v3.sh <tx|rx> <32|64|128|256> <run> <environment> [distance]
+#   ./brrs_exp2_capture_v3.sh <tx|rx> <32|64|128|256|1024> <run> <environment> [distance]
 #       [--serial <S/N>] [--no-build] [--timeout <s>] [--method telnet|pylink]
 
 set -Eeuo pipefail
@@ -29,7 +29,7 @@ EXPECTED_SAMPLES=1000
 usage() {
     cat <<EOF
 Usage:
-  $(basename "$0") <tx|rx> <32|64|128|256> <run> <environment> [distance] [options]
+  $(basename "$0") <tx|rx> <32|64|128|256|1024> <run> <environment> [distance] [options]
 
 Options:
   --lead <us>                RX lead margin (default: 15).
@@ -68,8 +68,8 @@ while (( $# > 0 )); do
 done
 
 case "${PREAMBLE}" in
-    32|64|128|256) ;;
-    *) echo "preamble must be 32, 64, 128, or 256" >&2; exit 2 ;;
+    32|64|128|256|1024) ;;
+    *) echo "preamble must be 32, 64, 128, 256, or 1024" >&2; exit 2 ;;
 esac
 [[ "${RUN_NUMBER}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "run must be a positive integer" >&2; exit 2; }

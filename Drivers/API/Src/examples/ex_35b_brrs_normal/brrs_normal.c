@@ -193,6 +193,11 @@ static void terminal_log_info(unsigned char *data)
 #define BRRS_DATA_PLEN  DWT_PLEN_32
 #endif
 #define DATA_PLEN       BRRS_DATA_PLEN
+#if BRRS_DATA_PLEN == DWT_PLEN_1024
+#define DATA_PAC        DWT_PAC32
+#else
+#define DATA_PAC        DWT_PAC8
+#endif
 #define SYNC_PLEN       DWT_PLEN_256
 #define SYNC_PREAMBLE_SYMBOLS 256
 #define ENABLE_CIR      0
@@ -363,7 +368,7 @@ _Static_assert(CONFIG_SWITCH_US < BRRS_SUPERFRAME_US,
 
 /* Default communication configuration */
 static dwt_config_t config_data = {
-    9, DATA_PLEN, DWT_PAC8,
+    9, DATA_PLEN, DATA_PAC,
     9, 9, DATA_SFD_TYPE,
     DWT_BR_6M8, DWT_PHRMODE_STD, DATA_PHR_RATE,
     (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - 8),
@@ -387,6 +392,9 @@ static bool brrs_data_plen_from_symbols(uint16_t symbols, uint16_t *plen)
         return true;
     case 256U:
         *plen = DWT_PLEN_256;
+        return true;
+    case 1024U:
+        *plen = DWT_PLEN_1024;
         return true;
     default:
         return false;

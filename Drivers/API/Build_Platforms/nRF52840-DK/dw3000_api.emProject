@@ -123,6 +123,8 @@
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=2;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_128;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
   <configuration Name="Exp2_256_Init" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
     macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=2;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_256;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
+  <configuration Name="Exp2_1024_Init" c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000" gcc_debugging_level="Level 3" gcc_optimization_level="None"
+    macros="BRRS_ROLE_DEFINE=TEST_BRRS_INIT;EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1;BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=2;BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=DWT_PLEN_1024;BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1" />
   <configuration
     Name="Exp3_A_Init"
     c_preprocessor_definitions="DEBUG;BRRS_TARGET_CYCLES=1000"
@@ -623,6 +625,9 @@
       debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
     <configuration
       Name="Exp2_256_Init"
+      debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
+    <configuration
+      Name="Exp2_1024_Init"
       debug_register_definition_file="$(NordicSDKDir)/modules/nrfx/mdk/nrf52840.svd" />
     <configuration
       Name="Exp3_A_Init"

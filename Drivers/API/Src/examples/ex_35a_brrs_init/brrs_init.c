@@ -148,24 +148,29 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define BRRS_DATA_PLEN  DWT_PLEN_32
 #endif
 #define DATA_PLEN       BRRS_DATA_PLEN
+#if BRRS_DATA_PLEN == DWT_PLEN_1024
+#define DATA_PAC        DWT_PAC32
+#else
+#define DATA_PAC        DWT_PAC8
+#endif
 #define SYNC_PLEN       DWT_PLEN_256
 #define SYNC_PREAMBLE_SYMBOLS 256
 
 /* Experiment 2 is the CIR acquisition run. */
 #define ENABLE_CIR      (BRRS_EXPERIMENT == 2)
 
-#define CIR_ANALYSIS_SAMPLES    64
+#define CIR_ANALYSIS_SAMPLES    300
 #define CIR_LOG_PER_FRAME       1
 #define CIR_LOG_PER_FRAME_TO_TERMINAL 1
 #define CIR_LOG_CYCLE_LINES     0
 #define CIR_DUMP_SAMPLES_AT_END 0
-#define CIR_RAW_LOG_LIMIT       0
+#define CIR_RAW_LOG_LIMIT       30
 #define CIR_SAMPLE_DUMP_DELAY_MS 5
 #define CIR_RTT_CHANNEL         1
 #define CIR_RTT_BUFFER_SIZE     32768
 #define CIR_RTT_MODE_BLOCK      2U
 #define CIR_RAW_SAMPLES         CIR_ANALYSIS_SAMPLES
-#define CIR_RAW_PRE_FP_SAMPLES  16
+#define CIR_RAW_PRE_FP_SAMPLES  30
 #define CIR_NOISE_PRE_FP_SAMPLES 12
 #define CIR_NOISE_GUARD_SAMPLES  2
 #define CIR_FP_PEAK_PRE_SAMPLES  1
@@ -398,7 +403,7 @@ _Static_assert(CONFIG_SWITCH_US < BRRS_SUPERFRAME_US,
 
 /* Default communication configuration for DATA */
 static dwt_config_t config_data = {
-    9, DATA_PLEN, DWT_PAC8,
+    9, DATA_PLEN, DATA_PAC,
     9, 9, DATA_SFD_TYPE,
     DWT_BR_6M8, DWT_PHRMODE_STD, DATA_PHR_RATE,
     (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - 8),
@@ -639,14 +644,23 @@ static void format_x100(char *buf, size_t size, int32_t value_x100) {
     }
 }
 
-static void print_cir_data(uint8_t *buf, int n_samples) {
+static void print_cir_data(uint8_t *buf, int n_samples,
+                           uint32_t frame_no, uint32_t cycle_no,
+                           uint16_t sample_offs, uint16_t fp_sample) {
     int i;
-    test_run_info((unsigned char *)"\nCIR_START");
+    static char header_line[160];
+
+    snprintf(header_line, sizeof(header_line),
+             "CIR_RAW_HEADER,frame=%lu,cycle=%lu,plen=%d,sample_offset=%u,n_samples=%d,fp_sample=%u",
+             (unsigned long)frame_no, (unsigned long)cycle_no, PREAMBLE_SYMBOLS,
+             sample_offs, n_samples, fp_sample);
+    cir_log_info(header_line);
+
     for (i = 0; i < n_samples; i++) {
         int32_t real_val, imag_val;
         uint8_t lo_re, mid_re, hi_re, sign_re;
         uint8_t lo_im, mid_im, hi_im, sign_im;
-        static char cir_line[40];
+        static char cir_line[64];
 
         lo_re  = buf[i * 6 + 0];
         mid_re = buf[i * 6 + 1];
@@ -661,10 +675,10 @@ static void print_cir_data(uint8_t *buf, int n_samples) {
         real_val = (int32_t)((uint32_t)sign_re << 24 | (uint32_t)hi_re << 16 | (uint32_t)mid_re << 8 | lo_re);
         imag_val = (int32_t)((uint32_t)sign_im << 24 | (uint32_t)hi_im << 16 | (uint32_t)mid_im << 8 | lo_im);
 
-        snprintf(cir_line, sizeof(cir_line), "%ld,%ld,", (long)real_val, (long)imag_val);
-        test_run_info((unsigned char *)cir_line);
+        snprintf(cir_line, sizeof(cir_line), "CIR_RAW,%lu,%d,%ld,%ld",
+                 (unsigned long)frame_no, i, (long)real_val, (long)imag_val);
+        cir_log_info(cir_line);
     }
-    test_run_info((unsigned char *)"CIR_END");
 }
 
 static void store_cir_sample(uint8_t src_idx,
@@ -986,7 +1000,7 @@ static void log_cir_quality(uint8_t src_idx, uint32_t frame_no, uint32_t cycle_n
                  (unsigned long)frame_no, get_slot_description(src_idx),
                  sample_offs, CIR_RAW_SAMPLES);
         test_run_info((unsigned char *)diag_line);
-        print_cir_data(cir_buf, CIR_RAW_SAMPLES);
+        print_cir_data(cir_buf, CIR_RAW_SAMPLES, frame_no, cycle_no, sample_offs, fp_sample);
         cir_raw_logs++;
     }
 }
