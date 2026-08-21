@@ -125,8 +125,8 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #if !BRRS_EXPLICIT_PROFILE
 #error "Select an explicit Exp*_Init Build Configuration; generic Debug/Release is disabled"
 #endif
-#if BRRS_EXPERIMENT < 1 || BRRS_EXPERIMENT > 4
-#error "BRRS_EXPERIMENT must be between 1 and 4"
+#if BRRS_EXPERIMENT < 1 || BRRS_EXPERIMENT > 5
+#error "BRRS_EXPERIMENT must be between 1 and 5"
 #endif
 
 /* Experiment 3 PHY condition. Both INIT and NORMAL must use the same value.
@@ -158,21 +158,33 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define SYNC_PLEN       DWT_PLEN_256
 #define SYNC_PREAMBLE_SYMBOLS 256
 
-/* Experiment 2 is the CIR acquisition run. */
-#define ENABLE_CIR      (BRRS_EXPERIMENT == 2)
+/* Experiment 2 is the CIR acquisition (preamble-length sweep) run.
+ * Experiment 5 is the standalone Npre=1024 channel-characterization pilot;
+ * it reuses the same CIR capture code but must not alter Exp2's own
+ * 32/64/128/256 sweep behavior, so the two get separate constants below. */
+#define ENABLE_CIR      (BRRS_EXPERIMENT == 2 || BRRS_EXPERIMENT == 5)
 
+#if BRRS_EXPERIMENT == 5
 #define CIR_ANALYSIS_SAMPLES    300
 #define CIR_LOG_PER_FRAME       0
 #define CIR_LOG_PER_FRAME_TO_TERMINAL 0
-#define CIR_LOG_CYCLE_LINES     0
 #define CIR_DUMP_SAMPLES_AT_END 1
 #define CIR_RAW_LOG_LIMIT       30
+#define CIR_RAW_PRE_FP_SAMPLES  30
+#else
+#define CIR_ANALYSIS_SAMPLES    64
+#define CIR_LOG_PER_FRAME       1
+#define CIR_LOG_PER_FRAME_TO_TERMINAL 1
+#define CIR_DUMP_SAMPLES_AT_END 0
+#define CIR_RAW_LOG_LIMIT       0
+#define CIR_RAW_PRE_FP_SAMPLES  16
+#endif
+#define CIR_LOG_CYCLE_LINES     0
 #define CIR_SAMPLE_DUMP_DELAY_MS 5
 #define CIR_RTT_CHANNEL         1
 #define CIR_RTT_BUFFER_SIZE     32768
 #define CIR_RTT_MODE_BLOCK      2U
 #define CIR_RAW_SAMPLES         CIR_ANALYSIS_SAMPLES
-#define CIR_RAW_PRE_FP_SAMPLES  30
 #define CIR_NOISE_PRE_FP_SAMPLES 12
 #define CIR_NOISE_GUARD_SAMPLES  2
 #define CIR_FP_PEAK_PRE_SAMPLES  1
@@ -191,7 +203,7 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define STARTUP_GRACE_MS 10000
 
 /* ========== TDMA 프로토콜 파라미터 ========== */
-#if BRRS_EXPERIMENT == 1 || BRRS_EXPERIMENT == 2 || BRRS_EXPERIMENT == 3
+#if BRRS_EXPERIMENT == 1 || BRRS_EXPERIMENT == 2 || BRRS_EXPERIMENT == 3 || BRRS_EXPERIMENT == 5
 #define TOTAL_NODES         2
 #define TOTAL_SLOTS         2
 #define TOTAL_ARRAY_SIZE    2
@@ -3723,7 +3735,7 @@ int brrs_init(void)
                  * 실험 1/2/3: Normal 노드들이 SEQ 2부터 시작
                  * 실험 4: INIT도 SEQ 1 슬롯 사용 (별도 처리)
                  */
-#if BRRS_EXPERIMENT == 1 || BRRS_EXPERIMENT == 2 || BRRS_EXPERIMENT == 3
+#if BRRS_EXPERIMENT == 1 || BRRS_EXPERIMENT == 2 || BRRS_EXPERIMENT == 3 || BRRS_EXPERIMENT == 5
                 if (!config_is_sync && current_beacon_config.slot_count > 0U &&
                     !slots_scheduled[0]) {
                     schedule_rx_slot(0);

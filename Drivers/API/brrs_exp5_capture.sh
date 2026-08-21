@@ -1,24 +1,23 @@
 #!/usr/bin/env bash
 #
-# brrs_exp2_capture_v3.sh — JLinkRTTLogger 없이 단일 J-Link 연결로
-# build → flash → run → RTT ch1 캡처 → 검증을 수행한다.
+# brrs_exp5_capture.sh — Experiment 5 (vehicle interior multipath channel
+# characterization) capture: build → flash → run → RTT ch1 캡처 → 검증.
 #
-# 핵심 변경점 (v2 대비):
-#   * JLinkRTTLogger 프로세스를 완전히 제거.
-#   * JLinkExe 세션 하나를 FIFO로 열어둔 채 유지 (flash 후 종료하지 않음).
-#     → 두 번째 debug 연결이 없으므로 re-connect/re-init 문제가 사라진다.
-#   * RTT 데이터는 같은 JLinkExe 세션이 여는 RTT TELNET 포트(19021)에서 수신.
-#     채널 1 선택은 접속 직후 100ms 안에 SEGGER TELNET config string 전송으로
-#     수행한다 (공식 문서 요구사항: kb.segger.com/J-Link_RTT_TELNET_Channel).
-#   * 기본 backend는 rtt_capture.py(pylink-square)이며, --method telnet으로
-#     JLinkExe RTT TELNET 방식을 선택할 수 있다.
+# Npre is fixed at 1024 (max CIR quality) — this is NOT part of Exp2's
+# preamble sweep (32/64/128/256, see brrs_exp2_capture_v3.sh). It uses its
+# own BRRS_EXPERIMENT=5 / Exp5_Init build configuration so that Exp2's own
+# CIR window size and logging format are never affected by Exp5's needs.
+# The TX/Normal side has no preamble-specific or CIR-specific behavior (PLEN
+# is negotiated at runtime from the beacon), so it intentionally reuses the
+# generic Exp2_Normal build.
+#
+# Exp5 is a multi-run experiment: repeat this script across vehicle sensor
+# positions (dashboard/door/roof/trunk/...) via <environment>, and across
+# TX-RX distances via [distance], to extract RMS delay spread, Rician
+# K-factor, and (via multiple distances) the path loss exponent.
 #
 # 사용:
-#   ./brrs_exp2_capture_v3.sh <tx|rx> <32|64|128|256> <run> <environment> [distance]
-#
-# Note: Npre=1024 is NOT part of Exp2's preamble sweep. It is the dedicated
-# Exp5 channel-characterization pilot (max-CIR-quality capture) and lives in
-# brrs_exp5_capture.sh / the Exp5_Init build configuration instead.
+#   ./brrs_exp5_capture.sh <tx|rx> <run> <environment> [distance]
 #       [--serial <S/N>] [--no-build] [--timeout <s>] [--method telnet|pylink]
 
 set -Eeuo pipefail
@@ -29,11 +28,12 @@ PROJECT="${SCRIPT_DIR}/Build_Platforms/nRF52840-DK/dw3000_api.emProject"
 OUTPUT_DIR="${SCRIPT_DIR}/Build_Platforms/nRF52840-DK/Output"
 RTT_TELNET_PORT="${RTT_TELNET_PORT:-19021}"
 EXPECTED_SAMPLES=1000
+PREAMBLE=1024
 
 usage() {
     cat <<EOF
 Usage:
-  $(basename "$0") <tx|rx> <32|64|128|256> <run> <environment> [distance] [options]
+  $(basename "$0") <tx|rx> <run> <environment> [distance] [options]
 
 Options:
   --lead <us>                RX lead margin (default: 15).
@@ -50,13 +50,13 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     usage
     exit 0
 fi
-if (( $# < 4 )); then
+if (( $# < 3 )); then
     usage >&2
     exit 2
 fi
 
-ROLE="${1:?role tx|rx}"; PREAMBLE="${2:?preamble}"; RUN_NUMBER="${3:?run}"
-ENVIRONMENT="${4:?environment}"; shift 4
+ROLE="${1:?role tx|rx}"; RUN_NUMBER="${2:?run}"
+ENVIRONMENT="${3:?environment}"; shift 3
 DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="${BRRS_EXP2_CAPTURE_METHOD:-pylink}"; FORCE=0; LEAD_US=15
 if (( $# > 0 )) && [[ "${1}" != --* ]]; then DISTANCE="$1"; shift; fi
 while (( $# > 0 )); do
@@ -71,10 +71,6 @@ while (( $# > 0 )); do
     esac
 done
 
-case "${PREAMBLE}" in
-    32|64|128|256) ;;
-    *) echo "preamble must be 32, 64, 128, or 256 (1024 is Exp5-only: use brrs_exp5_capture.sh)" >&2; exit 2 ;;
-esac
 [[ "${RUN_NUMBER}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "run must be a positive integer" >&2; exit 2; }
 [[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
@@ -85,7 +81,7 @@ case "${METHOD}" in
 esac
 
 case "${ROLE}" in
-    rx) CONFIG="Exp2_${PREAMBLE}_Init"
+    rx) CONFIG="Exp5_Init"
         READY_MARKER="CIR_RTT_READY,channel=1"
         END_MARKER="EXP2_DONE,"
         TIMEOUT="${TIMEOUT:-90}" ;;
@@ -102,9 +98,9 @@ LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
-OUTDIR="${SDK_ROOT}/../logs/exp2_${ENVIRONMENT}${DISTANCE_TAG}_${DATE_TAG}"
+OUTDIR="${SDK_ROOT}/../logs/exp5_${ENVIRONMENT}${DISTANCE_TAG}_${DATE_TAG}"
 mkdir -p "${OUTDIR}"
-BASE="exp2_${PREAMBLE}_l${LEAD_US}_r${RUN_NUMBER}_${ROLE}"
+BASE="exp5_${PREAMBLE}_l${LEAD_US}_r${RUN_NUMBER}_${ROLE}"
 RAW_LOG="${OUTDIR}/${BASE}.log"
 META_FILE="${OUTDIR}/${BASE}.meta.txt"
 FLASH_LOG="${OUTDIR}/${BASE}.flash.log"
@@ -326,7 +322,7 @@ if (( CAPTURE_RC != 0 )); then
     exit "${CAPTURE_RC}"
 fi
 if [[ "${ROLE}" == "rx" ]]; then
-    if ! grep -Fxq "EXP_LOG_CONFIG_CSV,experiment=2,plen=${PREAMBLE},lead_us=${LEAD_US},tail_us=0,target=1000,cir=1" "${RAW_LOG}"; then
+    if ! grep -Fxq "EXP_LOG_CONFIG_CSV,experiment=5,plen=${PREAMBLE},lead_us=${LEAD_US},tail_us=0,target=1000,cir=1" "${RAW_LOG}"; then
         echo "[verify] FAIL: firmware did not report requested lead ${LEAD_US} us" >&2
         exit 3
     fi
@@ -360,6 +356,12 @@ EOF
         exit 3
     fi
 
+    RAW_DONE_LINE="$(grep '^CIR_RAW_DUMP_DONE,' "${RAW_LOG}" | tail -1 || true)"
+    if [[ -z "${RAW_DONE_LINE}" ]]; then
+        echo "[verify] FAIL: CIR_RAW_DUMP_DONE marker not found" >&2
+        exit 3
+    fi
+
     read -r DONE_PLEN DONE_EXPECTED DONE_RX DONE_VALID DONE_DUMP DONE_END_TX DONE_COLLECTION DONE_LINK DONE_PER_X1000 DONE_STATUS <<EOF
 $(printf '%s\n' "${EXP2_LINE}" | awk -F, '
     {
@@ -377,6 +379,59 @@ $(printf '%s\n' "${EXP2_LINE}" | awk -F, '
 ')
 EOF
 
+    read -r RAW_DONE_PLEN RAW_DONE_COUNT RAW_DONE_SAMPLES <<EOF
+$(printf '%s\n' "${RAW_DONE_LINE}" | awk -F, '
+    {
+        for (i = 2; i <= NF; i++) {
+            split($i, kv, "=");
+            value[kv[1]] = kv[2];
+        }
+        printf "%s %s %s\n",
+               value["plen"], value["count"], value["samples_per_frame"];
+    }
+')
+EOF
+
+    read -r RAW_HEADERS RAW_UNIQUE_FRAMES RAW_ROWS RAW_COMPLETE_FRAMES RAW_BAD_ROWS <<EOF
+$(awk -F, -v expected_m="${PREAMBLE}" -v expected_samples=300 '
+    $1 == "CIR_RAW_HEADER" {
+        value["frame"] = "";
+        value["plen"] = "";
+        value["n_samples"] = "";
+        for (i = 2; i <= NF; i++) {
+            split($i, kv, "=");
+            value[kv[1]] = kv[2];
+        }
+        frame = value["frame"];
+        headers++;
+        if (frame == "" || seen_header[frame]++) bad++;
+        if (value["plen"] != expected_m ||
+            value["n_samples"] != expected_samples) bad++;
+        declared[frame] = value["n_samples"];
+        next;
+    }
+    $1 == "CIR_RAW" {
+        frame = $2;
+        sample_idx = $3;
+        rows++;
+        if (NF != 5 || !(frame in declared) ||
+            sample_idx < 0 || sample_idx >= expected_samples ||
+            seen_sample[frame SUBSEP sample_idx]++) bad++;
+        samples[frame]++;
+    }
+    END {
+        for (frame in declared) {
+            unique_frames++;
+            if (samples[frame] == declared[frame] &&
+                samples[frame] == expected_samples) complete_frames++;
+            else bad++;
+        }
+        printf "%d %d %d %d %d\n",
+               headers, unique_frames, rows, complete_frames, bad;
+    }
+' "${RAW_LOG}")
+EOF
+
     if [[ ! "${DONE_PLEN}" =~ ^[0-9]+$ ||
           ! "${DONE_EXPECTED}" =~ ^[0-9]+$ ||
           ! "${DONE_RX}" =~ ^[0-9]+$ ||
@@ -388,6 +443,18 @@ EOF
           "${DONE_STATUS}" != "PASS" ]]; then
         echo "[verify] FAIL: malformed EXP2_DONE: ${EXP2_LINE}" >&2
         exit 3
+    fi
+
+    if [[ ! "${RAW_DONE_PLEN}" =~ ^[0-9]+$ ||
+          ! "${RAW_DONE_COUNT}" =~ ^[0-9]+$ ||
+          ! "${RAW_DONE_SAMPLES}" =~ ^[0-9]+$ ]]; then
+        echo "[verify] FAIL: malformed CIR_RAW_DUMP_DONE: ${RAW_DONE_LINE}" >&2
+        exit 3
+    fi
+
+    EXPECTED_RAW_FRAMES="${DONE_VALID}"
+    if (( EXPECTED_RAW_FRAMES > 30 )); then
+        EXPECTED_RAW_FRAMES=30
     fi
 
     if (( DONE_EXPECTED != EXPECTED_SAMPLES ||
@@ -404,8 +471,16 @@ EOF
           FRAME_MAX != CSV_ROWS ||
           CYCLE_MIN < 1 ||
           CYCLE_MAX > DONE_EXPECTED ||
-          BAD_ROWS != 0 )); then
-        echo "[verify] FAIL: expected=${DONE_EXPECTED}, rx=${DONE_RX}, valid=${DONE_VALID}, dump=${DONE_DUMP}, rows=${CSV_ROWS}, frames=${UNIQUE_FRAMES}(${FRAME_MIN}-${FRAME_MAX}), cycles=${UNIQUE_CYCLES}(${CYCLE_MIN}-${CYCLE_MAX}), bad=${BAD_ROWS}" >&2
+          BAD_ROWS != 0 ||
+          RAW_DONE_PLEN != PREAMBLE ||
+          RAW_DONE_COUNT != EXPECTED_RAW_FRAMES ||
+          RAW_DONE_SAMPLES != 300 ||
+          RAW_HEADERS != EXPECTED_RAW_FRAMES ||
+          RAW_UNIQUE_FRAMES != EXPECTED_RAW_FRAMES ||
+          RAW_COMPLETE_FRAMES != EXPECTED_RAW_FRAMES ||
+          RAW_ROWS != EXPECTED_RAW_FRAMES * 300 ||
+          RAW_BAD_ROWS != 0 )); then
+        echo "[verify] FAIL: expected=${DONE_EXPECTED}, rx=${DONE_RX}, valid=${DONE_VALID}, dump=${DONE_DUMP}, rows=${CSV_ROWS}, frames=${UNIQUE_FRAMES}(${FRAME_MIN}-${FRAME_MAX}), cycles=${UNIQUE_CYCLES}(${CYCLE_MIN}-${CYCLE_MAX}), bad=${BAD_ROWS}; raw_frames=${RAW_COMPLETE_FRAMES}/${EXPECTED_RAW_FRAMES}, raw_rows=${RAW_ROWS}, raw_bad=${RAW_BAD_ROWS}" >&2
         exit 3
     fi
 
