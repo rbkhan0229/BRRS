@@ -148,8 +148,13 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define BRRS_DATA_PLEN  DWT_PLEN_32
 #endif
 #define DATA_PLEN       BRRS_DATA_PLEN
+#if BRRS_DATA_PLEN == DWT_PLEN_1024
+#define DATA_PAC        DWT_PAC32
+#define DATA_PAC_SYMBOLS 32U
+#else
 #define DATA_PAC        DWT_PAC8
 #define DATA_PAC_SYMBOLS 8U
+#endif
 #define SYNC_PLEN       DWT_PLEN_256
 #define SYNC_PREAMBLE_SYMBOLS 256
 

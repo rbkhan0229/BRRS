@@ -193,8 +193,13 @@ static void terminal_log_info(unsigned char *data)
 #define BRRS_DATA_PLEN  DWT_PLEN_32
 #endif
 #define DATA_PLEN       BRRS_DATA_PLEN
+#if BRRS_DATA_PLEN == DWT_PLEN_1024
+#define DATA_PAC        DWT_PAC32
+#define DATA_PAC_SYMBOLS 32U
+#else
 #define DATA_PAC        DWT_PAC8
 #define DATA_PAC_SYMBOLS 8U
+#endif
 #define SYNC_PLEN       DWT_PLEN_256
 #define SYNC_PREAMBLE_SYMBOLS 256
 #define ENABLE_CIR      0
