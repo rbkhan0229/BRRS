@@ -148,7 +148,15 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define BRRS_DATA_PLEN  DWT_PLEN_32
 #endif
 #define DATA_PLEN       BRRS_DATA_PLEN
-#if BRRS_DATA_PLEN == DWT_PLEN_1024
+#ifdef BRRS_RX_PAC_SYMBOLS
+/* A single numeric override (e.g. -DBRRS_RX_PAC_SYMBOLS=4) is easier to pass
+ * through the build system than two separately-synced macros, so the
+ * DWT_PACn enumerator name is derived from it via token pasting. */
+#define BRRS_TOKEN_PASTE2(a, b) a##b
+#define BRRS_TOKEN_PASTE(a, b) BRRS_TOKEN_PASTE2(a, b)
+#define DATA_PAC        BRRS_TOKEN_PASTE(DWT_PAC, BRRS_RX_PAC_SYMBOLS)
+#define DATA_PAC_SYMBOLS BRRS_RX_PAC_SYMBOLS
+#elif BRRS_DATA_PLEN == DWT_PLEN_1024
 #define DATA_PAC        DWT_PAC32
 #define DATA_PAC_SYMBOLS 32U
 #else
@@ -3585,10 +3593,11 @@ int brrs_init(void)
                     static char line[300];
 
                     snprintf(line, sizeof(line),
-                             "EXP1_DONE,plen=%d,lead_us=%d,tail_us=%d,expected=%lu,rx=%lu,delayed_late=%lu,data_config_errors=%lu,end_tx=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
+                             "EXP1_DONE,plen=%d,lead_us=%d,tail_us=%d,pac=%u,expected=%lu,rx=%lu,delayed_late=%lu,data_config_errors=%lu,end_tx=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
                              PREAMBLE_SYMBOLS,
                              RX_LEAD_MARGIN_US,
                              RX_TAIL_MARGIN_US,
+                             (unsigned)DATA_PAC_SYMBOLS,
                              (unsigned long)expected,
                              (unsigned long)received,
                              (unsigned long)total_rx_delayed_fallbacks,

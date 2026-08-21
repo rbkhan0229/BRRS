@@ -193,7 +193,12 @@ static void terminal_log_info(unsigned char *data)
 #define BRRS_DATA_PLEN  DWT_PLEN_32
 #endif
 #define DATA_PLEN       BRRS_DATA_PLEN
-#if BRRS_DATA_PLEN == DWT_PLEN_1024
+#ifdef BRRS_RX_PAC_SYMBOLS
+#define BRRS_TOKEN_PASTE2(a, b) a##b
+#define BRRS_TOKEN_PASTE(a, b) BRRS_TOKEN_PASTE2(a, b)
+#define DATA_PAC        BRRS_TOKEN_PASTE(DWT_PAC, BRRS_RX_PAC_SYMBOLS)
+#define DATA_PAC_SYMBOLS BRRS_RX_PAC_SYMBOLS
+#elif BRRS_DATA_PLEN == DWT_PLEN_1024
 #define DATA_PAC        DWT_PAC32
 #define DATA_PAC_SYMBOLS 32U
 #else

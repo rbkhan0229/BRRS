@@ -17,6 +17,9 @@ Usage:
 
 Options:
   --lead <us>          RX lead margin for Exp1 (default: 15).
+  --pac <4|8>          RX PAC size, Stage0 only (default: 8, the BRRS
+                        baseline; 4 is the DW3000 vendor-recommended value
+                        for preambles under 127 symbols).
   --serial <S/N>       Select a J-Link when multiple probes are attached.
   --no-build           Reuse the existing ELF and HEX.
   --timeout <seconds>  Override capture timeout (RX 120 s, TX 600 s).
@@ -54,6 +57,7 @@ FORCE=0
 MODE="exp1"
 LEAD_US=15
 TAIL_US=0
+PAC=8
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -75,6 +79,9 @@ while (( $# > 0 )); do
         --tail)
             (( $# >= 2 )) || { echo "--tail requires a value" >&2; exit 2; }
             TAIL_US="$2"; shift 2 ;;
+        --pac)
+            (( $# >= 2 )) || { echo "--pac requires a value" >&2; exit 2; }
+            PAC="$2"; shift 2 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -100,6 +107,10 @@ fi
     || { echo "lead and tail must be between 0 and 1000 us" >&2; exit 2; }
 [[ -z "${TIMEOUT}" || "${TIMEOUT}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "timeout must be a positive integer" >&2; exit 2; }
+case "${PAC}" in
+    4|8) ;;
+    *) echo "pac must be 4 or 8" >&2; exit 2 ;;
+esac
 
 if [[ "${MODE}" == "stage0" ]]; then
     [[ "${PREAMBLE}" == "32" ]] \
@@ -109,10 +120,11 @@ if [[ "${MODE}" == "stage0" ]]; then
     else
         CONFIG="Stage0_Normal"
     fi
-    EXPERIMENT_LABEL="Stage0: lead ${LEAD_US} us, tail ${TAIL_US} us"
-    LOG_PREFIX="stage0_l${LEAD_US}_t${TAIL_US}"
+    EXPERIMENT_LABEL="Stage0: lead ${LEAD_US} us, tail ${TAIL_US} us, pac ${PAC}"
+    LOG_PREFIX="stage0_l${LEAD_US}_t${TAIL_US}_pac${PAC}"
 else
     TAIL_US=0
+    PAC=8
     if [[ "${ROLE}" == "rx" ]]; then
         CONFIG="Exp1_${PREAMBLE}_Init"
     else
@@ -138,6 +150,7 @@ fi
 HEX_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.hex"
 ELF_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.elf"
 LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
+PAC_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_pac"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
@@ -203,6 +216,7 @@ fi
 echo "[${ROLE_LABEL}] ${EXPERIMENT_LABEL}"
 echo "  Configuration: ${CONFIG}"
 echo "  RX lead:       ${LEAD_US} us"
+echo "  RX PAC:        ${PAC}"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
@@ -214,15 +228,25 @@ if (( NO_BUILD == 0 )); then
     if [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
         BUILD_ARGS+=(-sproperty "c_additional_options=-DBRRS_RX_LEAD_MARGIN_US=${LEAD_US}")
     fi
+    if [[ "${MODE}" == "stage0" && "${ROLE}" == "rx" ]]; then
+        BUILD_ARGS+=(-sproperty "c_additional_options=-DBRRS_RX_PAC_SYMBOLS=${PAC}")
+    fi
     BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
     "${EMBUILD}" "${BUILD_ARGS[@]}" >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
     if [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
         printf '%s\n' "${LEAD_US}" >"${LEAD_STAMP}"
     fi
+    if [[ "${MODE}" == "stage0" && "${ROLE}" == "rx" ]]; then
+        printf '%s\n' "${PAC}" >"${PAC_STAMP}"
+    fi
 fi
 [[ -f "${HEX_FILE}" && -f "${ELF_FILE}" ]] \
     || { echo "firmware image missing for ${CONFIG}" >&2; exit 1; }
+if (( NO_BUILD == 1 )) && [[ "${MODE}" == "stage0" && "${ROLE}" == "rx" ]]; then
+    [[ -f "${PAC_STAMP}" && "$(<"${PAC_STAMP}")" == "${PAC}" ]] \
+        || { echo "cached ${CONFIG} was not built with pac ${PAC}" >&2; exit 1; }
+fi
 if (( NO_BUILD == 1 )) && [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
     [[ -f "${LEAD_STAMP}" && "$(<"${LEAD_STAMP}")" == "${LEAD_US}" ]] \
         || { echo "cached ${CONFIG} was not built with lead ${LEAD_US} us" >&2; exit 1; }
@@ -250,7 +274,8 @@ PYLINK_ARGS=(
 
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp1_verify.py" "${RAW_LOG}" \
     --mode "${MODE}" --role "${ROLE}" --preamble "${PREAMBLE}" \
-    --lead "${LEAD_US}" --tail "${TAIL_US}" --expected "${EXPECTED_CYCLES}")"
+    --lead "${LEAD_US}" --tail "${TAIL_US}" --pac "${PAC}" \
+    --expected "${EXPECTED_CYCLES}")"
 echo "${VERIFY_OUTPUT}"
 DETAIL="${VERIFY_OUTPUT#\[verify\] PASS: }"
 
@@ -269,6 +294,7 @@ fi
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'tail_us=%s\n' "${TAIL_US}"
+    printf 'pac=%s\n' "${PAC}"
     printf 'expected_cycles=%s\n' "${EXPECTED_CYCLES}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"

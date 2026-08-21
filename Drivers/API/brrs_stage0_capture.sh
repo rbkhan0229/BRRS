@@ -12,12 +12,15 @@ Usage:
   $(basename "$0") <tx|rx> <lead-us> <run> <environment> [distance] [options]
 
 Options are the same as brrs_exp1_capture.sh. Use --tail <us> only for an
-existing Stage0_L<lead>_T<tail>_Init build configuration.
+existing Stage0_L<lead>_T<tail>_Init build configuration. Use --pac <4|8>
+to sweep the RX PAC size (default 8, the BRRS baseline; 4 is the DW3000
+vendor-recommended value for preambles under 127 symbols).
 
 Examples:
   $(basename "$0") tx 15 1 iron_door_nlos 6.9
   $(basename "$0") rx 15 1 iron_door_nlos 6.9
   $(basename "$0") rx 0  1 iron_door_nlos 6.9 --tail 100
+  $(basename "$0") rx 15 1 iron_door_nlos 6.9 --pac 4
 EOF
 }
 
