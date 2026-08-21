@@ -246,8 +246,14 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #if BRRS_EXP4_SLOT_REPEATS < 1
 #error "BRRS_EXP4_SLOT_REPEATS must be at least 1"
 #endif
+#ifdef BRRS_EXP4_CUSTOM_SEQUENCE
+/* A literal per-slot owner sequence (e.g. "2323232323232") replaces the
+ * symmetric round-robin schedule; its length is the slot count. */
+#define BRRS_EXP4_DATA_SLOT_COUNT (sizeof(BRRS_EXP4_CUSTOM_SEQUENCE) - 1U)
+#else
 #define BRRS_EXP4_DATA_SLOT_COUNT \
     (BRRS_ACTIVE_SENSOR_COUNT * BRRS_EXP4_SLOT_REPEATS)
+#endif
 _Static_assert(BRRS_EXP4_DATA_SLOT_COUNT <= BRRS_MAX_DATA_SLOTS,
                "Exp4 slot schedule exceeds the beacon slot-owner capacity");
 #define TOTAL_NODES         (BRRS_SENSOR_NODES + 1)
@@ -1743,7 +1749,11 @@ static void brrs_prepare_beacon(uint8_t message_type,
 #if BRRS_EXPERIMENT == 4
     repeats = BRRS_EXP4_SLOT_REPEATS;
 #endif
+#if BRRS_EXPERIMENT == 4 && defined(BRRS_EXP4_CUSTOM_SEQUENCE)
+    if (!brrs_build_sequence_schedule(&config, BRRS_EXP4_CUSTOM_SEQUENCE)) {
+#else
     if (!brrs_build_round_robin_schedule(&config, repeats)) {
+#endif
         config.slot_count = 0U;
         memset(config.slot_owner, 0, sizeof(config.slot_owner));
     }
@@ -1752,6 +1762,28 @@ static void brrs_prepare_beacon(uint8_t message_type,
 }
 
 #if BRRS_EXPERIMENT == 4
+#ifdef BRRS_EXP4_CUSTOM_SEQUENCE
+/* Per-node slot counts for a custom sequence are computed directly from the
+ * fixed compile-time string rather than from current_beacon_config, since
+ * expected_rx[] is accumulated at the start of a superframe before that
+ * superframe's own beacon has been (re-)built -- current_beacon_config would
+ * still hold the previous superframe's schedule at that point. The sequence
+ * never varies superframe-to-superframe, so counting the literal string is
+ * both correct and independent of call-site ordering. */
+static uint8_t exp4_custom_sequence_node_count(uint8_t node_seq)
+{
+    const char *sequence = BRRS_EXP4_CUSTOM_SEQUENCE;
+    uint8_t count = 0U;
+
+    for (; *sequence != '\0'; sequence++) {
+        if ((uint8_t)(*sequence - '0') == node_seq) {
+            count++;
+        }
+    }
+    return count;
+}
+#endif
+
 static uint16_t exp4_read_superframe_seq(const uint8_t *msg)
 {
     return brrs_get_u16_le(&msg[IDX_SUPERFRAME_SEQ]);
@@ -2816,7 +2848,9 @@ int brrs_init(void)
                 for (k = 1; k < TOTAL_ARRAY_SIZE; k++) {
                     if ((brrs_configured_sensor_bitmap() &
                          brrs_node_bitmap_bit((uint8_t)(k + 1U))) != 0U) {
-#if BRRS_EXPERIMENT == 4
+#if BRRS_EXPERIMENT == 4 && defined(BRRS_EXP4_CUSTOM_SEQUENCE)
+                        expected_rx[k] += exp4_custom_sequence_node_count((uint8_t)(k + 1U));
+#elif BRRS_EXPERIMENT == 4
                         expected_rx[k] += BRRS_EXP4_SLOT_REPEATS;
 #else
                         expected_rx[k]++;

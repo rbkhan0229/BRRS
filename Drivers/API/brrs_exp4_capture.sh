@@ -21,6 +21,9 @@ Options:
   --no-build           Reuse an image previously made with the same parameters.
   --timeout <seconds>  Override capture timeout (INIT 90 s, sensor 180 s).
   --force              Preserve an existing log as .prev.<time> and retry.
+  --sequence <digits>  Custom per-slot owner schedule (init image only), e.g.
+                        2323232323232 gives node 2 seven slots and node 3 six
+                        out of 13 total. See brrs_exp4_build.sh --help.
   -h, --help           Show this help.
 
 Examples:
@@ -54,6 +57,7 @@ SERIAL=""
 NO_BUILD=0
 TIMEOUT=""
 FORCE=0
+SEQUENCE=""
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -78,6 +82,10 @@ while (( $# > 0 )); do
             TIMEOUT="$2"; shift 2
             ;;
         --force) FORCE=1; shift ;;
+        --sequence)
+            (( $# >= 2 )) || { echo "--sequence requires a value" >&2; exit 2; }
+            SEQUENCE="$2"; shift 2
+            ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -136,6 +144,9 @@ if (( GUARD_US != 100 )); then
 fi
 if (( LEAD_US != 15 )); then
     IMAGE_DIR+="_lead${LEAD_US}"
+fi
+if [[ -n "${SEQUENCE}" ]]; then
+    IMAGE_DIR+="_seq${SEQUENCE}"
 fi
 IMAGE_BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_${IMAGE_ROLE}"
 HEX_FILE="${IMAGE_DIR}/${IMAGE_BASE}.hex"
@@ -217,8 +228,10 @@ echo "  Raw log:       ${RAW_LOG}"
 
 if (( NO_BUILD == 0 )); then
     echo "[build] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / guard ${GUARD_US} us / lead ${LEAD_US} us"
-    EMBUILD="${EMBUILD}" "${SCRIPT_DIR}/brrs_exp4_build.sh" \
-        "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}" \
+    BUILD_CMD=("${SCRIPT_DIR}/brrs_exp4_build.sh"
+        "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}")
+    [[ -n "${SEQUENCE}" ]] && BUILD_CMD+=(--sequence "${SEQUENCE}")
+    EMBUILD="${EMBUILD}" "${BUILD_CMD[@]}" \
         >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
 fi
@@ -245,9 +258,12 @@ PYLINK_ARGS=(
 [[ -n "${SERIAL}" ]] && PYLINK_ARGS+=(--serial "${SERIAL}")
 "${PYLINK_ARGS[@]}"
 
+VERIFY_SEQ_ARGS=()
+[[ -n "${SEQUENCE}" ]] && VERIFY_SEQ_ARGS+=(--sequence "${SEQUENCE}")
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     "${VERIFY_ARGS[@]}" --preamble "${PREAMBLE}" \
-    --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}")"
+    --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}" \
+    "${VERIFY_SEQ_ARGS[@]}")"
 echo "${VERIFY_OUTPUT}"
 DETAIL="${VERIFY_OUTPUT#\[verify\] PASS: }"
 

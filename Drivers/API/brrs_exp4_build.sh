@@ -3,9 +3,30 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us]"
+    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--sequence <digits>]"
     echo "Example: $0 32 2 200 N3 15"
+    echo "Example (custom slot schedule): $0 64 2 200 all 15 --sequence 2323232323232"
+    echo
+    echo "--sequence lets a small number of physical nodes fill up more of the"
+    echo "superframe by owning several slots each: each digit (2-8) names the"
+    echo "node_seq owning that slot, e.g. 2323232323232 gives node 2 seven"
+    echo "slots and node 3 six, out of 13 total. Only affects the init image;"
+    echo "sensor node images are unaffected (they already scan the whole"
+    echo "decoded slot_owner[] for every slot they own). Every digit used must"
+    echo "be within 2..sensor_count+1."
 }
+
+SEQUENCE=""
+ARGS=()
+while (( $# > 0 )); do
+    case "$1" in
+        --sequence)
+            (( $# >= 2 )) || { echo "--sequence requires a value" >&2; exit 2; }
+            SEQUENCE="$2"; shift 2 ;;
+        *) ARGS+=("$1"); shift ;;
+    esac
+done
+set -- "${ARGS[@]}"
 
 if [[ $# -lt 2 || $# -gt 5 ]]; then
     usage
@@ -17,6 +38,19 @@ sensor_count="$2"
 guard_us="${3:-200}"
 requested_role="${4:-all}"
 lead_us="${5:-15}"
+
+if [[ -n "${SEQUENCE}" ]]; then
+    [[ "${SEQUENCE}" =~ ^[2-8]+$ ]] \
+        || { echo "ERROR: --sequence must contain only digits 2-8" >&2; exit 2; }
+    (( ${#SEQUENCE} <= 32 )) \
+        || { echo "ERROR: --sequence is longer than the 32-slot beacon capacity" >&2; exit 2; }
+    max_node=$((sensor_count + 1))
+    for (( i = 0; i < ${#SEQUENCE}; i++ )); do
+        digit="${SEQUENCE:i:1}"
+        (( digit <= max_node )) \
+            || { echo "ERROR: --sequence references node ${digit}, outside a ${sensor_count}-sensor run" >&2; exit 2; }
+    done
+fi
 
 case "${plen}" in
     32|64|128|256) plen_define="DWT_PLEN_${plen}" ;;
@@ -64,6 +98,9 @@ fi
 if (( lead_us != 15 )); then
     dest_dir+="_lead${lead_us}"
 fi
+if [[ -n "${SEQUENCE}" ]]; then
+    dest_dir+="_seq${SEQUENCE}"
+fi
 
 if [[ -n "${EMBUILD:-}" ]]; then
     embuild="${EMBUILD}"
@@ -86,6 +123,7 @@ build_image() {
     local node_define="$3"
     local base="exp4_${plen}_s${sensor_count}_${role}"
     local macros
+    local extra_defs=""
 
     macros="BRRS_ROLE_DEFINE=${role_define};EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1"
     macros+=";BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=4"
@@ -93,10 +131,14 @@ build_image() {
     macros+=";BRRS_NODE_DEFINE=${node_define}"
     macros+=";BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=${sensor_count}"
 
+    if [[ -n "${SEQUENCE}" && "${role}" == "init" ]]; then
+        extra_defs=";BRRS_EXP4_CUSTOM_SEQUENCE=\"${SEQUENCE}\""
+    fi
+
     echo "Building ${base}..."
     "${embuild}" \
         -threadnum "${EMBUILD_THREADS:-1}" \
-        -sproperty "c_preprocessor_definitions=DEBUG;BRRS_EXPLICIT_PROFILE=1;BRRS_SLOT_GUARD_US=${guard_us};BRRS_RX_LEAD_MARGIN_US=${lead_us}" \
+        -sproperty "c_preprocessor_definitions=DEBUG;BRRS_EXPLICIT_PROFILE=1;BRRS_SLOT_GUARD_US=${guard_us};BRRS_RX_LEAD_MARGIN_US=${lead_us}${extra_defs}" \
         -sproperty "macros=${macros}" \
         -config Debug \
         -project dw3000_api \

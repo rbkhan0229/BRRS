@@ -63,16 +63,20 @@ def verify_revision(lines, prefix):
     require(revision, "beacon_protocol", 3)
 
 
-def expected_owners(sensors):
+def expected_owners(sensors, sequence=None):
+    if sequence is not None:
+        return sequence
     return "".join(str(node) for node in range(2, sensors + 2))
 
 
-def verify_init(lines, preamble, sensors, expected_guard, expected_lead):
-    expected = 1000 * sensors
+def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
+                sequence=None):
+    slot_count = len(sequence) if sequence is not None else sensors
+    expected = 1000 * slot_count
 
     config = key_values(last_line(lines, "EXP4_CONFIG_CSV,"))
     require(config, "physical_sensors", sensors)
-    require(config, "data_slots", sensors)
+    require(config, "data_slots", slot_count)
     require(config, "slot_repeats", 1)
     require(config, "data_plen", preamble)
     require(config, "psdu_bytes", 26)
@@ -97,8 +101,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead):
             FRAME_AIRTIME_US[preamble] + expected_guard)
 
     schedule = key_values(last_line(lines, "EXP4_SLOT_SCHEDULE_CSV,"))
-    require(schedule, "slot_count", sensors)
-    require(schedule, "slot_owners", expected_owners(sensors))
+    require(schedule, "slot_count", slot_count)
+    require(schedule, "slot_owners", expected_owners(sensors, sequence))
     require(schedule, "repeats", 1)
 
     require_status_line(lines, "EXP4_DOUBLE_BUFFER_CONFIG_CSV,")
@@ -108,7 +112,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead):
     done = key_values(last_line(lines, "EXP4_DONE,"))
     require(done, "plen", preamble)
     require(done, "physical_sensors", sensors)
-    require(done, "data_slots", sensors)
+    require(done, "data_slots", slot_count)
     require(done, "slot_repeats", 1)
     require(done, "superframes", 1000)
     require(done, "expected", expected)
@@ -171,7 +175,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead):
     summary_numbers = [int(value) for value in summary[1:19]]
     if summary_numbers[0] != preamble or summary_numbers[1] != sensors:
         fail("summary preamble/sensor count mismatch")
-    if summary_numbers[2] != sensors or summary_numbers[3] != 1:
+    if summary_numbers[2] != slot_count or summary_numbers[3] != 1:
         fail("summary slot count/repeat mismatch")
     if summary_numbers[4:8] != [26, 16,
                                FRAME_AIRTIME_US[preamble] + expected_guard,
@@ -202,11 +206,13 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead):
         if node in seen_nodes:
             fail(f"duplicate node row: {node}")
         seen_nodes.add(node)
-        if int(fields[2]) != preamble or int(fields[3]) != 1000:
+        node_slots = sequence.count(node[1:]) if sequence is not None else 1
+        node_slot_expected = 1000 * node_slots
+        if int(fields[2]) != preamble or int(fields[3]) != node_slot_expected:
             fail(f"unexpected preamble/expected count for {node}")
         received, missed = int(fields[4]), int(fields[5])
-        if received + missed != 1000:
-            fail(f"received + missed != 1000 for {node}")
+        if received + missed != node_slot_expected:
+            fail(f"received + missed != {node_slot_expected} for {node}")
         node_expected += int(fields[3])
         node_rx += received
     expected_nodes = {f"N{node}" for node in range(2, sensors + 2)}
@@ -239,7 +245,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead):
     )
 
 
-def verify_sensor(lines, preamble, sensors, node, expected_guard):
+def verify_sensor(lines, preamble, sensors, node, expected_guard, sequence=None):
+    node_slots = sequence.count(str(node)) if sequence is not None else 1
     verify_revision(lines, "EXP4_TX_FIRMWARE_REV,")
 
     result = csv_fields(last_line(lines, "EXP4_TX_RESULT_CSV,"))
@@ -259,8 +266,8 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard):
         fail("sensor node or preamble mismatch")
     if not 0 < beacons <= 1000 or beacon_missed != 1000 - beacons:
         fail("invalid beacon counts")
-    if attempts != success or attempts != beacons:
-        fail("attempt/success count does not match received beacons")
+    if attempts != success or attempts != beacons * node_slots:
+        fail("attempt/success count does not match received beacons * owned slots")
     if delayed_late != 0 or end != 1 or schedule != "PASS":
         fail("sensor schedule, delayed-TX, or END validation failed")
     expected_beacon_status = "PASS" if beacons == 1000 else "LOSS"
@@ -282,13 +289,14 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard):
     beacon = key_values(last_line(lines, "BRRS_BEACON_RX_CSV,"))
     require(beacon, "m", preamble)
     require(beacon, "data_psdu", 26)
-    require(beacon, "slot_count", sensors)
+    slot_count = len(sequence) if sequence is not None else sensors
+    require(beacon, "slot_count", slot_count)
     require(beacon, "period_us", 10000)
     require(beacon, "slot_interval_us",
             FRAME_AIRTIME_US[preamble] + expected_guard)
     owners = beacon.get("slot_owners", "")
-    if owners != expected_owners(sensors):
-        fail(f"slot_owners={owners!r}, expected {expected_owners(sensors)!r}")
+    if owners != expected_owners(sensors, sequence):
+        fail(f"slot_owners={owners!r}, expected {expected_owners(sensors, sequence)!r}")
 
     applied = key_values(last_line(lines, "BRRS_DATA_PHY_APPLIED_CSV,"))
     require(applied, "experiment", 4)
@@ -313,7 +321,8 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard):
 
     beacon_loss = 1000 - beacons
     return (
-        f"collection=PASS; node=N{node}; tx={success}/1000; "
+        f"collection=PASS; node=N{node}; tx={success}/{beacons * node_slots} "
+        f"({node_slots} slot{'s' if node_slots != 1 else ''}/superframe); "
         f"beacon_loss={beacon_loss}/1000; beacon={expected_beacon_status}; "
         f"schedule=PASS; plen={preamble}"
     )
@@ -332,6 +341,10 @@ def main():
                         choices=range(0, 1001))
     parser.add_argument("--lead", required=True, type=int,
                         choices=range(0, 1001))
+    parser.add_argument("--sequence",
+                        help="Custom per-slot owner digit string (init image "
+                             "only), e.g. 2323232323232. Omit for the "
+                             "default one-slot-per-node round robin.")
     args = parser.parse_args()
 
     if args.role == "sensor" and args.node is None:
@@ -340,15 +353,19 @@ def main():
         parser.error("--node is only valid for role=sensor")
     if args.node is not None and args.node > args.sensors + 1:
         parser.error("node is outside the configured sensor set")
+    if args.sequence is not None and not (
+            1 <= len(args.sequence) <= 32 and
+            all(c in "2345678" for c in args.sequence)):
+        parser.error("--sequence must be 1-32 digits, each 2-8")
 
     try:
         lines = args.log.read_text(errors="replace").splitlines()
         if args.role == "init":
             detail = verify_init(lines, args.preamble, args.sensors,
-                                 args.guard, args.lead)
+                                 args.guard, args.lead, args.sequence)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
-                                   args.node, args.guard)
+                                   args.node, args.guard, args.sequence)
     except (OSError, ValueError, VerificationError) as exc:
         print(f"[verify] FAIL: {exc}", file=sys.stderr)
         return 3

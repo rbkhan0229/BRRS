@@ -199,6 +199,44 @@ static inline bool brrs_build_round_robin_schedule(brrs_beacon_config_t *config,
     return true;
 }
 
+/* Fills slot_owner[] from a literal digit string (each char '2'-'8' names a
+ * node_seq), instead of brrs_build_round_robin_schedule's symmetric
+ * all-active-nodes-per-round pattern. This lets a small number of physical
+ * nodes emulate a fuller, possibly-asymmetric schedule (e.g. "2323232323232"
+ * gives node 2 seven slots and node 3 six, out of 13 total) without needing
+ * one physical board per slot owner. Every referenced node must already be
+ * marked active in config->active_node_bitmap. */
+static inline bool brrs_build_sequence_schedule(brrs_beacon_config_t *config,
+                                                const char *sequence)
+{
+    uint8_t slot;
+
+    if (sequence == NULL || sequence[0] == '\0')
+    {
+        return false;
+    }
+
+    memset(config->slot_owner, 0, sizeof(config->slot_owner));
+    for (slot = 0U; sequence[slot] != '\0'; slot++)
+    {
+        char c = sequence[slot];
+        uint8_t node_seq;
+
+        if (slot >= BRRS_MAX_DATA_SLOTS || c < '2' || c > '8')
+        {
+            return false;
+        }
+        node_seq = (uint8_t)(c - '0');
+        if ((config->active_node_bitmap & (uint8_t)(1U << (node_seq - 2U))) == 0U)
+        {
+            return false;
+        }
+        config->slot_owner[slot] = node_seq;
+    }
+    config->slot_count = slot;
+    return true;
+}
+
 static inline uint8_t brrs_node_slot_count(const brrs_beacon_config_t *config,
                                            uint8_t node_seq)
 {

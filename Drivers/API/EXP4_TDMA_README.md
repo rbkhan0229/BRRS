@@ -284,6 +284,34 @@ This proves that inactive IDs do not leave empty TDMA slots: N2 owns the first
 DATA slot and N4 immediately owns the second. A complete simultaneous test
 requires the coordinator plus two sensor boards.
 
+## Custom slot-owner sequence (emulating a fuller schedule)
+
+A small number of physical boards can each own several slots per superframe,
+emulating a fuller (up to the mathematically-maximum) schedule before more
+boards are available. Pass `--sequence <digits>` to `brrs_exp4_capture.sh`
+(init role) or `brrs_exp4_build.sh`: each digit (2-8) names the node_seq
+owning that slot, in order. Only the INIT image needs this flag -- sensor
+images are unaffected, since `brrs_load_owned_slots()` already scans the
+whole decoded `slot_owner[]` for every slot belonging to its own node_seq and
+issues an independent delayed-TX for each one.
+
+```bash
+# 13 slots (the documented max for M=64/guard=200us) from just 2 physical
+# sensor boards, alternating ownership: N2 gets 7 slots, N3 gets 6.
+Drivers/API/brrs_exp4_capture.sh N2   64 2 1 seq_test --guard 200 --lead 15
+Drivers/API/brrs_exp4_capture.sh N3   64 2 1 seq_test --guard 200 --lead 15
+Drivers/API/brrs_exp4_capture.sh init 64 2 1 seq_test --guard 200 --lead 15 \
+  --sequence 2323232323232
+```
+
+`brrs_exp4_verify.py` also accepts `--sequence` (on both init and sensor
+roles) so its per-node expected counts follow the asymmetric split instead
+of assuming one slot per node. The first schedule line must be:
+
+```text
+EXP4_SLOT_SCHEDULE_CSV,active_bitmap=0x03,slot_count=13,slot_owners=2323232323232,repeats=1
+```
+
 ## Log and plot
 
 Save the coordinator RTT channel 1 output for every run. After collecting the
