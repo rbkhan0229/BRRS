@@ -195,8 +195,10 @@ static void terminal_log_info(unsigned char *data)
 #define DATA_PLEN       BRRS_DATA_PLEN
 #if BRRS_DATA_PLEN == DWT_PLEN_1024
 #define DATA_PAC        DWT_PAC32
+#define DATA_PAC_SYMBOLS 32U
 #else
 #define DATA_PAC        DWT_PAC8
+#define DATA_PAC_SYMBOLS 8U
 #endif
 #define SYNC_PLEN       DWT_PLEN_256
 #define SYNC_PREAMBLE_SYMBOLS 256
@@ -371,7 +373,7 @@ static dwt_config_t config_data = {
     9, DATA_PLEN, DATA_PAC,
     9, 9, DATA_SFD_TYPE,
     DWT_BR_6M8, DWT_PHRMODE_STD, DATA_PHR_RATE,
-    (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - 8),
+    (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - DATA_PAC_SYMBOLS),
     DWT_STS_MODE_OFF, DWT_STS_LEN_64, DWT_PDOA_M0
 };
 
@@ -410,7 +412,7 @@ static bool brrs_apply_beacon_data_phy(uint16_t symbols)
     }
 
     config_data.txPreambLength = plen;
-    config_data.sfdTO = (uint16_t)(symbols + 1U + SFD_SYMBOLS - 8U);
+    config_data.sfdTO = (uint16_t)(symbols + 1U + SFD_SYMBOLS - DATA_PAC_SYMBOLS);
     current_data_plen = plen;
     current_data_preamble_symbols = symbols;
     return true;

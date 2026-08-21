@@ -356,6 +356,12 @@ EOF
         exit 3
     fi
 
+    RAW_DONE_LINE="$(grep '^CIR_RAW_DUMP_DONE,' "${RAW_LOG}" | tail -1 || true)"
+    if [[ -z "${RAW_DONE_LINE}" ]]; then
+        echo "[verify] FAIL: CIR_RAW_DUMP_DONE marker not found" >&2
+        exit 3
+    fi
+
     read -r DONE_PLEN DONE_EXPECTED DONE_RX DONE_VALID DONE_DUMP DONE_END_TX DONE_COLLECTION DONE_LINK DONE_PER_X1000 DONE_STATUS <<EOF
 $(printf '%s\n' "${EXP2_LINE}" | awk -F, '
     {
@@ -373,6 +379,59 @@ $(printf '%s\n' "${EXP2_LINE}" | awk -F, '
 ')
 EOF
 
+    read -r RAW_DONE_PLEN RAW_DONE_COUNT RAW_DONE_SAMPLES <<EOF
+$(printf '%s\n' "${RAW_DONE_LINE}" | awk -F, '
+    {
+        for (i = 2; i <= NF; i++) {
+            split($i, kv, "=");
+            value[kv[1]] = kv[2];
+        }
+        printf "%s %s %s\n",
+               value["plen"], value["count"], value["samples_per_frame"];
+    }
+')
+EOF
+
+    read -r RAW_HEADERS RAW_UNIQUE_FRAMES RAW_ROWS RAW_COMPLETE_FRAMES RAW_BAD_ROWS <<EOF
+$(awk -F, -v expected_m="${PREAMBLE}" -v expected_samples=300 '
+    $1 == "CIR_RAW_HEADER" {
+        value["frame"] = "";
+        value["plen"] = "";
+        value["n_samples"] = "";
+        for (i = 2; i <= NF; i++) {
+            split($i, kv, "=");
+            value[kv[1]] = kv[2];
+        }
+        frame = value["frame"];
+        headers++;
+        if (frame == "" || seen_header[frame]++) bad++;
+        if (value["plen"] != expected_m ||
+            value["n_samples"] != expected_samples) bad++;
+        declared[frame] = value["n_samples"];
+        next;
+    }
+    $1 == "CIR_RAW" {
+        frame = $2;
+        sample_idx = $3;
+        rows++;
+        if (NF != 5 || !(frame in declared) ||
+            sample_idx < 0 || sample_idx >= expected_samples ||
+            seen_sample[frame SUBSEP sample_idx]++) bad++;
+        samples[frame]++;
+    }
+    END {
+        for (frame in declared) {
+            unique_frames++;
+            if (samples[frame] == declared[frame] &&
+                samples[frame] == expected_samples) complete_frames++;
+            else bad++;
+        }
+        printf "%d %d %d %d %d\n",
+               headers, unique_frames, rows, complete_frames, bad;
+    }
+' "${RAW_LOG}")
+EOF
+
     if [[ ! "${DONE_PLEN}" =~ ^[0-9]+$ ||
           ! "${DONE_EXPECTED}" =~ ^[0-9]+$ ||
           ! "${DONE_RX}" =~ ^[0-9]+$ ||
@@ -384,6 +443,18 @@ EOF
           "${DONE_STATUS}" != "PASS" ]]; then
         echo "[verify] FAIL: malformed EXP2_DONE: ${EXP2_LINE}" >&2
         exit 3
+    fi
+
+    if [[ ! "${RAW_DONE_PLEN}" =~ ^[0-9]+$ ||
+          ! "${RAW_DONE_COUNT}" =~ ^[0-9]+$ ||
+          ! "${RAW_DONE_SAMPLES}" =~ ^[0-9]+$ ]]; then
+        echo "[verify] FAIL: malformed CIR_RAW_DUMP_DONE: ${RAW_DONE_LINE}" >&2
+        exit 3
+    fi
+
+    EXPECTED_RAW_FRAMES="${DONE_VALID}"
+    if (( EXPECTED_RAW_FRAMES > 30 )); then
+        EXPECTED_RAW_FRAMES=30
     fi
 
     if (( DONE_EXPECTED != EXPECTED_SAMPLES ||
@@ -400,8 +471,16 @@ EOF
           FRAME_MAX != CSV_ROWS ||
           CYCLE_MIN < 1 ||
           CYCLE_MAX > DONE_EXPECTED ||
-          BAD_ROWS != 0 )); then
-        echo "[verify] FAIL: expected=${DONE_EXPECTED}, rx=${DONE_RX}, valid=${DONE_VALID}, dump=${DONE_DUMP}, rows=${CSV_ROWS}, frames=${UNIQUE_FRAMES}(${FRAME_MIN}-${FRAME_MAX}), cycles=${UNIQUE_CYCLES}(${CYCLE_MIN}-${CYCLE_MAX}), bad=${BAD_ROWS}" >&2
+          BAD_ROWS != 0 ||
+          RAW_DONE_PLEN != PREAMBLE ||
+          RAW_DONE_COUNT != EXPECTED_RAW_FRAMES ||
+          RAW_DONE_SAMPLES != 300 ||
+          RAW_HEADERS != EXPECTED_RAW_FRAMES ||
+          RAW_UNIQUE_FRAMES != EXPECTED_RAW_FRAMES ||
+          RAW_COMPLETE_FRAMES != EXPECTED_RAW_FRAMES ||
+          RAW_ROWS != EXPECTED_RAW_FRAMES * 300 ||
+          RAW_BAD_ROWS != 0 )); then
+        echo "[verify] FAIL: expected=${DONE_EXPECTED}, rx=${DONE_RX}, valid=${DONE_VALID}, dump=${DONE_DUMP}, rows=${CSV_ROWS}, frames=${UNIQUE_FRAMES}(${FRAME_MIN}-${FRAME_MAX}), cycles=${UNIQUE_CYCLES}(${CYCLE_MIN}-${CYCLE_MAX}), bad=${BAD_ROWS}; raw_frames=${RAW_COMPLETE_FRAMES}/${EXPECTED_RAW_FRAMES}, raw_rows=${RAW_ROWS}, raw_bad=${RAW_BAD_ROWS}" >&2
         exit 3
     fi
 
