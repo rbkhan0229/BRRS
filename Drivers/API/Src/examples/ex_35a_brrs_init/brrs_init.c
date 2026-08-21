@@ -148,11 +148,8 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define BRRS_DATA_PLEN  DWT_PLEN_32
 #endif
 #define DATA_PLEN       BRRS_DATA_PLEN
-#if BRRS_DATA_PLEN == DWT_PLEN_1024
-#define DATA_PAC        DWT_PAC32
-#else
 #define DATA_PAC        DWT_PAC8
-#endif
+#define DATA_PAC_SYMBOLS 8U
 #define SYNC_PLEN       DWT_PLEN_256
 #define SYNC_PREAMBLE_SYMBOLS 256
 
@@ -160,10 +157,10 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define ENABLE_CIR      (BRRS_EXPERIMENT == 2)
 
 #define CIR_ANALYSIS_SAMPLES    300
-#define CIR_LOG_PER_FRAME       1
-#define CIR_LOG_PER_FRAME_TO_TERMINAL 1
+#define CIR_LOG_PER_FRAME       0
+#define CIR_LOG_PER_FRAME_TO_TERMINAL 0
 #define CIR_LOG_CYCLE_LINES     0
-#define CIR_DUMP_SAMPLES_AT_END 0
+#define CIR_DUMP_SAMPLES_AT_END 1
 #define CIR_RAW_LOG_LIMIT       30
 #define CIR_SAMPLE_DUMP_DELAY_MS 5
 #define CIR_RTT_CHANNEL         1
@@ -406,7 +403,7 @@ static dwt_config_t config_data = {
     9, DATA_PLEN, DATA_PAC,
     9, 9, DATA_SFD_TYPE,
     DWT_BR_6M8, DWT_PHRMODE_STD, DATA_PHR_RATE,
-    (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - 8),
+    (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - DATA_PAC_SYMBOLS),
     DWT_STS_MODE_OFF, DWT_STS_LEN_64, DWT_PDOA_M0
 };
 
@@ -517,7 +514,6 @@ typedef struct {
 } ratio_stats_t;
 
 static ratio_stats_t fp_snr_ratio_stats[TOTAL_ARRAY_SIZE];
-static uint32_t cir_raw_logs = 0;
 static bool cir_final_collection_pass = false;
 static bool cir_final_link_pass = false;
 static uint32_t cir_final_expected = 0;
@@ -576,8 +572,19 @@ typedef struct {
     uint64_t snr_ratio_x1000;
 } cir_sample_log_t;
 
+typedef struct {
+    uint32_t frame_no;
+    uint32_t cycle_no;
+    uint16_t sample_offs;
+    uint16_t fp_sample;
+    uint16_t n_samples;
+    uint8_t samples[CIR_RAW_SAMPLES * 6U];
+} cir_raw_frame_log_t;
+
 static cir_sample_log_t cir_sample_logs[TARGET_CYCLES];
 static uint32_t cir_sample_log_count = 0;
+static cir_raw_frame_log_t cir_raw_frame_logs[CIR_RAW_LOG_LIMIT];
+static uint32_t cir_raw_frame_log_count = 0;
 static char cir_rtt_buffer[CIR_RTT_BUFFER_SIZE];
 static bool cir_rtt_configured = false;
 
@@ -717,6 +724,29 @@ static void store_cir_sample(uint8_t src_idx,
     entry->snr_ratio_x1000 = snr_ratio_x1000;
 }
 
+static void store_cir_raw_frame(uint32_t frame_no,
+                                uint32_t cycle_no,
+                                uint16_t sample_offs,
+                                uint16_t fp_sample,
+                                const uint8_t *samples,
+                                uint16_t n_samples)
+{
+    cir_raw_frame_log_t *entry;
+
+    if (cir_raw_frame_log_count >= CIR_RAW_LOG_LIMIT ||
+        n_samples > CIR_RAW_SAMPLES) {
+        return;
+    }
+
+    entry = &cir_raw_frame_logs[cir_raw_frame_log_count++];
+    entry->frame_no = frame_no;
+    entry->cycle_no = cycle_no;
+    entry->sample_offs = sample_offs;
+    entry->fp_sample = fp_sample;
+    entry->n_samples = n_samples;
+    memcpy(entry->samples, samples, (size_t)n_samples * 6U);
+}
+
 static void dump_cir_samples(void)
 {
     uint32_t i;
@@ -762,6 +792,31 @@ static void dump_cir_samples(void)
     }
 
     snprintf(csv_line, sizeof(csv_line),
+             "CIR_RAW_DUMP_START,plen=%d,count=%lu,samples_per_frame=%u",
+             PREAMBLE_SYMBOLS,
+             (unsigned long)cir_raw_frame_log_count,
+             CIR_RAW_SAMPLES);
+    cir_log_info(csv_line);
+    test_run_info((unsigned char *)csv_line);
+
+    for (i = 0; i < cir_raw_frame_log_count; i++) {
+        cir_raw_frame_log_t *entry = &cir_raw_frame_logs[i];
+
+        print_cir_data(entry->samples, entry->n_samples,
+                       entry->frame_no, entry->cycle_no,
+                       entry->sample_offs, entry->fp_sample);
+        Sleep(CIR_SAMPLE_DUMP_DELAY_MS);
+    }
+
+    snprintf(csv_line, sizeof(csv_line),
+             "CIR_RAW_DUMP_DONE,plen=%d,count=%lu,samples_per_frame=%u",
+             PREAMBLE_SYMBOLS,
+             (unsigned long)cir_raw_frame_log_count,
+             CIR_RAW_SAMPLES);
+    cir_log_info(csv_line);
+    test_run_info((unsigned char *)csv_line);
+
+    snprintf(csv_line, sizeof(csv_line),
              "CIR_DUMP_DONE,plen=%d,expected=%lu,rx=%lu,valid_cir=%lu,dump_count=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
              PREAMBLE_SYMBOLS,
              (unsigned long)cir_final_expected,
@@ -791,6 +846,7 @@ static void dump_cir_samples(void)
     test_run_info((unsigned char *)csv_line);
 }
 
+#if !CIR_DUMP_SAMPLES_AT_END
 static void print_exp2_done_marker(void)
 {
     static char csv_line[260];
@@ -810,6 +866,7 @@ static void print_exp2_done_marker(void)
     cir_log_info(csv_line);
     test_run_info((unsigned char *)csv_line);
 }
+#endif
 
 static int32_t cir_read_s24(const uint8_t *sample)
 {
@@ -914,7 +971,6 @@ static void log_cir_quality(uint8_t src_idx, uint32_t frame_no, uint32_t cycle_n
     uint16_t noise_samples = 0;
     uint64_t snr_ratio_x1000 = 0;
     bool snr_valid;
-    char rssi_str[16], fp_str[16], gap_str[16];
 
     if (dwt_readdiagnostics_acc(&diag, DWT_ACC_IDX_IP_M) != DWT_SUCCESS) {
         return;
@@ -955,13 +1011,17 @@ static void log_cir_quality(uint8_t src_idx, uint32_t frame_no, uint32_t cycle_n
                      rssi_x100, fp_x100, gap_x100,
                      fp_peak_power, noise_floor_power, noise_samples, snr_ratio_x1000);
 
-    format_x100(rssi_str, sizeof(rssi_str), rssi_x100);
-    format_x100(fp_str, sizeof(fp_str), fp_x100);
-    format_x100(gap_str, sizeof(gap_str), gap_x100);
+    store_cir_raw_frame(frame_no, cycle_no, sample_offs, fp_sample,
+                        cir_buf, CIR_RAW_SAMPLES);
 
 #if CIR_LOG_PER_FRAME
     {
         static char csv_line[360];
+        char rssi_str[16], fp_str[16], gap_str[16];
+
+        format_x100(rssi_str, sizeof(rssi_str), rssi_x100);
+        format_x100(fp_str, sizeof(fp_str), fp_x100);
+        format_x100(gap_str, sizeof(gap_str), gap_x100);
         snprintf(csv_line, sizeof(csv_line),
                  "CIR_CSV,%lu,%lu,%s,%d,%u,%u,%u,%s,%s,%s,%llu,%llu,%u,%llu",
                  (unsigned long)frame_no,
@@ -979,30 +1039,6 @@ static void log_cir_quality(uint8_t src_idx, uint32_t frame_no, uint32_t cycle_n
 #endif
     }
 #endif
-
-    if (cir_raw_logs < CIR_RAW_LOG_LIMIT) {
-        static char diag_line[220];
-
-        snprintf(diag_line, sizeof(diag_line),
-                 "CIR_DIAG frame=%lu node=%s plen=%d fp_samp=%u peak_idx=%u accum=%u rssi=%sdBm fp=%sdBm gap=%sdB power=%lu F1=%lu F2=%lu F3=%lu peak=%lu",
-                 (unsigned long)frame_no, get_slot_description(src_idx), PREAMBLE_SYMBOLS,
-                 fp_sample, diag.peakIndex, diag.accumCount,
-                 rssi_str, fp_str, gap_str,
-                 (unsigned long)diag.power,
-                 (unsigned long)diag.F1,
-                 (unsigned long)diag.F2,
-                 (unsigned long)diag.F3,
-                 (unsigned long)diag.peakAmp);
-        test_run_info((unsigned char *)diag_line);
-
-        snprintf(diag_line, sizeof(diag_line),
-                 "CIR_WINDOW frame=%lu node=%s start_sample=%u samples=%u",
-                 (unsigned long)frame_no, get_slot_description(src_idx),
-                 sample_offs, CIR_RAW_SAMPLES);
-        test_run_info((unsigned char *)diag_line);
-        print_cir_data(cir_buf, CIR_RAW_SAMPLES, frame_no, cycle_no, sample_offs, fp_sample);
-        cir_raw_logs++;
-    }
 }
 #endif
 
@@ -3458,7 +3494,10 @@ int brrs_init(void)
                         data_config_errors != 0U ||
                         cir_final_rx == 0U ||
                         cir_sample_log_count != cir_final_valid ||
-                        cir_final_valid != cir_final_rx) {
+                        cir_final_valid != cir_final_rx ||
+                        cir_raw_frame_log_count !=
+                            ((cir_final_valid < CIR_RAW_LOG_LIMIT) ?
+                             cir_final_valid : CIR_RAW_LOG_LIMIT)) {
                         cir_final_collection_pass = false;
                     }
                 }
@@ -3546,12 +3585,13 @@ int brrs_init(void)
                 }
 #endif
                 final_log_info("===== END STATS =====\n");
+                dwt_forcetrxoff();
 #if ENABLE_CIR
+#if CIR_DUMP_SAMPLES_AT_END
+                dump_cir_samples();
+#else
                 print_exp2_done_marker();
 #endif
-                dwt_forcetrxoff();
-#if ENABLE_CIR && CIR_DUMP_SAMPLES_AT_END
-                dump_cir_samples();
 #endif
 #if BRRS_EXPERIMENT == 3 && EXP3_RX_STAGE_DIAG
                 exp3_dump_samples();
