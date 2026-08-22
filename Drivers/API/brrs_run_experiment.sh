@@ -33,6 +33,7 @@ Options:
   --leads <list>         Stage0 lead list, e.g. 14,15,16 or 0-20.
   --lead <us>            Fixed RX lead for Exp1-Exp4 (default: 15).
   --tail <us>            Stage0 tail margin (default: 0).
+  --pac <4|8>            Stage0 RX PAC size (default: 8).
   --sensors <1..7>       Exp4 physical sensor count (required for Exp4).
   --guard <us>           Exp4 guard (default: 200).
   --method <pylink|telnet> Exp2 backend (default: pylink).
@@ -78,6 +79,8 @@ LEAD_SPEC=""
 FIXED_LEAD_US=15
 FIXED_LEAD_SET=0
 TAIL_US=0
+PAC=8
+PAC_SET=0
 SENSOR_COUNT=""
 GUARD_US=200
 METHOD="pylink"
@@ -116,6 +119,9 @@ while (( $# > 0 )); do
         --tail)
             (( $# >= 2 )) || { echo "--tail requires a value" >&2; exit 2; }
             TAIL_US="$2"; shift 2 ;;
+        --pac)
+            (( $# >= 2 )) || { echo "--pac requires a value" >&2; exit 2; }
+            PAC="$2"; PAC_SET=1; shift 2 ;;
         --sensors)
             (( $# >= 2 )) || { echo "--sensors requires a value" >&2; exit 2; }
             SENSOR_COUNT="$2"; shift 2 ;;
@@ -310,6 +316,14 @@ if [[ "${EXPERIMENT}" != "stage0" && "${TAIL_US}" != "0" ]]; then
     echo "--tail is only valid for Stage0" >&2
     exit 2
 fi
+if [[ "${EXPERIMENT}" != "stage0" && ${PAC_SET} -eq 1 ]]; then
+    echo "--pac is only valid for Stage0" >&2
+    exit 2
+fi
+case "${PAC}" in
+    4|8) ;;
+    *) echo "pac must be 4 or 8" >&2; exit 2 ;;
+esac
 if [[ "${EXPERIMENT}" != "exp2" && ${METHOD_SET} -eq 1 ]]; then
     echo "--method is only valid for Exp2" >&2
     exit 2
@@ -456,12 +470,13 @@ for (( offset=0; offset<REPEATS; offset++ )); do
                 if [[ "${ROLE}" == "tx" ]]; then
                     key="stage0_tx"
                 else
-                    key="stage0_rx_l${lead}_t${TAIL_US}"
+                    key="stage0_rx_l${lead}_t${TAIL_US}_pac${PAC}"
                 fi
                 args=("${ROLE}" "${lead}" "${run}" "${ENVIRONMENT}")
                 [[ "${DISTANCE}" == "na" ]] || args+=("${DISTANCE}")
                 [[ "${TAIL_US}" == "0" ]] || args+=(--tail "${TAIL_US}")
-                run_case "${key}" "stage0 lead=${lead} tail=${TAIL_US} run=${run}" \
+                [[ "${PAC}" == "8" ]] || args+=(--pac "${PAC}")
+                run_case "${key}" "stage0 lead=${lead} tail=${TAIL_US} pac=${PAC} run=${run}" \
                     "${SCRIPT_DIR}/brrs_stage0_capture.sh" "${args[@]}"
             done
             ;;
