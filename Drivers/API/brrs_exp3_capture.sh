@@ -17,6 +17,10 @@ Usage:
 
 Options:
   --lead <us>          RX lead margin (default: 15).
+  --payload <bytes>    App payload size, 1-117 (default: 16). Both tx and rx
+                        must use the same value. Sweeping this traces the
+                        Reed-Solomon block-boundary step in airtime instead
+                        of relying on the single default-size data point.
   --serial <S/N>       Select a J-Link when multiple probes are attached.
   --no-build           Reuse the existing ELF and HEX.
   --timeout <seconds>  Override the capture timeout (default: 120).
@@ -50,6 +54,7 @@ NO_BUILD=0
 TIMEOUT=120
 FORCE=0
 LEAD_US=15
+PAYLOAD_BYTES=16
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -57,6 +62,7 @@ fi
 while (( $# > 0 )); do
     case "$1" in
         --lead) (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }; LEAD_US="$2"; shift 2 ;;
+        --payload) (( $# >= 2 )) || { echo "--payload requires a value" >&2; exit 2; }; PAYLOAD_BYTES="$2"; shift 2 ;;
         --serial) (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }; SERIAL="$2"; shift 2 ;;
         --no-build) NO_BUILD=1; shift ;;
         --timeout) TIMEOUT="$2"; shift 2 ;;
@@ -64,6 +70,9 @@ while (( $# > 0 )); do
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
+[[ "${PAYLOAD_BYTES}" =~ ^[0-9]+$ ]] && (( PAYLOAD_BYTES >= 1 && PAYLOAD_BYTES <= 117 )) \
+    || { echo "payload must be between 1 and 117 bytes" >&2; exit 2; }
+PSDU_BYTES=$((PAYLOAD_BYTES + 10))
 
 case "${ROLE}" in
     tx)
@@ -97,13 +106,16 @@ CONFIG="Exp3_${VARIANT}_${ROLE_NAME}"
 HEX_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.hex"
 ELF_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.elf"
 LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
+PAYLOAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_app_payload_bytes"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
 OUTDIR="${SDK_ROOT}/../logs/exp3_${ENVIRONMENT}${DISTANCE_TAG}_${DATE_TAG}"
 mkdir -p "${OUTDIR}"
 
-BASE="exp3_${VARIANT}_l${LEAD_US}_r${RUN_NUMBER}_${ROLE}"
+PAYLOAD_TAG=""
+(( PAYLOAD_BYTES != 16 )) && PAYLOAD_TAG="_p${PAYLOAD_BYTES}"
+BASE="exp3_${VARIANT}_l${LEAD_US}${PAYLOAD_TAG}_r${RUN_NUMBER}_${ROLE}"
 RAW_LOG="${OUTDIR}/${BASE}.log"
 META_FILE="${OUTDIR}/${BASE}.meta.txt"
 BUILD_LOG="${OUTDIR}/${BASE}.build.log"
@@ -160,6 +172,7 @@ fi
 echo "[${ROLE_NAME}] Experiment 3 ${VARIANT}: SFD${SFD_SYMBOLS}, ${PHR_RATE} PHR"
 echo "  Configuration: ${CONFIG}"
 echo "  RX lead:       ${LEAD_US} us"
+echo "  App payload:   ${PAYLOAD_BYTES} bytes (PSDU ${PSDU_BYTES} bytes)"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
@@ -168,21 +181,31 @@ echo "  Raw log:       ${RAW_LOG}"
 if (( NO_BUILD == 0 )); then
     echo "[build] ${CONFIG}"
     BUILD_ARGS=(-threadnum "${EMBUILD_THREADS:-1}")
+    # -sproperty replaces the whole c_preprocessor_definitions value (it does
+    # not append to the static per-config baseline), so every macro this
+    # build needs must be listed here.
+    DEFS="DEBUG;BRRS_TARGET_CYCLES=1000;BRRS_APP_PAYLOAD_BYTES=${PAYLOAD_BYTES}"
     if [[ "${ROLE}" == "rx" ]]; then
-        BUILD_ARGS+=(-sproperty "c_additional_options=-DBRRS_RX_LEAD_MARGIN_US=${LEAD_US}")
+        DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
     fi
+    BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
     "${EMBUILD}" "${BUILD_ARGS[@]}" >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
     if [[ "${ROLE}" == "rx" ]]; then
         printf '%s\n' "${LEAD_US}" >"${LEAD_STAMP}"
     fi
+    printf '%s\n' "${PAYLOAD_BYTES}" >"${PAYLOAD_STAMP}"
 fi
 [[ -f "${HEX_FILE}" && -f "${ELF_FILE}" ]] \
     || { echo "firmware image missing for ${CONFIG}" >&2; exit 1; }
 if (( NO_BUILD == 1 )) && [[ "${ROLE}" == "rx" ]]; then
     [[ -f "${LEAD_STAMP}" && "$(<"${LEAD_STAMP}")" == "${LEAD_US}" ]] \
         || { echo "cached ${CONFIG} was not built with lead ${LEAD_US} us" >&2; exit 1; }
+fi
+if (( NO_BUILD == 1 )); then
+    [[ -f "${PAYLOAD_STAMP}" && "$(<"${PAYLOAD_STAMP}")" == "${PAYLOAD_BYTES}" ]] \
+        || { echo "cached ${CONFIG} was not built with payload ${PAYLOAD_BYTES} bytes" >&2; exit 1; }
 fi
 
 RTT_SYMBOL="$("${ARM_NM}" -n "${ELF_FILE}" \
@@ -212,13 +235,13 @@ if [[ "${ROLE}" == "tx" ]]; then
 
     read -r UNIQUE_SEQS BAD_ROWS SEQ_MIN SEQ_MAX <<EOF
 $(awk -F, -v variant="${VARIANT}" -v sfd="${SFD_SYMBOLS}" \
-        -v phr="${PHR_RATE}" '
+        -v phr="${PHR_RATE}" -v psdu="${PSDU_BYTES}" '
     $1 == "EXP3_TX_CSV" {
         seqs[$2] = 1;
         if (count == 0 || $2 < seq_min) seq_min = $2;
         if (count == 0 || $2 > seq_max) seq_max = $2;
         count++;
-        if ($3 != variant || $4 != sfd || $5 != phr || $6 != 26 || NF != 8) bad++;
+        if ($3 != variant || $4 != sfd || $5 != phr || $6 != psdu || NF != 8) bad++;
     }
     END {
         for (key in seqs) unique++;
@@ -256,7 +279,7 @@ EOF
         echo "[verify] FAIL: TX attempts=${ATTEMPTS:-?}, success=${SUCCESS:-?}, captures=${CAPTURES:-?}, rows=${CSV_ROWS}, unique=${UNIQUE_SEQS}, bad=${BAD_ROWS}" >&2
         exit 3
     fi
-    DETAIL="collection=PASS; captures=${CAPTURES}/1000; variant=${VARIANT}; SFD=${SFD_SYMBOLS}; PHR=${PHR_RATE}"
+    DETAIL="collection=PASS; captures=${CAPTURES}/1000; variant=${VARIANT}; SFD=${SFD_SYMBOLS}; PHR=${PHR_RATE}; psdu=${PSDU_BYTES}B"
 else
     if ! grep -Fxq "EXP_LOG_CONFIG_CSV,experiment=3,plen=32,lead_us=${LEAD_US},tail_us=0,target=1000,cir=0" "${RAW_LOG}"; then
         echo "[verify] FAIL: firmware did not report requested lead ${LEAD_US} us" >&2
@@ -278,7 +301,7 @@ EOF
           "${RX_VARIANT:-}" != "${VARIANT}" ||
           "${RX_SFD:-}" != "${SFD_SYMBOLS}" ||
           "${RX_PHR:-}" != "${PHR_RATE}" ||
-          "${RX_PSDU:-}" != "26" ||
+          "${RX_PSDU:-}" != "${PSDU_BYTES}" ||
           ! "${RX_EXPECTED:-}" =~ ^[0-9]+$ ||
           ! "${RX_COUNT:-}" =~ ^[0-9]+$ ||
           ! "${RX_MISSED:-}" =~ ^[0-9]+$ ||
@@ -301,7 +324,7 @@ EOF
         'BEGIN { printf "%.2f", 100.0 * missed / expected }')"
     LINK_STATUS="PASS"
     (( RX_MISSED > 0 )) && LINK_STATUS="LOSS"
-    DETAIL="collection=PASS; rx=${RX_COUNT}/${RX_EXPECTED}; PER=${PER_PERCENT}%; link=${LINK_STATUS}; variant=${VARIANT}; lead=${LEAD_US}us"
+    DETAIL="collection=PASS; rx=${RX_COUNT}/${RX_EXPECTED}; PER=${PER_PERCENT}%; link=${LINK_STATUS}; variant=${VARIANT}; lead=${LEAD_US}us; psdu=${PSDU_BYTES}B"
 fi
 
 if command -v sha256sum >/dev/null 2>&1; then
@@ -318,7 +341,8 @@ fi
     printf 'variant=%s\n' "${VARIANT}"
     printf 'sfd_symbols=%s\n' "${SFD_SYMBOLS}"
     printf 'phr_rate=%s\n' "${PHR_RATE}"
-    printf 'psdu_bytes=26\n'
+    printf 'app_payload_bytes=%s\n' "${PAYLOAD_BYTES}"
+    printf 'psdu_bytes=%s\n' "${PSDU_BYTES}"
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"

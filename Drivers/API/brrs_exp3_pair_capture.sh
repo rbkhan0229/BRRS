@@ -14,6 +14,9 @@ Usage:
 
 Options:
   --lead <us>          RX lead margin (default: 15).
+  --payload <bytes>    App payload size, 1-117 (default: 16). Sweeping this
+                        across runs traces the Reed-Solomon block-boundary
+                        step in airtime.
   --run-start <N>      First run number (default: 1).
   --repeats <N>        Number of A/B/C repetitions (default: 1).
   --variants <list>    Variant order (default: A,B,C).
@@ -42,6 +45,7 @@ shift
 
 DISTANCE="na"
 LEAD_US=15
+PAYLOAD_BYTES=16
 RUN_START=1
 REPEATS=1
 VARIANT_SPEC="A,B,C"
@@ -61,6 +65,7 @@ fi
 while (( $# > 0 )); do
     case "$1" in
         --lead) LEAD_US="$2"; shift 2 ;;
+        --payload) PAYLOAD_BYTES="$2"; shift 2 ;;
         --run-start) RUN_START="$2"; shift 2 ;;
         --repeats) REPEATS="$2"; shift 2 ;;
         --variants) VARIANT_SPEC="$2"; shift 2 ;;
@@ -81,6 +86,8 @@ done
     || { echo "distance must be a non-negative number" >&2; exit 2; }
 [[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
     || { echo "lead must be between 0 and 1000 us" >&2; exit 2; }
+[[ "${PAYLOAD_BYTES}" =~ ^[0-9]+$ ]] && (( PAYLOAD_BYTES >= 1 && PAYLOAD_BYTES <= 117 )) \
+    || { echo "payload must be between 1 and 117 bytes" >&2; exit 2; }
 for value in "${RUN_START}" "${REPEATS}" "${READY_TIMEOUT}" \
              "${CAPTURE_TIMEOUT}" "${CASE_RETRIES}"; do
     [[ "${value}" =~ ^[1-9][0-9]*$ ]] \
@@ -129,7 +136,7 @@ fi
 echo "EXP3_PAIR_ASSIGNMENT,tx=${TX_SERIAL},rx=${RX_SERIAL},lead_us=${LEAD_US}"
 
 if (( NO_BUILD == 0 )); then
-    "${SCRIPT_DIR}/brrs_exp3_build_all.sh" "${LEAD_US}"
+    "${SCRIPT_DIR}/brrs_exp3_build_all.sh" "${LEAD_US}" "${PAYLOAD_BYTES}"
 fi
 
 TX_PID=""
@@ -153,10 +160,12 @@ run_pair() {
 
     TX_CONSOLE="$(mktemp "${TMPDIR:-/tmp}/brrs-exp3-tx.XXXXXX")"
     tx_cmd=("${SCRIPT_DIR}/brrs_exp3_capture.sh" tx "${common[@]}"
-        --lead "${LEAD_US}" --serial "${TX_SERIAL}" --no-build
+        --lead "${LEAD_US}" --payload "${PAYLOAD_BYTES}"
+        --serial "${TX_SERIAL}" --no-build
         --timeout "${CAPTURE_TIMEOUT}")
     rx_cmd=("${SCRIPT_DIR}/brrs_exp3_capture.sh" rx "${common[@]}"
-        --lead "${LEAD_US}" --serial "${RX_SERIAL}" --no-build
+        --lead "${LEAD_US}" --payload "${PAYLOAD_BYTES}"
+        --serial "${RX_SERIAL}" --no-build
         --timeout "${CAPTURE_TIMEOUT}")
     if (( FORCE || attempt > 1 )); then
         tx_cmd+=(--force)

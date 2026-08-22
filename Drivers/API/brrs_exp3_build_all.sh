@@ -6,9 +6,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT="${SCRIPT_DIR}/Build_Platforms/nRF52840-DK/dw3000_api.emProject"
 OUTPUT_DIR="${SCRIPT_DIR}/Build_Platforms/nRF52840-DK/Output"
 LEAD_US="${1:-15}"
+PAYLOAD_BYTES="${2:-16}"
 [[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
-    || { echo "Usage: $(basename "$0") [lead-us:0..1000]" >&2; exit 2; }
+    || { echo "Usage: $(basename "$0") [lead-us:0..1000] [app-payload-bytes:1..117]" >&2; exit 2; }
+[[ "${PAYLOAD_BYTES}" =~ ^[0-9]+$ ]] && (( PAYLOAD_BYTES >= 1 && PAYLOAD_BYTES <= 117 )) \
+    || { echo "Usage: $(basename "$0") [lead-us:0..1000] [app-payload-bytes:1..117]" >&2; exit 2; }
 DEST_DIR="${OUTPUT_DIR}/exp3_lead${LEAD_US}"
+if (( PAYLOAD_BYTES != 16 )); then
+    DEST_DIR+="_payload${PAYLOAD_BYTES}"
+fi
 EMBUILD=${EMBUILD:-"/Applications/SEGGER/SEGGER Embedded Studio 8.28/bin/emBuild"}
 
 if [[ ! -x "${EMBUILD}" ]]; then
@@ -32,9 +38,16 @@ for variant in A B C; do
         printf '%s\n' "Building Experiment 3 ${variant}/${role} (${config})..."
 
         build_args=(-threadnum "${EMBUILD_THREADS:-1}")
+        # NOTE: -sproperty replaces the whole c_preprocessor_definitions
+        # value (it is not appended to the static per-config baseline), and
+        # c_additional_options does not reliably split multiple space-
+        # separated -D flags in this emBuild version -- so every macro this
+        # build needs must be listed here as one semicolon-separated string.
+        defs="DEBUG;BRRS_TARGET_CYCLES=1000;BRRS_APP_PAYLOAD_BYTES=${PAYLOAD_BYTES}"
         if [[ "${role}" == "init" ]]; then
-            build_args+=(-sproperty "c_additional_options=-DBRRS_RX_LEAD_MARGIN_US=${LEAD_US}")
+            defs+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
         fi
+        build_args+=(-sproperty "c_preprocessor_definitions=${defs}")
         build_args+=(-config "${config}" -project dw3000_api -rebuild "${PROJECT}")
         "${EMBUILD}" "${build_args[@]}" >"${log_path}" 2>&1
 
