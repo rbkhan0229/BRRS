@@ -1020,7 +1020,6 @@ static bool exp4_schedule_next_sync_rx(void)
 int brrs_normal(void)
 {
     exp_log_init();
-    exp_log_info("EXP_LOG_READY,channel=1");
     test_run_info((unsigned char *)APP_NAME);
 
     port_set_dw_ic_spi_fastrate();
@@ -1143,6 +1142,11 @@ int brrs_normal(void)
     } else {
         test_run_info((unsigned char *)"DBG: initial RX enabled, waiting for SYNC...");
     }
+    /* Printed only once the radio is actually armed and listening (not at
+     * process start), so the capture harness's "wait for TX READY, then
+     * launch INIT" sequencing is a real readiness handshake instead of a
+     * guess -- see brrs_init.c's STARTUP_GRACE_MS for the other half. */
+    exp_log_info("EXP_LOG_READY,channel=1");
 
     /* [DEBUG] 주기적 status 로그용 */
     uint32_t last_debug_cycles = dwt_timer_get_cycles();

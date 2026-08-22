@@ -207,8 +207,11 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #endif
 #define TARGET_CYCLES   BRRS_TARGET_CYCLES
 
-/* Debugger로 두 보드를 번갈아 시작할 때 Normal 노드가 SYNC RX에 들어갈 여유 시간 */
-#define STARTUP_GRACE_MS 10000
+/* Small fixed margin only -- the capture harness already waits for the
+ * Normal node's EXP_LOG_READY marker (printed only once its radio is
+ * actually armed and listening, see brrs_normal.c) before starting INIT,
+ * so this no longer needs to cover unknown boot time. */
+#define STARTUP_GRACE_MS 500
 
 /* ========== TDMA 프로토콜 파라미터 ========== */
 #if BRRS_EXPERIMENT == 1 || BRRS_EXPERIMENT == 2 || BRRS_EXPERIMENT == 3 || BRRS_EXPERIMENT == 5
