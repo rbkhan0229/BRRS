@@ -26,7 +26,10 @@ while (( $# > 0 )); do
         *) ARGS+=("$1"); shift ;;
     esac
 done
-set -- "${ARGS[@]}"
+# bash 3.2 (macOS default) raises "unbound variable" under set -u when
+# expanding "${arr[@]}" on a zero-length array, even though it was
+# declared -- the ${arr[@]+"${arr[@]}"} idiom works around it.
+set -- ${ARGS[@]+"${ARGS[@]}"}
 
 if [[ $# -lt 2 || $# -gt 5 ]]; then
     usage

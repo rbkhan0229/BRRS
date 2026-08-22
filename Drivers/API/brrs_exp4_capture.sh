@@ -260,10 +260,13 @@ PYLINK_ARGS=(
 
 VERIFY_SEQ_ARGS=()
 [[ -n "${SEQUENCE}" ]] && VERIFY_SEQ_ARGS+=(--sequence "${SEQUENCE}")
+# bash 3.2 (macOS default) raises "unbound variable" under set -u when
+# expanding "${arr[@]}" on a zero-length array, even though it was
+# declared -- the ${arr[@]+"${arr[@]}"} idiom works around it.
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     "${VERIFY_ARGS[@]}" --preamble "${PREAMBLE}" \
     --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}" \
-    "${VERIFY_SEQ_ARGS[@]}")"
+    ${VERIFY_SEQ_ARGS[@]+"${VERIFY_SEQ_ARGS[@]}"})"
 echo "${VERIFY_OUTPUT}"
 DETAIL="${VERIFY_OUTPUT#\[verify\] PASS: }"
 
