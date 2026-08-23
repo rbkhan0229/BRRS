@@ -12,7 +12,9 @@ INIT_SERIAL="1050270933"
 S1_TX="1050282818"
 S2_PROBES="1050211584,1050273888"
 S3_PROBES="1050211584,1050273888,1050282818"
-ENV="home"
+ENV="${1:-home}"
+DISTANCE="${2:-}"
+RUN="${3:-2}"
 PREAMBLES=(32 64 256)
 RETRIES=3
 
@@ -21,7 +23,7 @@ run_case() {
     for (( attempt=1; attempt<=RETRIES; attempt++ )); do
         echo "=== Exp4 baseline (cross): M=${m} S=${sensors} run=${run} attempt=${attempt}/${RETRIES} ==="
         local mtx_log="/tmp/round_exp4x_mtx_m${m}_s${sensors}_r${run}_a${attempt}.log"
-        ssh "${AIR_HOST}" "cd ${AIR_DIR} && nohup ./brrs_exp4_multi_tx.sh ${m} ${sensors} ${run} ${ENV} --probe-serials ${probes} --force > ${mtx_log} 2>&1 &"
+        ssh "${AIR_HOST}" "cd ${AIR_DIR} && nohup ./brrs_exp4_multi_tx.sh ${m} ${sensors} ${run} ${ENV} ${DISTANCE} --probe-serials ${probes} --force > ${mtx_log} 2>&1 &"
 
         local ready=0
         for _ in $(seq 1 90); do
@@ -38,7 +40,7 @@ run_case() {
         fi
         echo "EXP4_BASELINE_TX_READY m=${m} s=${sensors}"
 
-        if ./brrs_exp4_capture.sh init "${m}" "${sensors}" "${run}" "${ENV}" \
+        if ./brrs_exp4_capture.sh init "${m}" "${sensors}" "${run}" "${ENV}" ${DISTANCE} \
             --serial "${INIT_SERIAL}" --force; then
             echo "EXP4_BASELINE_PASS m=${m} s=${sensors} attempt=${attempt}"
             return 0
@@ -50,9 +52,9 @@ run_case() {
 }
 
 for m in "${PREAMBLES[@]}"; do
-    run_case "${m}" 1 "${S1_TX}" 2
-    run_case "${m}" 2 "${S2_PROBES}" 2
-    run_case "${m}" 3 "${S3_PROBES}" 2
+    run_case "${m}" 1 "${S1_TX}" "${RUN}"
+    run_case "${m}" 2 "${S2_PROBES}" "${RUN}"
+    run_case "${m}" 3 "${S3_PROBES}" "${RUN}"
 done
 
 echo "EXP4_BASELINE_DONE status=PASS"

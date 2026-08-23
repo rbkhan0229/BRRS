@@ -9,7 +9,9 @@ AIR_DIR="~/Desktop/DWM3000/DW3_QM33_SDK_1.0.2/Drivers/API"
 INIT_SERIAL="1050270933"
 N2_SERIAL="1050211584"
 N3_SERIAL="1050273888"
-ENV="home"
+ENV="${1:-home}"
+DISTANCE="${2:-}"
+RUN="${3:-2}"
 
 run_saturation_case() {
     local m="$1" sequence="$2" run="$3"
@@ -22,8 +24,8 @@ run_saturation_case() {
 
     local n2_log="/tmp/round_exp4x_sat_m${m}_n2.log"
     local n3_log="/tmp/round_exp4x_sat_m${m}_n3.log"
-    ssh "${AIR_HOST}" "cd ${AIR_DIR} && nohup ./brrs_exp4_capture.sh N2 ${m} 2 ${run} ${ENV} --serial ${N2_SERIAL} --no-build --force > ${n2_log} 2>&1 &"
-    ssh "${AIR_HOST}" "cd ${AIR_DIR} && nohup ./brrs_exp4_capture.sh N3 ${m} 2 ${run} ${ENV} --serial ${N3_SERIAL} --no-build --force > ${n3_log} 2>&1 &"
+    ssh "${AIR_HOST}" "cd ${AIR_DIR} && nohup ./brrs_exp4_capture.sh N2 ${m} 2 ${run} ${ENV} ${DISTANCE} --serial ${N2_SERIAL} --no-build --force > ${n2_log} 2>&1 &"
+    ssh "${AIR_HOST}" "cd ${AIR_DIR} && nohup ./brrs_exp4_capture.sh N3 ${m} 2 ${run} ${ENV} ${DISTANCE} --serial ${N3_SERIAL} --no-build --force > ${n3_log} 2>&1 &"
 
     local ready=0
     for _ in $(seq 1 90); do
@@ -40,7 +42,7 @@ run_saturation_case() {
     fi
     echo "SATURATION_TX_READY m=${m}"
 
-    if ./brrs_exp4_capture.sh init "${m}" 2 "${run}" "${ENV}" \
+    if ./brrs_exp4_capture.sh init "${m}" 2 "${run}" "${ENV}" ${DISTANCE} \
         --serial "${INIT_SERIAL}" --sequence "${sequence}" --force; then
         echo "SATURATION_PASS m=${m} sequence=${sequence}"
     else
@@ -48,8 +50,8 @@ run_saturation_case() {
     fi
 }
 
-run_saturation_case 32 "232323232323232" 2
-run_saturation_case 64 "2323232323232" 2
+run_saturation_case 32 "232323232323232" "${RUN}"
+run_saturation_case 64 "2323232323232" "${RUN}"
 
 echo "=== Fail-closed check: M=64, 14-slot sequence should fail to BUILD ==="
 if ssh "${AIR_HOST}" "cd ${AIR_DIR} && ./brrs_exp4_build.sh 64 2 200 init 15 --sequence 23232323232323" \
@@ -57,7 +59,7 @@ if ssh "${AIR_HOST}" "cd ${AIR_DIR} && ./brrs_exp4_build.sh 64 2 200 init 15 --s
     echo "FAILCLOSED_UNEXPECTED_SUCCESS: build should have been rejected"
 else
     echo "FAILCLOSED_PASS: build correctly rejected the oversized sequence"
-    grep -i "static_assert\|error" /tmp/round_exp4x_failclosed_build.log | head -5
+    grep -i "static_assert\|error" /tmp/round_exp4x_failclosed_build.log | head -5 || true
 fi
 
 echo "SATURATION_SUITE_DONE"
