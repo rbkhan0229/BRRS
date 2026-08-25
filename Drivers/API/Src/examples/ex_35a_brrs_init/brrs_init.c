@@ -148,6 +148,20 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define BRRS_DATA_PLEN  DWT_PLEN_32
 #endif
 #define DATA_PLEN       BRRS_DATA_PLEN
+#ifndef BRRS_RX_IMMEDIATE_CONTROL
+#define BRRS_RX_IMMEDIATE_CONTROL 0
+#endif
+#if BRRS_RX_IMMEDIATE_CONTROL != 0 && BRRS_RX_IMMEDIATE_CONTROL != 1
+#error "BRRS_RX_IMMEDIATE_CONTROL must be 0 or 1"
+#endif
+#if BRRS_RX_IMMEDIATE_CONTROL && BRRS_EXPERIMENT != 1
+#error "Immediate-RX control is supported only by Experiment 1"
+#endif
+#if BRRS_RX_IMMEDIATE_CONTROL
+#define BRRS_RX_MODE_NAME "immediate"
+#else
+#define BRRS_RX_MODE_NAME "delayed"
+#endif
 #ifdef BRRS_RX_PAC_SYMBOLS
 /* A single numeric override (e.g. -DBRRS_RX_PAC_SYMBOLS=4) is easier to pass
  * through the build system than two separately-synced macros, so the
@@ -382,12 +396,11 @@ _Static_assert(BRRS_SENSOR_NODES == 1 || SLOT_GUARD_US >= RX_LEAD_MARGIN_US,
 #endif
 #define EXP4_SYNC_PREP_US   BRRS_EXP4_SYNC_PREP_US
 #define EXP4_TX_WAIT_TIMEOUT_US 3000
-/* CIADONE can settle some time after RXFCG/RXFR on the just-completed
- * buffer. This read happens after the next slot's RX is already re-armed
- * (exp4_rearm_after_event), so waiting here does not touch the guard
- * budget -- it only avoids failing a good frame that was polled a moment
- * too early. Bounded by elapsed time, not iteration count, since SPI read
- * latency alone was not enough headroom in practice. */
+/* CIADONE can settle some time after RXFCG on the just-completed buffer.
+ * This bounded fallback should be exceptional: the normal path selects a
+ * buffer whose RXFR, RXFCG and CIADONE flags are already complete. Although
+ * RX is re-armed before this wait, the CPU remains occupied, so retry time is
+ * reported separately and an occurrence still fails schedule validation. */
 #define EXP4_RDB_CIADONE_RETRY_TIMEOUT_US 300
 #define EXP4_END_REPEAT_COUNT BRRS_END_REPEAT_COUNT
 #define EXP4_END_REPEAT_DELAY_MS BRRS_END_REPEAT_DELAY_MS
@@ -1843,13 +1856,26 @@ static bool current_rx_open_timing_valid = false;
 
 static bool schedule_delayed_rx(uint32_t sync_tx_ts_high32, uint32_t slot_offset_us)
 {
+#if !BRRS_RX_IMMEDIATE_CONTROL
     uint64_t offset_ticks = US_TO_DWT_TIME(slot_offset_us);
     /* 상위 32비트로 변환: >> 8 */
     uint32_t offset_high32 = (uint32_t)(offset_ticks >> 8);
     uint32_t rx_time_high32 = sync_tx_ts_high32 + offset_high32;
+#else
+    (void)sync_tx_ts_high32;
+#endif
 
+#if BRRS_RX_IMMEDIATE_CONTROL
+    /* Control condition: keep the current beacon, PHY, DATA slot and frame
+     * unchanged, but listen continuously from the DATA reconfiguration point.
+     * Do not arm the DW3000 frame-wait timeout here. The CPU-side
+     * CONFIG_SWITCH_US transition closes RX before the next beacon, which
+     * makes this a true data-phase continuous-RX control and avoids a timeout
+     * event changing the receiver state before the scheduled DATA frame. */
+    last_rx_open_high32 = dwt_readsystimestamphi32();
+    dwt_setrxtimeout(0U);
+#else
     last_rx_open_high32 = rx_time_high32;
-
     dwt_setdelayedtrxtime(rx_time_high32);
 #if BRRS_EXPERIMENT == 4
     /* Exp4 receives all contiguous DATA slots as one burst.  A per-slot frame
@@ -1859,8 +1885,15 @@ static bool schedule_delayed_rx(uint32_t sync_tx_ts_high32, uint32_t slot_offset
 #else
     dwt_setrxtimeout(US_TO_UUS(RX_WINDOW_US));
 #endif
+#endif
 
-    int result = dwt_rxenable(DWT_START_RX_DELAYED | DWT_IDLE_ON_DLY_ERR);
+    int result = dwt_rxenable(
+#if BRRS_RX_IMMEDIATE_CONTROL
+        DWT_START_RX_IMMEDIATE
+#else
+        DWT_START_RX_DELAYED | DWT_IDLE_ON_DLY_ERR
+#endif
+    );
     if (result != DWT_SUCCESS) {
         total_rx_delayed_fallbacks++;
         dwt_forcetrxoff();
@@ -2675,10 +2708,11 @@ int brrs_init(void)
     {
         static char cfg_msg[240];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "BRRS v2.10: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
+                 "BRRS v2.11: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus PAC=%u RX_MODE=%s SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
                  BRRS_EXPERIMENT, SYNC_PLEN, DATA_PLEN, PREAMBLE_SYMBOLS,
                  PREAMBLE_US, SLOT_INTERVAL_US, RX_WINDOW_US,
-                 RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US, PERIOD_US,
+                 RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US,
+                 (unsigned)DATA_PAC_SYMBOLS, BRRS_RX_MODE_NAME, PERIOD_US,
                  PERIODS_PER_CYCLE, TARGET_CYCLES, ENABLE_CIR);
         test_run_info((unsigned char *)cfg_msg);
     }
@@ -2713,10 +2747,10 @@ int brrs_init(void)
     {
         static char cfg_msg[560];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "EXP4_CONFIG_CSV,physical_sensors=%d,data_slots=%d,slot_repeats=%d,data_plen=%d,psdu_bytes=%d,app_payload_bytes=%d,sync_plen=%d,superframe_us=%d,sync_rmarker_offset_us=%d,sync_buffer_us=%d,frame_airtime_us=%d,slot_us=%d,guard_us=%d,lead_us=%d,tail_us=%d,data_burst_deadline_us=%d,sync_prep_deadline_us=%d,burst_rearm_budget_us=%d,max_slots=%d",
+                 "EXP4_CONFIG_CSV,physical_sensors=%d,data_slots=%d,slot_repeats=%d,data_plen=%d,data_pac=%u,psdu_bytes=%d,app_payload_bytes=%d,sync_plen=%d,superframe_us=%d,sync_rmarker_offset_us=%d,sync_buffer_us=%d,frame_airtime_us=%d,slot_us=%d,guard_us=%d,lead_us=%d,tail_us=%d,data_burst_deadline_us=%d,sync_prep_deadline_us=%d,burst_rearm_budget_us=%d,max_slots=%d",
                  brrs_active_node_count(brrs_configured_sensor_bitmap()),
                  BRRS_EXP4_DATA_SLOT_COUNT, BRRS_EXP4_SLOT_REPEATS,
-                 PREAMBLE_SYMBOLS, PSDU_BYTES,
+                 PREAMBLE_SYMBOLS, (unsigned)DATA_PAC_SYMBOLS, PSDU_BYTES,
                  BRRS_APP_PAYLOAD_BYTES, SYNC_PREAMBLE_SYMBOLS,
                  BRRS_SUPERFRAME_US,
                  SYNC_RMARKER_OFFSET_US, SYNC_BUFFER_US,
@@ -2729,7 +2763,7 @@ int brrs_init(void)
                  EXP4_MAX_DATA_SLOTS);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=23,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,rx_metadata=single_completed_buffer_spi_read,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+            "EXP4_FIRMWARE_REV,rev=24,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,rx_metadata=single_completed_buffer_spi_read,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -3630,11 +3664,12 @@ int brrs_init(void)
                     static char line[300];
 
                     snprintf(line, sizeof(line),
-                             "EXP1_DONE,plen=%d,lead_us=%d,tail_us=%d,pac=%u,expected=%lu,rx=%lu,delayed_late=%lu,data_config_errors=%lu,end_tx=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
+                             "EXP1_DONE,plen=%d,lead_us=%d,tail_us=%d,pac=%u,rx_mode=%s,expected=%lu,rx=%lu,delayed_late=%lu,data_config_errors=%lu,end_tx=%lu,collection=%s,link=%s,per_x1000=%lu,status=%s",
                              PREAMBLE_SYMBOLS,
                              RX_LEAD_MARGIN_US,
                              RX_TAIL_MARGIN_US,
                              (unsigned)DATA_PAC_SYMBOLS,
+                             BRRS_RX_MODE_NAME,
                              (unsigned long)expected,
                              (unsigned long)received,
                              (unsigned long)total_rx_delayed_fallbacks,
@@ -3927,17 +3962,40 @@ int brrs_init(void)
                                         exp4_phase_us);
                 }
                 {
+                    const uint8_t ready0_mask =
+                        DWT_RDB_STATUS_RXFCG0_BIT_MASK |
+                        DWT_RDB_STATUS_RXFR0_BIT_MASK |
+                        DWT_RDB_STATUS_CIADONE0_BIT_MASK;
+                    const uint8_t ready1_mask =
+                        DWT_RDB_STATUS_RXFCG1_BIT_MASK |
+                        DWT_RDB_STATUS_RXFR1_BIT_MASK |
+                        DWT_RDB_STATUS_CIADONE1_BIT_MASK;
+                    bool ready0 = (exp4_rdb_status & ready0_mask) == ready0_mask;
+                    bool ready1 = (exp4_rdb_status & ready1_mask) == ready1_mask;
                     bool good0 = (exp4_rdb_status &
                                   DWT_RDB_STATUS_RXFCG0_BIT_MASK) != 0U;
                     bool good1 = (exp4_rdb_status &
                                   DWT_RDB_STATUS_RXFCG1_BIT_MASK) != 0U;
-                    if (good0 && !good1) {
+
+                    /* RXFCG may assert before CIA finishes. If both buffers
+                     * contain RXFCG, prefer the one whose frame and adjusted
+                     * timestamp are fully ready. This avoids selecting the
+                     * newly completed buffer while the older ready buffer is
+                     * still waiting for the host. */
+                    if (ready0 && !ready1) {
                         completed_host_buffer = 0U;
-                    } else if (good1 && !good0) {
+                    } else if (ready1 && !ready0) {
                         completed_host_buffer = 1U;
+                    } else if (!ready0 && !ready1) {
+                        if (good0 && !good1) {
+                            completed_host_buffer = 0U;
+                        } else if (good1 && !good0) {
+                            completed_host_buffer = 1U;
+                        }
                     }
-                    /* Else neither (handled as a mismatch below) or both
-                     * appear ready -- keep the tracked guess. */
+                    /* If both are fully ready, retain the tracked host buffer
+                     * to preserve FIFO order. If neither has even a unique
+                     * RXFCG, mismatch handling below records the state. */
                     if (completed_host_buffer != exp4_rx_host_buffer) {
                         exp4_rdb_resync_count++;
                         {

@@ -13,8 +13,10 @@
 #
 # Exp5 is a multi-run experiment: repeat this script across vehicle sensor
 # positions (dashboard/door/roof/trunk/...) via <environment>, and across
-# TX-RX distances via [distance], to extract RMS delay spread, Rician
-# K-factor, and (via multiple distances) the path loss exponent.
+# TX-RX distances via [distance]. The raw CIR supports observed PDP width,
+# RMS delay-spread, and dominant-path-to-residual-energy measurements. A
+# calibrated Rician K-factor or path-loss exponent additionally requires a
+# propagation/reference model and is not claimed by this capture alone.
 #
 # 사용:
 #   ./brrs_exp5_capture.sh <tx|rx> <run> <environment> [distance]
@@ -166,7 +168,9 @@ if (( NO_BUILD == 0 )); then
     echo "[build] ${CONFIG}"
     BUILD_ARGS=(-threadnum "${EMBUILD_THREADS:-1}")
     if [[ "${ROLE}" == "rx" ]]; then
-        BUILD_ARGS+=(-sproperty "c_additional_options=-DBRRS_RX_LEAD_MARGIN_US=${LEAD_US}")
+        DEFS="DEBUG;BRRS_TARGET_CYCLES=${EXPECTED_SAMPLES}"
+        DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
+        BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     fi
     BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
     "${EMBUILD}" "${BUILD_ARGS[@]}" >"${BUILD_LOG}" 2>&1 \

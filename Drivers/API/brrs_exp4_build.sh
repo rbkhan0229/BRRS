@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--sequence <digits>]"
+    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sequence <digits>]"
     echo "Example: $0 32 2 200 N3 15"
     echo "Example (custom slot schedule): $0 64 2 200 all 15 --sequence 2323232323232"
     echo
@@ -17,12 +17,16 @@ usage() {
 }
 
 SEQUENCE=""
+PAC=8
 ARGS=()
 while (( $# > 0 )); do
     case "$1" in
         --sequence)
             (( $# >= 2 )) || { echo "--sequence requires a value" >&2; exit 2; }
             SEQUENCE="$2"; shift 2 ;;
+        --pac)
+            (( $# >= 2 )) || { echo "--pac requires a value" >&2; exit 2; }
+            PAC="$2"; shift 2 ;;
         *) ARGS+=("$1"); shift ;;
     esac
 done
@@ -41,6 +45,11 @@ sensor_count="$2"
 guard_us="${3:-200}"
 requested_role="${4:-all}"
 lead_us="${5:-15}"
+
+case "${PAC}" in
+    4|8) ;;
+    *) echo "ERROR: pac must be 4 or 8" >&2; exit 2 ;;
+esac
 
 if [[ -n "${SEQUENCE}" ]]; then
     [[ "${SEQUENCE}" =~ ^[2-8]+$ ]] \
@@ -101,6 +110,9 @@ fi
 if (( lead_us != 15 )); then
     dest_dir+="_lead${lead_us}"
 fi
+if (( PAC != 8 )); then
+    dest_dir+="_pac${PAC}"
+fi
 if [[ -n "${SEQUENCE}" ]]; then
     dest_dir+="_seq${SEQUENCE}"
 fi
@@ -141,7 +153,7 @@ build_image() {
     echo "Building ${base}..."
     "${embuild}" \
         -threadnum "${EMBUILD_THREADS:-1}" \
-        -sproperty "c_preprocessor_definitions=DEBUG;BRRS_EXPLICIT_PROFILE=1;BRRS_SLOT_GUARD_US=${guard_us};BRRS_RX_LEAD_MARGIN_US=${lead_us}${extra_defs}" \
+        -sproperty "c_preprocessor_definitions=DEBUG;BRRS_EXPLICIT_PROFILE=1;BRRS_SLOT_GUARD_US=${guard_us};BRRS_RX_LEAD_MARGIN_US=${lead_us};BRRS_RX_PAC_SYMBOLS=${PAC}${extra_defs}" \
         -sproperty "macros=${macros}" \
         -config Debug \
         -project dw3000_api \
@@ -169,4 +181,5 @@ echo "Experiment 4 firmware images are ready in:"
 echo "${dest_dir}"
 echo "Guard: ${guard_us} us"
 echo "RX lead: ${lead_us} us"
+echo "RX PAC: ${PAC}"
 echo "Role: ${requested_role}"

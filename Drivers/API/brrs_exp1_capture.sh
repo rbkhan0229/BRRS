@@ -17,9 +17,12 @@ Usage:
 
 Options:
   --lead <us>          RX lead margin for Exp1 (default: 15).
-  --pac <4|8>          RX PAC size, Stage0 only (default: 8, the BRRS
+  --pac <4|8>          RX PAC size for Stage0/Exp1 (default: 8, the BRRS
                         baseline; 4 is the DW3000 vendor-recommended value
                         for preambles under 127 symbols).
+  --rx-mode <mode>     Exp1 RX scheduling: delayed (default) or immediate.
+                        Immediate keeps the same beacon/PHY/slot and opens RX
+                        as soon as DATA configuration is ready.
   --serial <S/N>       Select a J-Link when multiple probes are attached.
   --no-build           Reuse the existing ELF and HEX.
   --timeout <seconds>  Override capture timeout (RX 120 s, TX 600 s).
@@ -58,6 +61,7 @@ MODE="exp1"
 LEAD_US=15
 TAIL_US=0
 PAC=8
+RX_MODE="delayed"
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -82,6 +86,9 @@ while (( $# > 0 )); do
         --pac)
             (( $# >= 2 )) || { echo "--pac requires a value" >&2; exit 2; }
             PAC="$2"; shift 2 ;;
+        --rx-mode)
+            (( $# >= 2 )) || { echo "--rx-mode requires a value" >&2; exit 2; }
+            RX_MODE="$2"; shift 2 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -111,6 +118,10 @@ case "${PAC}" in
     4|8) ;;
     *) echo "pac must be 4 or 8" >&2; exit 2 ;;
 esac
+case "${RX_MODE}" in
+    delayed|immediate) ;;
+    *) echo "rx-mode must be delayed or immediate" >&2; exit 2 ;;
+esac
 
 if [[ "${MODE}" == "stage0" ]]; then
     [[ "${PREAMBLE}" == "32" ]] \
@@ -122,16 +133,17 @@ if [[ "${MODE}" == "stage0" ]]; then
     fi
     EXPERIMENT_LABEL="Stage0: lead ${LEAD_US} us, tail ${TAIL_US} us, pac ${PAC}"
     LOG_PREFIX="stage0_l${LEAD_US}_t${TAIL_US}_pac${PAC}"
+    [[ "${RX_MODE}" == "delayed" ]] \
+        || { echo "Stage0 supports delayed RX only" >&2; exit 2; }
 else
     TAIL_US=0
-    PAC=8
     if [[ "${ROLE}" == "rx" ]]; then
         CONFIG="Exp1_${PREAMBLE}_Init"
     else
         CONFIG="Exp1_Normal"
     fi
-    EXPERIMENT_LABEL="Experiment 1: ${PREAMBLE} symbols"
-    LOG_PREFIX="exp1_${PREAMBLE}_l${LEAD_US}"
+    EXPERIMENT_LABEL="Experiment 1: ${PREAMBLE} symbols, PAC${PAC}, ${RX_MODE}-RX"
+    LOG_PREFIX="exp1_${PREAMBLE}_l${LEAD_US}_pac${PAC}_${RX_MODE}"
 fi
 
 grep -Fq "Name=\"${CONFIG}\"" "${PROJECT}" \
@@ -151,6 +163,7 @@ HEX_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.hex"
 ELF_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.elf"
 LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
 PAC_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_pac"
+RX_MODE_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_mode"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
@@ -217,6 +230,7 @@ echo "[${ROLE_LABEL}] ${EXPERIMENT_LABEL}"
 echo "  Configuration: ${CONFIG}"
 echo "  RX lead:       ${LEAD_US} us"
 echo "  RX PAC:        ${PAC}"
+echo "  RX mode:       ${RX_MODE}"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
@@ -226,16 +240,28 @@ if (( NO_BUILD == 0 )); then
     echo "[build] ${CONFIG}"
     BUILD_ARGS=(-threadnum "${EMBUILD_THREADS:-1}")
     if [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
-        BUILD_ARGS+=(-sproperty "c_additional_options=-DBRRS_RX_LEAD_MARGIN_US=${LEAD_US}")
+        RX_MODE_DEFINE=0
+        [[ "${RX_MODE}" == "immediate" ]] && RX_MODE_DEFINE=1
+        DEFS="DEBUG;BRRS_RX_TAIL_MARGIN_US=0;BRRS_TARGET_CYCLES=${EXPECTED_CYCLES}"
+        DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
+        DEFS+=";BRRS_RX_PAC_SYMBOLS=${PAC}"
+        DEFS+=";BRRS_RX_IMMEDIATE_CONTROL=${RX_MODE_DEFINE}"
+        BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     fi
     if [[ "${MODE}" == "stage0" && "${ROLE}" == "rx" ]]; then
-        BUILD_ARGS+=(-sproperty "c_additional_options=-DBRRS_RX_PAC_SYMBOLS=${PAC}")
+        DEFS="DEBUG;BRRS_TARGET_CYCLES=${EXPECTED_CYCLES}"
+        DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
+        DEFS+=";BRRS_RX_TAIL_MARGIN_US=${TAIL_US}"
+        DEFS+=";BRRS_RX_PAC_SYMBOLS=${PAC}"
+        BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     fi
     BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
     "${EMBUILD}" "${BUILD_ARGS[@]}" >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
     if [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
         printf '%s\n' "${LEAD_US}" >"${LEAD_STAMP}"
+        printf '%s\n' "${PAC}" >"${PAC_STAMP}"
+        printf '%s\n' "${RX_MODE}" >"${RX_MODE_STAMP}"
     fi
     if [[ "${MODE}" == "stage0" && "${ROLE}" == "rx" ]]; then
         printf '%s\n' "${PAC}" >"${PAC_STAMP}"
@@ -250,6 +276,10 @@ fi
 if (( NO_BUILD == 1 )) && [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
     [[ -f "${LEAD_STAMP}" && "$(<"${LEAD_STAMP}")" == "${LEAD_US}" ]] \
         || { echo "cached ${CONFIG} was not built with lead ${LEAD_US} us" >&2; exit 1; }
+    [[ -f "${PAC_STAMP}" && "$(<"${PAC_STAMP}")" == "${PAC}" ]] \
+        || { echo "cached ${CONFIG} was not built with pac ${PAC}" >&2; exit 1; }
+    [[ -f "${RX_MODE_STAMP}" && "$(<"${RX_MODE_STAMP}")" == "${RX_MODE}" ]] \
+        || { echo "cached ${CONFIG} was not built for ${RX_MODE} RX" >&2; exit 1; }
 fi
 
 RTT_SYMBOL="$("${ARM_NM}" -n "${ELF_FILE}" \
@@ -275,6 +305,7 @@ PYLINK_ARGS=(
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp1_verify.py" "${RAW_LOG}" \
     --mode "${MODE}" --role "${ROLE}" --preamble "${PREAMBLE}" \
     --lead "${LEAD_US}" --tail "${TAIL_US}" --pac "${PAC}" \
+    --rx-mode "${RX_MODE}" \
     --expected "${EXPECTED_CYCLES}")"
 echo "${VERIFY_OUTPUT}"
 DETAIL="${VERIFY_OUTPUT#\[verify\] PASS: }"
@@ -295,6 +326,7 @@ fi
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'tail_us=%s\n' "${TAIL_US}"
     printf 'pac=%s\n' "${PAC}"
+    printf 'rx_mode=%s\n' "${RX_MODE}"
     printf 'expected_cycles=%s\n' "${EXPECTED_CYCLES}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"

@@ -17,6 +17,7 @@ Usage:
 Options:
   --guard <us>         Inter-slot guard used by every board (default: 200).
   --lead <us>          Coordinator RX lead margin (default: 15).
+  --pac <4|8>          Coordinator DATA RX PAC size (default: 8).
   --serial <S/N>       Select a J-Link when multiple probes are attached.
   --no-build           Reuse an image previously made with the same parameters.
   --timeout <seconds>  Override capture timeout (INIT 90 s, sensor 180 s).
@@ -53,6 +54,7 @@ shift 5
 DISTANCE="na"
 GUARD_US=200
 LEAD_US=15
+PAC=8
 SERIAL=""
 NO_BUILD=0
 TIMEOUT=""
@@ -71,6 +73,10 @@ while (( $# > 0 )); do
         --lead)
             (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }
             LEAD_US="$2"; shift 2
+            ;;
+        --pac)
+            (( $# >= 2 )) || { echo "--pac requires a value" >&2; exit 2; }
+            PAC="$2"; shift 2
             ;;
         --serial)
             (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }
@@ -108,6 +114,10 @@ fi
     || { echo "guard must be an integer between 0 and 1000 us" >&2; exit 2; }
 [[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
     || { echo "lead must be an integer between 0 and 1000 us" >&2; exit 2; }
+case "${PAC}" in
+    4|8) ;;
+    *) echo "pac must be 4 or 8" >&2; exit 2 ;;
+esac
 if (( SENSOR_COUNT > 1 && GUARD_US < LEAD_US )); then
     echo "multi-sensor guard must be at least the ${LEAD_US} us RX lead margin" >&2
     exit 2
@@ -145,17 +155,23 @@ fi
 if (( LEAD_US != 15 )); then
     IMAGE_DIR+="_lead${LEAD_US}"
 fi
+if (( PAC != 8 )); then
+    IMAGE_DIR+="_pac${PAC}"
+fi
 if [[ -n "${SEQUENCE}" ]]; then
     IMAGE_DIR+="_seq${SEQUENCE}"
 fi
 IMAGE_BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_${IMAGE_ROLE}"
 HEX_FILE="${IMAGE_DIR}/${IMAGE_BASE}.hex"
 ELF_FILE="${IMAGE_DIR}/${IMAGE_BASE}.elf"
-CONFIG="Generated_Exp4_${PREAMBLE}_S${SENSOR_COUNT}_G${GUARD_US}_L${LEAD_US}_${ROLE_LABEL}"
+CONFIG="Generated_Exp4_${PREAMBLE}_S${SENSOR_COUNT}_G${GUARD_US}_L${LEAD_US}_PAC${PAC}_${ROLE_LABEL}"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
-OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_${DATE_TAG}"
+OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_${DATE_TAG}"
+if [[ -n "${SEQUENCE}" ]]; then
+    OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_seq${SEQUENCE}_${DATE_TAG}"
+fi
 mkdir -p "${OUTDIR}"
 
 ROLE_TAG="$(printf '%s' "${ROLE_LABEL}" | tr '[:upper:]' '[:lower:]')"
@@ -221,6 +237,7 @@ echo "[${ROLE_LABEL}] Experiment 4: ${PREAMBLE} sym, S${SENSOR_COUNT}"
 echo "  Configuration: ${CONFIG}"
 echo "  Guard:         ${GUARD_US} us"
 echo "  RX lead:       ${LEAD_US} us"
+echo "  RX PAC:        ${PAC}"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
@@ -229,7 +246,7 @@ echo "  Raw log:       ${RAW_LOG}"
 if (( NO_BUILD == 0 )); then
     echo "[build] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / guard ${GUARD_US} us / lead ${LEAD_US} us"
     BUILD_CMD=("${SCRIPT_DIR}/brrs_exp4_build.sh"
-        "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}")
+        "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}" --pac "${PAC}")
     [[ -n "${SEQUENCE}" ]] && BUILD_CMD+=(--sequence "${SEQUENCE}")
     EMBUILD="${EMBUILD}" "${BUILD_CMD[@]}" \
         >"${BUILD_LOG}" 2>&1 \
@@ -265,7 +282,7 @@ VERIFY_SEQ_ARGS=()
 # declared -- the ${arr[@]+"${arr[@]}"} idiom works around it.
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     "${VERIFY_ARGS[@]}" --preamble "${PREAMBLE}" \
-    --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}" \
+    --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" \
     ${VERIFY_SEQ_ARGS[@]+"${VERIFY_SEQ_ARGS[@]}"})"
 echo "${VERIFY_OUTPUT}"
 DETAIL="${VERIFY_OUTPUT#\[verify\] PASS: }"
@@ -285,6 +302,8 @@ fi
     printf 'sensor_count=%s\n' "${SENSOR_COUNT}"
     printf 'guard_us=%s\n' "${GUARD_US}"
     printf 'lead_us=%s\n' "${LEAD_US}"
+    printf 'pac=%s\n' "${PAC}"
+    printf 'slot_sequence=%s\n' "${SEQUENCE:-default-round-robin}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"
     printf 'distance_m=%s\n' "${DISTANCE}"

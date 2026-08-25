@@ -170,7 +170,9 @@ if (( NO_BUILD == 0 )); then
     echo "[build] ${CONFIG}"
     BUILD_ARGS=(-threadnum "${EMBUILD_THREADS:-1}")
     if [[ "${ROLE}" == "rx" ]]; then
-        BUILD_ARGS+=(-sproperty "c_additional_options=-DBRRS_RX_LEAD_MARGIN_US=${LEAD_US}")
+        DEFS="DEBUG;BRRS_TARGET_CYCLES=${EXPECTED_SAMPLES}"
+        DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
+        BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     fi
     BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
     "${EMBUILD}" "${BUILD_ARGS[@]}" >"${BUILD_LOG}" 2>&1 \

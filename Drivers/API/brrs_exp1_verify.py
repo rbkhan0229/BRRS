@@ -37,6 +37,7 @@ def validate_rx(text: str, args: argparse.Namespace) -> str:
     lead = integer(values, "lead_us")
     tail = integer(values, "tail_us")
     pac = integer(values, "pac")
+    rx_mode = values.get("rx_mode", "")
     expected = integer(values, "expected")
     received = integer(values, "rx")
     delayed_late = integer(values, "delayed_late")
@@ -51,6 +52,8 @@ def validate_rx(text: str, args: argparse.Namespace) -> str:
         )
     if pac != args.pac:
         fail(f"firmware pac={pac}, requested={args.pac}")
+    if rx_mode != args.rx_mode:
+        fail(f"firmware rx_mode={rx_mode!r}, requested={args.rx_mode!r}")
     if expected != args.expected or received > expected:
         fail(f"invalid RX totals: rx={received}, expected={expected}")
     if delayed_late != 0 or data_errors != 0 or end_tx != 3:
@@ -87,7 +90,8 @@ def validate_rx(text: str, args: argparse.Namespace) -> str:
     return (
         f"collection=PASS; expected={expected}; rx={received}; "
         f"PER={per_percent:.3f}%; link={expected_link}; "
-        f"lead={lead}us; tail={tail}us; plen={plen}; pac={pac}"
+        f"lead={lead}us; tail={tail}us; plen={plen}; pac={pac}; "
+        f"rx_mode={rx_mode}"
     )
 
 
@@ -156,6 +160,8 @@ def main() -> int:
     parser.add_argument("--lead", type=int, required=True)
     parser.add_argument("--tail", type=int, required=True)
     parser.add_argument("--pac", type=int, default=8)
+    parser.add_argument("--rx-mode", choices=("delayed", "immediate"),
+                        default="delayed")
     parser.add_argument("--expected", type=int, default=2000)
     args = parser.parse_args()
 

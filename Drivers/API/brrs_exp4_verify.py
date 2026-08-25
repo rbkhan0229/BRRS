@@ -58,8 +58,8 @@ FRAME_AIRTIME_US = {32: 97, 64: 130, 128: 195, 256: 325}
 
 def verify_revision(lines, prefix):
     revision = key_values(last_line(lines, prefix))
-    if integer(revision, "rev") < 20:
-        fail(f"firmware revision {revision.get('rev')} is older than 20")
+    if integer(revision, "rev") < 24:
+        fail(f"firmware revision {revision.get('rev')} is older than 24")
     require(revision, "beacon_protocol", 3)
 
 
@@ -70,7 +70,7 @@ def expected_owners(sensors, sequence=None):
 
 
 def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
-                sequence=None):
+                expected_pac, sequence=None):
     slot_count = len(sequence) if sequence is not None else sensors
     expected = 1000 * slot_count
 
@@ -79,6 +79,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(config, "data_slots", slot_count)
     require(config, "slot_repeats", 1)
     require(config, "data_plen", preamble)
+    require(config, "data_pac", expected_pac)
     require(config, "psdu_bytes", 26)
     require(config, "app_payload_bytes", 16)
     require(config, "superframe_us", 10000)
@@ -242,6 +243,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         f"PER={per_percent:.3f}%; link={expected_link}; "
         f"period={period_avg_x1000 / 1000:.3f}us; "
         f"guard={guard_us}us(required={required_guard}us); lead={lead_us}us"
+        f"; pac={expected_pac}"
     )
 
 
@@ -341,6 +343,7 @@ def main():
                         choices=range(0, 1001))
     parser.add_argument("--lead", required=True, type=int,
                         choices=range(0, 1001))
+    parser.add_argument("--pac", required=True, type=int, choices=(4, 8))
     parser.add_argument("--sequence",
                         help="Custom per-slot owner digit string (init image "
                              "only), e.g. 2323232323232. Omit for the "
@@ -362,7 +365,7 @@ def main():
         lines = args.log.read_text(errors="replace").splitlines()
         if args.role == "init":
             detail = verify_init(lines, args.preamble, args.sensors,
-                                 args.guard, args.lead, args.sequence)
+                                 args.guard, args.lead, args.pac, args.sequence)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard, args.sequence)

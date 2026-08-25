@@ -1065,7 +1065,7 @@ int brrs_normal(void)
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=22,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,end_rx=immediate_wide_on_last_cycle,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=24,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,end_rx=immediate_wide_on_last_cycle,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,timing_metric=uwb_signed_slot_error");
     }
 #endif
 

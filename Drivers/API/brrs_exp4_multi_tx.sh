@@ -16,6 +16,8 @@ Usage:
 Options:
   --guard <us>              Inter-slot guard (default: 200).
   --lead <us>               Coordinator RX lead margin (default: 15).
+  --pac <4|8>               Coordinator DATA RX PAC size (default: 8).
+  --sequence <digits>       Custom per-slot owner schedule, e.g. 232323.
   --timeout <seconds>       Sensor capture timeout (default: 180).
   --probe-serials <csv>     Diagnostic override; default discovers every USB probe.
   --no-build                Reuse previously built node images.
@@ -45,6 +47,8 @@ shift 4
 DISTANCE="na"
 GUARD_US=200
 LEAD_US=15
+PAC=8
+SEQUENCE=""
 TIMEOUT=180
 PROBE_SERIALS=""
 NO_BUILD=0
@@ -61,6 +65,12 @@ while (( $# > 0 )); do
         --lead)
             (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }
             LEAD_US="$2"; shift 2 ;;
+        --pac)
+            (( $# >= 2 )) || { echo "--pac requires a value" >&2; exit 2; }
+            PAC="$2"; shift 2 ;;
+        --sequence)
+            (( $# >= 2 )) || { echo "--sequence requires a value" >&2; exit 2; }
+            SEQUENCE="$2"; shift 2 ;;
         --timeout)
             (( $# >= 2 )) || { echo "--timeout requires a value" >&2; exit 2; }
             TIMEOUT="$2"; shift 2 ;;
@@ -91,6 +101,21 @@ fi
     || { echo "guard must be between 0 and 1000 us" >&2; exit 2; }
 [[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
     || { echo "lead must be between 0 and 1000 us" >&2; exit 2; }
+case "${PAC}" in
+    4|8) ;;
+    *) echo "pac must be 4 or 8" >&2; exit 2 ;;
+esac
+if [[ -n "${SEQUENCE}" ]]; then
+    [[ "${SEQUENCE}" =~ ^[2-8]+$ ]] \
+        || { echo "sequence must contain only node digits 2-8" >&2; exit 2; }
+    (( ${#SEQUENCE} <= 32 )) \
+        || { echo "sequence must contain at most 32 slots" >&2; exit 2; }
+    max_node=$((SENSOR_COUNT + 1))
+    for (( index=0; index<${#SEQUENCE}; index++ )); do
+        (( ${SEQUENCE:index:1} <= max_node )) \
+            || { echo "sequence references a node outside S${SENSOR_COUNT}" >&2; exit 2; }
+    done
+fi
 if (( SENSOR_COUNT > 1 && GUARD_US < LEAD_US )); then
     echo "multi-sensor guard must be at least the ${LEAD_US} us RX lead margin" >&2
     exit 2
@@ -115,7 +140,10 @@ done <<<"${ASSIGNMENT_OUTPUT}"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" ]] && DISTANCE_TAG="_${DISTANCE}m"
-OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_${DATE_TAG}"
+OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_${DATE_TAG}"
+if [[ -n "${SEQUENCE}" ]]; then
+    OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_seq${SEQUENCE}_${DATE_TAG}"
+fi
 mkdir -p "${OUTDIR}"
 BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_r${RUN_NUMBER}_multi_tx"
 ASSIGNMENT_FILE="${OUTDIR}/${BASE}.assignments.csv"
@@ -137,7 +165,8 @@ fi
 exec > >(tee -a "${ORCHESTRATOR_LOG}") 2>&1
 
 ROTATION=$(( (RUN_NUMBER - 1) % SENSOR_COUNT ))
-echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us"
+echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us / PAC ${PAC}"
+echo "[multi-tx] slot sequence: ${SEQUENCE:-default-round-robin}"
 echo "[multi-tx] probe source: $([[ -z "${PROBE_SERIALS}" ]] && echo auto-discovery || echo diagnostic-override)"
 echo "[multi-tx] cyclic rotation: ${ROTATION}"
 printf 'run,preamble_symbols,sensor_count,rotation,role,serial\n' >"${ASSIGNMENT_FILE}"
@@ -152,8 +181,9 @@ done
 
 if (( NO_BUILD == 0 )); then
     echo "[build] preparing every TX role once"
-    "${SCRIPT_DIR}/brrs_exp4_build.sh" \
-        "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" tx "${LEAD_US}"
+    BUILD_ARGS=("${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" tx "${LEAD_US}" --pac "${PAC}")
+    [[ -n "${SEQUENCE}" ]] && BUILD_ARGS+=(--sequence "${SEQUENCE}")
+    "${SCRIPT_DIR}/brrs_exp4_build.sh" "${BUILD_ARGS[@]}"
 fi
 
 PIDS=()
@@ -161,9 +191,17 @@ CONSOLE_LOGS=()
 cleanup_children() {
     local pid
     for pid in "${PIDS[@]:-}"; do
-        kill -0 "${pid}" 2>/dev/null && kill "${pid}" 2>/dev/null || true
+        kill_process_tree "${pid}"
     done
     wait 2>/dev/null || true
+}
+kill_process_tree() {
+    local parent="$1"
+    local child
+    while IFS= read -r child; do
+        [[ -n "${child}" ]] && kill_process_tree "${child}"
+    done < <(pgrep -P "${parent}" 2>/dev/null || true)
+    kill -0 "${parent}" 2>/dev/null && kill "${parent}" 2>/dev/null || true
 }
 trap 'cleanup_children; exit 130' INT TERM
 
@@ -186,7 +224,8 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
         "${ENVIRONMENT}"
     )
     [[ "${DISTANCE}" == "na" ]] || command+=("${DISTANCE}")
-    command+=(--guard "${GUARD_US}" --lead "${LEAD_US}" --serial "${serial}" --timeout "${TIMEOUT}" --no-build)
+    command+=(--guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" --serial "${serial}" --timeout "${TIMEOUT}" --no-build)
+    [[ -n "${SEQUENCE}" ]] && command+=(--sequence "${SEQUENCE}")
     (( FORCE == 0 )) || command+=(--force)
     "${command[@]}" >"${console_log}" 2>&1 &
     PIDS+=("$!")
