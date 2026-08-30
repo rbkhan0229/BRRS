@@ -89,6 +89,10 @@ void spi2_init(void);
  * */
 void port_set_dw_ic_spi_slowrate(void);
 
+/* Serialize foreground DW3000 SPI transfers against a DW3000 GPIO ISR that
+ * also uses this SPI instance.  Disabled by default for existing examples. */
+void port_set_dw_ic_spi_irq_atomic(bool enabled);
+
     /* @fn      port_set_dw_ic_spi_fastrate
      * @brief   set 16MHz
      * */

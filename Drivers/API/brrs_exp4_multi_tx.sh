@@ -17,6 +17,7 @@ Options:
   --guard <us>              Inter-slot guard (default: 200).
   --lead <us>               Coordinator RX lead margin (default: 15).
   --pac <4|8>               Coordinator DATA RX PAC size (default: 8).
+  --irq                     Build/log the run as IRQ-fast-path mode.
   --sequence <digits>       Custom per-slot owner schedule, e.g. 232323.
   --timeout <seconds>       Sensor capture timeout (default: 180).
   --probe-serials <csv>     Diagnostic override; default discovers every USB probe.
@@ -53,6 +54,7 @@ TIMEOUT=180
 PROBE_SERIALS=""
 NO_BUILD=0
 FORCE=0
+IRQ_FASTPATH=0
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -79,6 +81,7 @@ while (( $# > 0 )); do
             PROBE_SERIALS="$2"; shift 2 ;;
         --no-build) NO_BUILD=1; shift ;;
         --force) FORCE=1; shift ;;
+        --irq) IRQ_FASTPATH=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -141,8 +144,15 @@ DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" ]] && DISTANCE_TAG="_${DISTANCE}m"
 OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_${DATE_TAG}"
+if (( IRQ_FASTPATH )); then
+    OUTDIR="${SDK_ROOT}/../logs/exp4_irq_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_${DATE_TAG}"
+fi
 if [[ -n "${SEQUENCE}" ]]; then
-    OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_seq${SEQUENCE}_${DATE_TAG}"
+    if (( IRQ_FASTPATH )); then
+        OUTDIR="${SDK_ROOT}/../logs/exp4_irq_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_seq${SEQUENCE}_${DATE_TAG}"
+    else
+        OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_seq${SEQUENCE}_${DATE_TAG}"
+    fi
 fi
 mkdir -p "${OUTDIR}"
 BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_r${RUN_NUMBER}_multi_tx"
@@ -167,6 +177,7 @@ exec > >(tee -a "${ORCHESTRATOR_LOG}") 2>&1
 ROTATION=$(( (RUN_NUMBER - 1) % SENSOR_COUNT ))
 echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us / PAC ${PAC}"
 echo "[multi-tx] slot sequence: ${SEQUENCE:-default-round-robin}"
+echo "[multi-tx] RX event source: $((( IRQ_FASTPATH )) && echo irq || echo polling)"
 echo "[multi-tx] probe source: $([[ -z "${PROBE_SERIALS}" ]] && echo auto-discovery || echo diagnostic-override)"
 echo "[multi-tx] cyclic rotation: ${ROTATION}"
 printf 'run,preamble_symbols,sensor_count,rotation,role,serial\n' >"${ASSIGNMENT_FILE}"
@@ -183,6 +194,7 @@ if (( NO_BUILD == 0 )); then
     echo "[build] preparing every TX role once"
     BUILD_ARGS=("${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" tx "${LEAD_US}" --pac "${PAC}")
     [[ -n "${SEQUENCE}" ]] && BUILD_ARGS+=(--sequence "${SEQUENCE}")
+    (( IRQ_FASTPATH == 0 )) || BUILD_ARGS+=(--irq)
     "${SCRIPT_DIR}/brrs_exp4_build.sh" "${BUILD_ARGS[@]}"
 fi
 
@@ -226,6 +238,7 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
     [[ "${DISTANCE}" == "na" ]] || command+=("${DISTANCE}")
     command+=(--guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" --serial "${serial}" --timeout "${TIMEOUT}" --no-build)
     [[ -n "${SEQUENCE}" ]] && command+=(--sequence "${SEQUENCE}")
+    (( IRQ_FASTPATH == 0 )) || command+=(--irq)
     (( FORCE == 0 )) || command+=(--force)
     "${command[@]}" >"${console_log}" 2>&1 &
     PIDS+=("$!")

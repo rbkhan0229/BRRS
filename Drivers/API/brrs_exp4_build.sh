@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sequence <digits>]"
+    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sequence <digits>] [--irq]"
     echo "Example: $0 32 2 200 N3 15"
     echo "Example (custom slot schedule): $0 64 2 200 all 15 --sequence 2323232323232"
     echo
@@ -18,6 +18,7 @@ usage() {
 
 SEQUENCE=""
 PAC=8
+IRQ_FASTPATH=0
 ARGS=()
 while (( $# > 0 )); do
     case "$1" in
@@ -27,6 +28,7 @@ while (( $# > 0 )); do
         --pac)
             (( $# >= 2 )) || { echo "--pac requires a value" >&2; exit 2; }
             PAC="$2"; shift 2 ;;
+        --irq) IRQ_FASTPATH=1; shift ;;
         *) ARGS+=("$1"); shift ;;
     esac
 done
@@ -116,6 +118,9 @@ fi
 if [[ -n "${SEQUENCE}" ]]; then
     dest_dir+="_seq${SEQUENCE}"
 fi
+if (( IRQ_FASTPATH )); then
+    dest_dir+="_irq"
+fi
 
 if [[ -n "${EMBUILD:-}" ]]; then
     embuild="${EMBUILD}"
@@ -138,7 +143,7 @@ build_image() {
     local node_define="$3"
     local base="exp4_${plen}_s${sensor_count}_${role}"
     local macros
-    local extra_defs=""
+    local extra_defs=";BRRS_EXP4_IRQ_FASTPATH=${IRQ_FASTPATH}"
 
     macros="BRRS_ROLE_DEFINE=${role_define};EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1"
     macros+=";BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=4"
@@ -147,7 +152,7 @@ build_image() {
     macros+=";BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=${sensor_count}"
 
     if [[ -n "${SEQUENCE}" && "${role}" == "init" ]]; then
-        extra_defs=";BRRS_EXP4_CUSTOM_SEQUENCE=\"${SEQUENCE}\""
+        extra_defs+=";BRRS_EXP4_CUSTOM_SEQUENCE=\"${SEQUENCE}\""
     fi
 
     echo "Building ${base}..."
@@ -182,4 +187,5 @@ echo "${dest_dir}"
 echo "Guard: ${guard_us} us"
 echo "RX lead: ${lead_us} us"
 echo "RX PAC: ${PAC}"
+echo "RX event source: $((( IRQ_FASTPATH )) && echo irq || echo polling)"
 echo "Role: ${requested_role}"

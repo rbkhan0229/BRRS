@@ -129,6 +129,19 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #error "BRRS_EXPERIMENT must be between 1 and 5"
 #endif
 
+/* Exp4 receiver event source.  Keep polling as the default so every existing
+ * build profile remains bit-for-bit explicit; the IRQ fast path is enabled
+ * only by the experiment build scripts' --irq option. */
+#ifndef BRRS_EXP4_IRQ_FASTPATH
+#define BRRS_EXP4_IRQ_FASTPATH 0
+#endif
+#if BRRS_EXP4_IRQ_FASTPATH != 0 && BRRS_EXP4_IRQ_FASTPATH != 1
+#error "BRRS_EXP4_IRQ_FASTPATH must be 0 or 1"
+#endif
+#if BRRS_EXP4_IRQ_FASTPATH && BRRS_EXPERIMENT != 4
+#error "BRRS_EXP4_IRQ_FASTPATH is valid only for Experiment 4"
+#endif
+
 /* Experiment 3 PHY condition. Both INIT and NORMAL must use the same value.
  * The legacy RX-stage observation is optional because TX EXTTXE differential
  * capture is the primary Experiment 3 timing measurement. */
@@ -1929,6 +1942,177 @@ static uint32_t last_sync_tx_ts_high32 = 0;  /* SYNC TX timestamp 저장 */
 static bool slots_scheduled[BRRS_MAX_DATA_SLOTS] = {false};
 static uint8_t current_rx_slot = 0xFF;  /* 현재 대기 중인 슬롯 (RX 윈도우 안에서) */
 
+#if BRRS_EXPERIMENT == 4 && BRRS_EXP4_IRQ_FASTPATH
+/* DW3000 fast command 0x02 enables RX without repeating the PLL_COMMON write
+ * in dwt_rxenable().  DW30xx does not support automatic RX re-enable, so the
+ * command still has to be issued by the host. */
+#define BRRS_DW3000_FAST_CMD_RX 0x02U
+
+#define EXP4_IRQ_QUEUE_CAPACITY 4U
+typedef struct {
+    uint32_t status_reg;
+    uint32_t event_start_cycles;
+    uint32_t fint_read_us;
+    uint32_t status_clear_us;
+    uint32_t rx_enable_us;
+    uint32_t service_us;
+    uint8_t slot_hint;
+    uint8_t fint_status;
+    bool rearmed;
+    bool clear_before_rearm;
+} exp4_irq_event_t;
+
+static volatile exp4_irq_event_t exp4_irq_queue[EXP4_IRQ_QUEUE_CAPACITY];
+static volatile uint8_t exp4_irq_head = 0U;
+static volatile uint8_t exp4_irq_tail = 0U;
+static volatile uint8_t exp4_irq_slot_cursor = 0xFFU;
+static volatile uint32_t exp4_irq_event_count = 0U;
+static volatile uint32_t exp4_irq_queue_overflows = 0U;
+static volatile uint32_t exp4_irq_spurious_events = 0U;
+static volatile uint32_t exp4_irq_arm_count = 0U;
+static volatile uint32_t exp4_irq_arm_failures = 0U;
+static exp4_irq_event_t exp4_irq_dispatch_event;
+static bool exp4_irq_dispatch_valid = false;
+
+static uint32_t exp4_cycles_to_us_ceil(uint32_t cycles)
+{
+    const uint32_t cycles_per_us = CPU_FREQ_HZ / 1000000UL;
+    return (cycles + cycles_per_us - 1UL) / cycles_per_us;
+}
+
+/* Minimal DW3000 IRQ handler for the Exp4 manual-double-buffer burst.
+ *
+ * The ISR does only the deadline-critical work: identify the masked RX event,
+ * clear the source, issue the next RX fast command, and enqueue a compact
+ * record.  RDB_STATUS, metadata, the protocol header, and buffer release stay
+ * in the existing main-loop path.  This avoids both the FINT_STAT polling tail
+ * and the generic dwt_isr() callback path, which automatically frees a double
+ * buffer before our fail-closed validation can inspect it. */
+static void exp4_irq_fast_isr(void)
+{
+    exp4_irq_event_t event = {0};
+    uint32_t phase_start_cycles;
+    uint32_t clear_mask = 0U;
+    uint8_t next_head;
+    bool error_or_timeout;
+    bool has_later_slot;
+
+    event.event_start_cycles = dwt_timer_get_cycles();
+    phase_start_cycles = event.event_start_cycles;
+    dwt_readfromdevice(FINT_STAT_ID, 0U, 1U,
+                       (uint8_t *)&event.fint_status);
+    event.fint_read_us = exp4_cycles_to_us_ceil(
+        dwt_timer_get_cycles() - phase_start_cycles);
+
+    error_or_timeout =
+        (event.fint_status &
+         (FINT_STAT_RXERR_BIT_MASK | FINT_STAT_RXTO_BIT_MASK)) != 0U;
+    if (error_or_timeout) {
+        event.status_reg = dwt_readsysstatuslo();
+    }
+    if ((event.fint_status & FINT_STAT_RXOK_BIT_MASK) != 0U) {
+        event.status_reg |= DWT_INT_RXFCG_BIT_MASK;
+        /* RXFCG is the only enabled good-frame interrupt source.  Clear only
+         * that source here so the pin falls, but preserve RXFR/CIADONE until
+         * foreground code has validated RDB_STATUS and cached metadata. */
+        clear_mask |= DWT_INT_RXFCG_BIT_MASK;
+    }
+    if ((event.fint_status & FINT_STAT_RXERR_BIT_MASK) != 0U) {
+        clear_mask |= SYS_STATUS_ALL_RX_ERR |
+                      DWT_INT_CIADONE_BIT_MASK |
+                      DWT_INT_RXFR_BIT_MASK;
+    }
+    if ((event.fint_status & FINT_STAT_RXTO_BIT_MASK) != 0U) {
+        clear_mask |= SYS_STATUS_ALL_RX_TO | DWT_INT_CIADONE_BIT_MASK;
+    }
+
+    if (!exp4_data_burst_active || exp4_irq_slot_cursor == 0xFFU ||
+        clear_mask == 0U) {
+        exp4_irq_spurious_events++;
+        if (clear_mask != 0U) {
+            dwt_writesysstatuslo(clear_mask);
+        } else {
+            /* The pin must be deasserted before process_deca_irq() returns. */
+            dwt_writesysstatuslo(SYS_STATUS_ALL_RX_GOOD |
+                                 SYS_STATUS_ALL_RX_ERR |
+                                 SYS_STATUS_ALL_RX_TO);
+        }
+        return;
+    }
+
+    event.slot_hint = exp4_irq_slot_cursor;
+    has_later_slot = (uint8_t)(exp4_irq_slot_cursor + 1U) <
+                     current_beacon_config.slot_count;
+    event.clear_before_rearm = error_or_timeout;
+
+    if (error_or_timeout) {
+        phase_start_cycles = dwt_timer_get_cycles();
+        dwt_writesysstatuslo(clear_mask);
+        event.status_clear_us = exp4_cycles_to_us_ceil(
+            dwt_timer_get_cycles() - phase_start_cycles);
+    }
+
+    if (has_later_slot) {
+        phase_start_cycles = dwt_timer_get_cycles();
+        dwt_writetodevice(BRRS_DW3000_FAST_CMD_RX, 0U, 0U, NULL);
+        event.rx_enable_us = exp4_cycles_to_us_ceil(
+            dwt_timer_get_cycles() - phase_start_cycles);
+        event.service_us = exp4_cycles_to_us_ceil(
+            dwt_timer_get_cycles() - event.event_start_cycles);
+        event.rearmed = true;
+    }
+
+    if (!error_or_timeout) {
+        phase_start_cycles = dwt_timer_get_cycles();
+        dwt_writesysstatuslo(clear_mask);
+        event.status_clear_us = exp4_cycles_to_us_ceil(
+            dwt_timer_get_cycles() - phase_start_cycles);
+    }
+
+    next_head = (uint8_t)((exp4_irq_head + 1U) %
+                          EXP4_IRQ_QUEUE_CAPACITY);
+    if (next_head == exp4_irq_tail) {
+        exp4_irq_queue_overflows++;
+    } else {
+        exp4_irq_queue[exp4_irq_head] = event;
+        __DMB();
+        exp4_irq_head = next_head;
+        exp4_irq_event_count++;
+    }
+
+    if (has_later_slot) {
+        exp4_irq_slot_cursor++;
+    }
+}
+
+static bool exp4_irq_pop_event(exp4_irq_event_t *event)
+{
+    uint8_t tail = exp4_irq_tail;
+
+    if (tail == exp4_irq_head) {
+        return false;
+    }
+    *event = exp4_irq_queue[tail];
+    __DMB();
+    exp4_irq_tail = (uint8_t)((tail + 1U) % EXP4_IRQ_QUEUE_CAPACITY);
+    return true;
+}
+
+static void exp4_irq_arm_burst(uint8_t first_slot)
+{
+    port_DisableEXT_IRQ();
+    exp4_irq_head = 0U;
+    exp4_irq_tail = 0U;
+    exp4_irq_slot_cursor = first_slot;
+    exp4_irq_dispatch_valid = false;
+    port_EnableEXT_IRQ();
+    exp4_irq_arm_count++;
+    if (port_GetEXT_IRQStatus() == 0U) {
+        exp4_irq_arm_failures++;
+    }
+}
+#endif
+
 #if BRRS_EXPERIMENT != 4
 static const char *failed_accum_cause_name(fail_accum_cause_t cause)
 {
@@ -2124,7 +2308,9 @@ static bool schedule_rx_slot(uint8_t slot_idx)
 /* DW3000 fast command 0x02 enables RX. The previous slot already left the
  * receiver PLL configured, so the burst re-arm path does not repeat the
  * PLL_COMMON write performed by dwt_rxenable(). */
+#if !BRRS_EXP4_IRQ_FASTPATH
 #define BRRS_DW3000_FAST_CMD_RX 0x02U
+#endif
 
 static bool exp4_find_slot_by_rx_timestamp(uint32_t rx_ts_high32,
                                            uint8_t *slot_idx)
@@ -2226,6 +2412,17 @@ static void exp4_read_rx_buffer(uint8_t host_buffer, uint8_t *buffer,
 
 static void exp4_clear_rx_status(uint32_t mask, latency_stats_t *stats)
 {
+#if BRRS_EXP4_IRQ_FASTPATH
+    /* RXFCG itself was cleared in the IRQ handler so the pin could fall.
+     * Clear the remaining good-frame status only after RDB_STATUS and RX
+     * metadata are safe to inspect.  This non-critical cleanup is excluded
+     * from the ISR re-arm latency metric. */
+    mask &= ~DWT_INT_RXFCG_BIT_MASK;
+    if (mask != 0U) {
+        dwt_writesysstatuslo(mask);
+    }
+    (void)stats;
+#else
     uint32_t phase_start_cycles = dwt_timer_get_cycles();
     uint32_t phase_cycles;
     uint32_t phase_us;
@@ -2237,6 +2434,7 @@ static void exp4_clear_rx_status(uint32_t mask, latency_stats_t *stats)
     if (stats != NULL) {
         update_node_latency(stats, phase_us);
     }
+#endif
 }
 
 static void exp4_release_rx_buffer(void)
@@ -2269,6 +2467,35 @@ static bool exp4_has_later_slot(void)
 
 static bool exp4_rearm_after_event(uint32_t event_start_cycles)
 {
+#if BRRS_EXP4_IRQ_FASTPATH
+    bool has_later_slot = exp4_has_later_slot();
+
+    (void)event_start_cycles;
+    if (!exp4_irq_dispatch_valid) {
+        return false;
+    }
+
+    if (has_later_slot && exp4_irq_dispatch_event.rearmed) {
+        uint8_t next_slot = (uint8_t)(current_rx_slot + 1U);
+        current_rx_open_timing_valid = false;
+        update_node_latency(&exp4_rearm_rx_enable_stats,
+                            exp4_irq_dispatch_event.rx_enable_us);
+        update_node_latency(&exp4_rearm_service_stats,
+                            exp4_irq_dispatch_event.service_us);
+        if (exp4_irq_dispatch_event.clear_before_rearm) {
+            update_node_latency(&exp4_rearm_status_clear_pre_stats,
+                                exp4_irq_dispatch_event.status_clear_us);
+        } else {
+            update_node_latency(&exp4_rearm_status_clear_post_stats,
+                                exp4_irq_dispatch_event.status_clear_us);
+        }
+        if (next_slot < current_beacon_config.slot_count) {
+            slots_scheduled[next_slot] = true;
+        }
+        return true;
+    }
+    return false;
+#else
     if (exp4_has_later_slot()) {
         uint8_t next_slot = (current_rx_slot == 0xFF) ?
                             0xFF : (uint8_t)(current_rx_slot + 1U);
@@ -2299,6 +2526,7 @@ static bool exp4_rearm_after_event(uint32_t event_start_cycles)
     }
 
     return false;
+#endif
 }
 
 typedef enum {
@@ -2313,6 +2541,12 @@ static void exp4_close_data_burst(exp4_burst_close_reason_t reason)
         return;
     }
 
+#if BRRS_EXP4_IRQ_FASTPATH
+    /* Prevent an RX edge from starting an SPI transaction while the main
+     * loop is forcing the radio off and switching back to SYNC PHY. */
+    port_DisableEXT_IRQ();
+    exp4_irq_slot_cursor = 0xFFU;
+#endif
     dwt_forcetrxoff();
     dwt_writesysstatuslo(0xFFFFFFFF);
     dwt_writerdbstatus(0xFFU);
@@ -2675,9 +2909,19 @@ int brrs_init(void)
         static char host_irq_line[128];
 
         /* FINT_STAT is a masked aggregate: the corresponding SYS_ENABLE_LO
-         * bits must be enabled even though Exp4 polls rather than servicing
-         * the DW3000 IRQ pin. */
+         * bits must be enabled for both the polling and IRQ event sources. */
+#if BRRS_EXP4_IRQ_FASTPATH
+        /* The ISR performs the deadline-critical FINT/read-clear/re-arm SPI
+         * sequence.  Make each foreground SPI transaction atomic so a GPIO
+         * edge cannot preempt it and spin forever on the same SPI lock. */
+        port_set_dw_ic_spi_irq_atomic(true);
+        port_set_dwic_isr_oneshot(exp4_irq_fast_isr);
+        /* Arm only while a DATA burst is active.  This also prevents an IRQ
+         * SPI transaction from racing a DATA/SYNC PHY reconfiguration. */
         port_DisableEXT_IRQ();
+#else
+        port_DisableEXT_IRQ();
+#endif
         dwt_setinterrupt(exp4_event_mask, 0U, DWT_ENABLE_INT_ONLY);
         enabled_event_mask = dwt_read_reg(SYS_ENABLE_LO_ID);
         snprintf(event_mask_line, sizeof(event_mask_line),
@@ -2690,10 +2934,17 @@ int brrs_init(void)
         if ((enabled_event_mask & exp4_event_mask) != exp4_event_mask) {
             while (1) { };
         }
+#if BRRS_EXP4_IRQ_FASTPATH
+        snprintf(host_irq_line, sizeof(host_irq_line),
+                 "EXP4_HOST_IRQ_CONFIG_CSV,mode=irq_fastpath,enabled=%lu,arm=per_data_burst,status=%s",
+                 (unsigned long)port_GetEXT_IRQStatus(),
+                 (port_GetEXT_IRQStatus() == 0U) ? "PASS" : "FAIL");
+#else
         snprintf(host_irq_line, sizeof(host_irq_line),
                  "EXP4_HOST_IRQ_CONFIG_CSV,mode=polling,enabled=%lu,status=%s",
                  (unsigned long)port_GetEXT_IRQStatus(),
                  (port_GetEXT_IRQStatus() == 0U) ? "PASS" : "FAIL");
+#endif
         test_run_info((unsigned char *)host_irq_line);
         if (port_GetEXT_IRQStatus() != 0U) {
             while (1) { };
@@ -2762,8 +3013,13 @@ int brrs_init(void)
                  SLOT_GUARD_US,
                  EXP4_MAX_DATA_SLOTS);
         final_log_info(cfg_msg);
+#if BRRS_EXP4_IRQ_FASTPATH
+        test_run_info((unsigned char *)
+            "EXP4_FIRMWARE_REV,rev=25,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=irq_fastpath_only_if_later_slot,event_source=dw3000_irq_fint_status,event_mask=validated,host_irq=armed_per_data_burst,rx_metadata=single_completed_buffer_spi_read,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+#else
         test_run_info((unsigned char *)
             "EXP4_FIRMWARE_REV,rev=24,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,rx_metadata=single_completed_buffer_spi_read,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+#endif
     }
 #endif
 
@@ -2979,7 +3235,13 @@ int brrs_init(void)
                              exp4_rearm_service_stats.count &&
                          exp4_rearm_service_stats.max_us +
                              RX_LEAD_MARGIN_US <= SLOT_GUARD_US &&
-                         exp4_burst_forced_prep_close_count == 0);
+                         exp4_burst_forced_prep_close_count == 0
+#if BRRS_EXP4_IRQ_FASTPATH
+                         && exp4_irq_queue_overflows == 0U
+                         && exp4_irq_spurious_events == 0U
+                         && exp4_irq_arm_failures == 0U
+#endif
+                         );
                     bool timing_pass = slot_timing_counts_match();
                     bool link_pass = (exp4_frames_received == expected_frames);
                     bool collection_pass =
@@ -3106,7 +3368,12 @@ int brrs_init(void)
                             (exp4_rearm_service_stats.sum_us * 1000ULL /
                              exp4_rearm_service_stats.count) : 0;
                         snprintf(s, sizeof(s),
-                                 "EXP4_REARM_CSV,mode=manual_double_buffer_burst,scope=event_specific_detect_to_rx_command,count=%lu,service_min_us=%lu,service_max_us=%lu,service_avg_x1000_us=%llu,poll_count=%lu,rx_enable_count=%lu,clear_pre_count=%lu,clear_post_count=%lu,poll_max_us=%lu,poll_detection_allowance_us=%lu,startup_allowance_us=%u,required_guard_us=%lu,delayed_schedule_late=%lu",
+                                 "EXP4_REARM_CSV,mode=manual_double_buffer_burst,event_source=%s,scope=event_specific_detect_to_rx_command,count=%lu,service_min_us=%lu,service_max_us=%lu,service_avg_x1000_us=%llu,poll_count=%lu,rx_enable_count=%lu,clear_pre_count=%lu,clear_post_count=%lu,poll_max_us=%lu,poll_detection_allowance_us=%lu,startup_allowance_us=%u,required_guard_us=%lu,delayed_schedule_late=%lu",
+#if BRRS_EXP4_IRQ_FASTPATH
+                                 "dw3000_irq",
+#else
+                                 "fint_polling",
+#endif
                                  (unsigned long)exp4_rearm_service_stats.count,
                                  (unsigned long)(exp4_rearm_service_stats.count ? exp4_rearm_service_stats.min_us : 0),
                                  (unsigned long)exp4_rearm_service_stats.max_us,
@@ -3124,6 +3391,21 @@ int brrs_init(void)
                         final_log_info(s);
                     }
 
+#if BRRS_EXP4_IRQ_FASTPATH
+                    snprintf(s, sizeof(s),
+                             "EXP4_IRQ_CSV,events=%lu,queue_overflow=%lu,spurious=%lu,burst_arms=%lu,arm_failures=%lu,queue_capacity=%u,status=%s",
+                             (unsigned long)exp4_irq_event_count,
+                             (unsigned long)exp4_irq_queue_overflows,
+                             (unsigned long)exp4_irq_spurious_events,
+                             (unsigned long)exp4_irq_arm_count,
+                             (unsigned long)exp4_irq_arm_failures,
+                             (unsigned)EXP4_IRQ_QUEUE_CAPACITY,
+                             (exp4_irq_queue_overflows == 0U &&
+                              exp4_irq_spurious_events == 0U &&
+                              exp4_irq_arm_failures == 0U) ? "PASS" : "FAIL");
+                    final_log_info(s);
+#endif
+
                     {
                         latency_stats_t *phase_stats[] = {
                             &exp4_status_poll_stats,
@@ -3135,7 +3417,11 @@ int brrs_init(void)
                             &exp4_rearm_status_clear_post_stats
                         };
                         const char *phase_names[] = {
+#if BRRS_EXP4_IRQ_FASTPATH
+                            "irq_fint_detecting_read",
+#else
                             "status_poll_detecting_read",
+#endif
                             "rx_enable_critical",
                             "rdb_status_read_post_rearm",
                             "rx_metadata_read_post_rearm",
@@ -3826,6 +4112,9 @@ int brrs_init(void)
                     !slots_scheduled[0]) {
                     if (schedule_rx_slot(0)) {
                         exp4_data_burst_active = true;
+#if BRRS_EXP4_IRQ_FASTPATH
+                        exp4_irq_arm_burst(current_rx_slot);
+#endif
                     }
                 }
 #endif
@@ -3860,6 +4149,22 @@ int brrs_init(void)
             uint32_t exp4_status_poll_start_cycles = dwt_timer_get_cycles();
             uint8_t exp4_fint_status = 0U;
             uint32_t status_reg = 0U;
+#if BRRS_EXP4_IRQ_FASTPATH
+            exp4_irq_event_t exp4_irq_event;
+
+            exp4_irq_dispatch_valid = false;
+            if (exp4_irq_pop_event(&exp4_irq_event)) {
+                exp4_irq_dispatch_event = exp4_irq_event;
+                exp4_irq_dispatch_valid = true;
+                exp4_status_poll_start_cycles =
+                    exp4_irq_event.event_start_cycles;
+                exp4_fint_status = exp4_irq_event.fint_status;
+                status_reg = exp4_irq_event.status_reg;
+                current_rx_slot = exp4_irq_event.slot_hint;
+            }
+            uint32_t exp4_status_poll_us = exp4_irq_dispatch_valid ?
+                exp4_irq_event.fint_read_us : 0U;
+#else
 
             /* FINT_STAT is the driver's fast masked aggregate event source.
              * Its RX masks were verified at boot. Polling one byte keeps the
@@ -3880,6 +4185,7 @@ int brrs_init(void)
                 (exp4_fint_status & FINT_STAT_RXOK_BIT_MASK) != 0U) {
                 status_reg |= DWT_INT_RXFCG_BIT_MASK;
             }
+#endif
 #else
             uint32_t status_reg = dwt_readsysstatuslo();
 #endif
@@ -4457,6 +4763,9 @@ int brrs_init(void)
                 }
 #endif
             }
+#if BRRS_EXP4_IRQ_FASTPATH
+            exp4_irq_dispatch_valid = false;
+#endif
         }
 
 #if BRRS_EXPERIMENT == 4

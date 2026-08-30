@@ -196,6 +196,12 @@ void gpio_init(void);
      */
     void port_set_dwic_isr(port_dwic_isr_t dwic_isr);
 
+    /* Install a level-IRQ handler that must run once per rising edge.  This is
+     * used by manual double-buffer applications where the completed-buffer
+     * flag intentionally keeps the DW IRQ pin high until foreground code has
+     * inspected and released the buffer. */
+    void port_set_dwic_isr_oneshot(port_dwic_isr_t dwic_isr);
+
 typedef enum
 {
     SPI_1=0,

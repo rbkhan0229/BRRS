@@ -58,11 +58,38 @@ const dw_t *SPI1 = &s1; /**< by default SPI1 */
 const dw_t *SPI2 = &s2; /**< by default SPI2 */
 
 static volatile bool spi_xfer_done;
+static volatile bool spi_irq_atomic = false;
 static uint8_t spi_init_stat = 0; // use 1 for slow, use 2 for fast;
 
 static uint8_t idatabuf[DATALEN1] = { 0 }; // Never define this inside the Spi read/write
 static uint8_t itempbuf[DATALEN1] = { 0 }; // As that will use the stack from the Task, which are not such long!!!!
                                            // You will face a crashes which are not expected!
+
+static uint32_t spi_irq_atomic_enter(void)
+{
+    uint32_t primask = __get_PRIMASK();
+
+    if (spi_irq_atomic) {
+        __disable_irq();
+        __DMB();
+    }
+    return primask;
+}
+
+static void spi_irq_atomic_exit(uint32_t primask)
+{
+    if (spi_irq_atomic) {
+        __DMB();
+        if (primask == 0U) {
+            __enable_irq();
+        }
+    }
+}
+
+void port_set_dw_ic_spi_irq_atomic(bool enabled)
+{
+    spi_irq_atomic = enabled;
+}
 
 /****************************************************************************
  *
@@ -282,6 +309,7 @@ int32_t writetospiwithcrc(uint16_t headerLength, const uint8_t *headerBuffer, ui
 {
 #ifdef DWT_ENABLE_CRC
     uint8_t *p1;
+    uint32_t primask;
     uint32_t idatalength = headerLength + bodyLength + sizeof(crc8); // It cannot be more than 255 in total length (header + body)
 
     if (idatalength > DATALEN1)
@@ -289,6 +317,7 @@ int32_t writetospiwithcrc(uint16_t headerLength, const uint8_t *headerBuffer, ui
         return NRF_ERROR_NO_MEM;
     }
 
+    primask = spi_irq_atomic_enter();
     while(pgSpiHandler->lock);
 
     __HAL_LOCK(pgSpiHandler);
@@ -311,6 +340,7 @@ int32_t writetospiwithcrc(uint16_t headerLength, const uint8_t *headerBuffer, ui
     nrfx_gpiote_out_toggle(current_cs_pin);
 
     __HAL_UNLOCK(pgSpiHandler);
+    spi_irq_atomic_exit(primask);
 #endif //DWT_ENABLE_CRC
     return 0;
 } // end writetospiwithcrc()
@@ -326,12 +356,14 @@ int32_t writetospi(uint16_t headerLength, const uint8_t *headerBuffer, uint16_t 
 {
     uint8_t *p1;
     uint32_t idatalength = headerLength + bodyLength;
+    uint32_t primask;
 
     if (idatalength > DATALEN1)
     {
         return NRF_ERROR_NO_MEM;
     }
 
+    primask = spi_irq_atomic_enter();
     while(pgSpiHandler->lock);
 
     __HAL_LOCK(pgSpiHandler);
@@ -351,6 +383,7 @@ int32_t writetospi(uint16_t headerLength, const uint8_t *headerBuffer, uint16_t 
     closespi(&pgSpiHandler->spi_inst);
     nrfx_gpiote_out_toggle(current_cs_pin);
      __HAL_UNLOCK(pgSpiHandler);
+    spi_irq_atomic_exit(primask);
 
     return 0;
 } // end writetospi()
@@ -367,12 +400,14 @@ int32_t readfromspi(uint16_t headerLength, uint8_t *headerBuffer, uint16_t readL
 {
     uint8_t *p1;
     uint32_t idatalength = headerLength + readLength;
+    uint32_t primask;
 
     if (idatalength > DATALEN1)
     {
         return NRF_ERROR_NO_MEM;
     }
 
+    primask = spi_irq_atomic_enter();
     while(pgSpiHandler->lock);
 
     __HAL_LOCK(pgSpiHandler);
@@ -399,6 +434,7 @@ int32_t readfromspi(uint16_t headerLength, uint8_t *headerBuffer, uint16_t readL
     nrfx_gpiote_out_toggle(current_cs_pin);
 
     __HAL_UNLOCK(pgSpiHandler);
+    spi_irq_atomic_exit(primask);
 
     return 0;
 } // end readfromspi()
