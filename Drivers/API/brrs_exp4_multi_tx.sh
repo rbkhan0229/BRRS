@@ -243,33 +243,62 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
     (( SPI_OPT == 0 )) || command+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || command+=(--irq)
     (( FORCE == 0 )) || command+=(--force)
-    "${command[@]}" >"${console_log}" 2>&1 &
-    PIDS+=("$!")
-    CONSOLE_LOGS+=("${console_log}")
-    echo "[multi-tx] started ${role} on J-Link ${serial}"
-
     # J-Link OB probes on one USB host can intermittently lose a connection
     # when several flash operations run concurrently. Start each worker and
     # wait for its RTT READY marker before flashing the next board. Workers
     # remain alive and listen together once INIT begins, so this serializes
-    # only setup, not the radio experiment.
-    STARTUP_DEADLINE=$(( $(date '+%s') + 60 ))
-    while ! grep -q "READY marker seen" "${console_log}" 2>/dev/null; do
-        if ! kill -0 "${PIDS[index]}" 2>/dev/null; then
-            echo "ERROR: ${role} exited before READY" >&2
-            cat "${console_log}" >&2
-            cleanup_children
-            exit 1
+    # only setup, not the radio experiment. A transient 0 V/J-Link timeout is
+    # retried only before READY; a running radio experiment is never retried.
+    startup_ready=0
+    for startup_attempt in 1 2 3; do
+        worker_console_log="${console_log}"
+        (( startup_attempt == 1 )) \
+            || worker_console_log="${console_log}.setup_retry${startup_attempt}"
+        if [[ -e "${worker_console_log}" ]]; then
+            mv "${worker_console_log}" \
+               "${worker_console_log}.prev.$(date '+%H%M%S')"
         fi
-        if (( $(date '+%s') >= STARTUP_DEADLINE )); then
-            echo "ERROR: ${role} did not reach READY in 60 seconds" >&2
-            cat "${console_log}" >&2
-            cleanup_children
-            exit 1
+
+        retry_command=("${command[@]}")
+        if (( startup_attempt > 1 && FORCE == 0 )); then
+            retry_command+=(--force)
         fi
-        sleep 0.2
+        "${retry_command[@]}" >"${worker_console_log}" 2>&1 &
+        worker_pid="$!"
+        echo "[multi-tx] started ${role} on J-Link ${serial} (setup ${startup_attempt}/3)"
+
+        STARTUP_DEADLINE=$(( $(date '+%s') + 60 ))
+        while kill -0 "${worker_pid}" 2>/dev/null; do
+            if grep -q "READY marker seen" "${worker_console_log}" 2>/dev/null; then
+                startup_ready=1
+                break
+            fi
+            if (( $(date '+%s') >= STARTUP_DEADLINE )); then
+                kill_process_tree "${worker_pid}"
+                break
+            fi
+            sleep 0.2
+        done
+
+        if (( startup_ready )); then
+            PIDS+=("${worker_pid}")
+            CONSOLE_LOGS+=("${worker_console_log}")
+            echo "[multi-tx] ${role} READY on J-Link ${serial} (setup ${startup_attempt}/3)"
+            break
+        fi
+
+        wait "${worker_pid}" 2>/dev/null || true
+        echo "WARN: ${role} did not reach READY on setup ${startup_attempt}/3" >&2
+        cat "${worker_console_log}" >&2
+        if (( startup_attempt < 3 )); then
+            sleep 2
+        fi
     done
-    echo "[multi-tx] ${role} READY on J-Link ${serial}"
+    if (( startup_ready == 0 )); then
+        echo "ERROR: ${role} did not reach READY after 3 setup attempts" >&2
+        cleanup_children
+        exit 1
+    fi
 done
 
 READY_DEADLINE=$(( $(date '+%s') + 60 ))
