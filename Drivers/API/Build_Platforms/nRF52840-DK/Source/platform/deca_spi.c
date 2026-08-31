@@ -18,6 +18,11 @@
 #ifndef BRRS_EXP4_SPI_DIRECT
 #define BRRS_EXP4_SPI_DIRECT 0
 #endif
+#if BRRS_EXP4_SPI_DIRECT
+#define DW_SPI_HOT_OPT __attribute__((optimize("O3")))
+#else
+#define DW_SPI_HOT_OPT
+#endif
 
 // static
 // spi_handle_t spi_handler = {
@@ -216,20 +221,30 @@ static int closespi(nrf_drv_spi_t *p_instance)
     return 0;
 } // end closespi()
 
+DW_SPI_HOT_OPT
 static void spi_assert_cs(void)
 {
     if (!spi_cs_asserted)
     {
+#if BRRS_EXP4_SPI_DIRECT
+        nrf_gpio_pin_toggle(current_cs_pin);
+#else
         nrfx_gpiote_out_toggle(current_cs_pin);
+#endif
         spi_cs_asserted = true;
     }
 }
 
+DW_SPI_HOT_OPT
 static void spi_deassert_cs(void)
 {
     if (spi_cs_asserted)
     {
+#if BRRS_EXP4_SPI_DIRECT
+        nrf_gpio_pin_toggle(current_cs_pin);
+#else
         nrfx_gpiote_out_toggle(current_cs_pin);
+#endif
         spi_cs_asserted = false;
         /* Per-transaction SPIM disable used to provide an implicit idle gap.
          * Preserve a conservative CS-high interval when the peripheral stays
@@ -241,6 +256,7 @@ static void spi_deassert_cs(void)
     }
 }
 
+DW_SPI_HOT_OPT
 static bool spi_keep_enabled(void)
 {
     return spi_burst_active && spi_burst_handler == pgSpiHandler;
@@ -249,6 +265,7 @@ static bool spi_keep_enabled(void)
 #if BRRS_EXP4_SPI_DIRECT
 #define DW_SPI_DIRECT_TIMEOUT_CYCLES 64000U
 
+DW_SPI_HOT_OPT
 static uint32_t spi_anomaly_198_enable(const uint8_t *buffer,
                                        uint32_t length)
 {
@@ -282,7 +299,7 @@ static uint32_t spi_anomaly_198_enable(const uint8_t *buffer,
     return preserved;
 }
 
-__attribute__((optimize("O3")))
+DW_SPI_HOT_OPT
 static ret_code_t spi_direct_transfer(const uint8_t *tx_buffer,
                                       uint32_t length,
                                       uint8_t *rx_buffer)
@@ -324,6 +341,7 @@ static ret_code_t spi_direct_transfer(const uint8_t *tx_buffer,
 }
 #endif
 
+DW_SPI_HOT_OPT
 static ret_code_t spi_transfer(const uint8_t *tx_buffer,
                                uint32_t length,
                                uint8_t *rx_buffer)
@@ -475,6 +493,7 @@ void port_set_dw_ic_spi_fastrate(void)
  * Takes two separate byte buffers for write header and write data, and a CRC8 byte which is written last
  * returns 0 for success, or -1 for error
  */
+DW_SPI_HOT_OPT
 int32_t writetospiwithcrc(uint16_t headerLength, const uint8_t *headerBuffer, uint16_t bodyLength, const uint8_t *bodyBuffer, uint8_t crc8)
 {
 #ifdef DWT_ENABLE_CRC
@@ -532,6 +551,7 @@ int32_t writetospiwithcrc(uint16_t headerLength, const uint8_t *headerBuffer, ui
  * Takes two separate byte buffers for write header and write data
  * returns 0 for success, or -1 for error
  */
+DW_SPI_HOT_OPT
 int32_t writetospi(uint16_t headerLength, const uint8_t *headerBuffer, uint16_t bodyLength, const uint8_t *bodyBuffer)
 {
     uint8_t *p1;
@@ -587,6 +607,7 @@ int32_t writetospi(uint16_t headerLength, const uint8_t *headerBuffer, uint16_t 
  * returns the offset into read buffer where first byte of read data may be found,
  * or returns -1 if there was an error
  */
+DW_SPI_HOT_OPT
 int32_t readfromspi(uint16_t headerLength, uint8_t *headerBuffer, uint16_t readLength, uint8_t *readBuffer)
 {
     uint8_t *p1;
