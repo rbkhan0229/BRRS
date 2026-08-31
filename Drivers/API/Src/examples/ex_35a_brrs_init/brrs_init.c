@@ -1207,6 +1207,10 @@ static uint32_t exp4_rdb_incomplete_events = 0;
 static uint32_t exp4_rdb_incomplete_recovered = 0;
 static uint32_t exp4_rdb_incomplete_ciaerr = 0;
 static uint32_t exp4_rdb_resync_count = 0;
+static uint8_t exp4_rdb_resync_last_slot = 0xFFU;
+static uint8_t exp4_rdb_resync_last_tracked = 0U;
+static uint8_t exp4_rdb_resync_last_actual = 0U;
+static uint8_t exp4_rdb_resync_last_status = 0U;
 static uint32_t exp4_spi_begin_failures = 0;
 static uint32_t exp4_spi_end_failures = 0;
 static uint32_t exp4_spi_device_id_failures = 0;
@@ -2427,18 +2431,14 @@ static void exp4_release_rx_buffer(void)
     uint32_t phase_start_cycles = dwt_timer_get_cycles();
     uint32_t phase_cycles;
     uint32_t phase_us;
-#if !BRRS_EXP4_SPI_DIRECT
     uint8_t clear_mask = (exp4_rx_host_buffer == 0U) ?
         DWT_RDB_STATUS_CLEAR_BUFF0_EVENTS :
         DWT_RDB_STATUS_CLEAR_BUFF1_EVENTS;
 
-    /* Preserve the legacy explicit W1C sequence for A/B comparison. */
+    /* This manual double-buffer lifecycle needs the processed buffer's
+     * RDB_STATUS flags cleared explicitly before CMD_DB_TOGGLE. A toggle-only
+     * trial left stale RXFCG/RXFR flags and failed the RDB checks. */
     exp4_spi_write_device(RDB_STATUS_ID, 0U, 1U, &clear_mask);
-#endif
-    /* Qorvo's DW3000 ull_signal_rx_buff_free() releases a manual double
-     * buffer with CMD_DB_TOGGLE alone. The optimized path follows that
-     * implementation; every run still fails closed on any RDB mismatch or
-     * overrun so an incompatible lifecycle cannot be accepted silently. */
     exp4_spi_write_device(BRRS_DW3000_FAST_CMD_DB_TOGGLE,
                           0U, 0U, NULL);
     exp4_rx_host_buffer ^= 1U;
@@ -3079,7 +3079,7 @@ int brrs_init(void)
                      "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=33,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_rearm,buffer_release=feature_flagged_qorvo_cmd_db_toggle,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=34,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
     }
 #endif
 
@@ -3529,9 +3529,7 @@ int brrs_init(void)
                              exp4_rx_buffer_free_stats.count) : 0;
                         snprintf(s, sizeof(s),
                                  "EXP4_DOUBLE_BUFFER_CSV,mode=manual,release=%s,rx_good_events=%lu,rdb_good_events=%lu,rdb_dispatches=%lu,rdb_host_mismatch=%lu,rdb_incomplete=%lu,rdb_incomplete_recovered=%lu,rdb_resync=%lu,free_count=%lu,free_min_us=%lu,free_max_us=%lu,free_avg_x1000_us=%llu,overrun=%lu",
-                                 BRRS_EXP4_SPI_DIRECT ?
-                                     "cmd_db_toggle" :
-                                     "rdb_w1c_plus_cmd_db_toggle",
+                                 "rdb_w1c_plus_cmd_db_toggle",
                                  (unsigned long)exp4_rx_good_events,
                                  (unsigned long)exp4_rdb_good_events,
                                  (unsigned long)exp4_rdb_dispatches,
@@ -3546,6 +3544,16 @@ int brrs_init(void)
                                  (unsigned long long)free_avg_x1000,
                                  (unsigned long)exp4_rx_buffer_overruns);
                         final_log_info(s);
+                        if (exp4_rdb_resync_count > 0U) {
+                            snprintf(s, sizeof(s),
+                                     "EXP4_RDB_RESYNC_LAST_CSV,count=%lu,slot=%u,tracked=%u,actual=%u,rdb_status=0x%02X",
+                                     (unsigned long)exp4_rdb_resync_count,
+                                     (unsigned int)exp4_rdb_resync_last_slot,
+                                     (unsigned int)exp4_rdb_resync_last_tracked,
+                                     (unsigned int)exp4_rdb_resync_last_actual,
+                                     (unsigned int)exp4_rdb_resync_last_status);
+                            final_log_info(s);
+                        }
                     }
 
                     {
@@ -4446,17 +4454,10 @@ int brrs_init(void)
                      * RXFCG, mismatch handling below records the state. */
                     if (completed_host_buffer != exp4_rx_host_buffer) {
                         exp4_rdb_resync_count++;
-                        {
-                            static char resync_line[150];
-                            snprintf(resync_line, sizeof(resync_line),
-                                     "EXP4_RDB_RESYNC_CSV,count=%lu,slot=%u,tracked=%u,actual=%u,rdb_status=0x%02X",
-                                     (unsigned long)exp4_rdb_resync_count,
-                                     (unsigned int)completed_rx_slot,
-                                     (unsigned int)exp4_rx_host_buffer,
-                                     (unsigned int)completed_host_buffer,
-                                     (unsigned int)exp4_rdb_status);
-                            test_run_info((unsigned char *)resync_line);
-                        }
+                        exp4_rdb_resync_last_slot = completed_rx_slot;
+                        exp4_rdb_resync_last_tracked = exp4_rx_host_buffer;
+                        exp4_rdb_resync_last_actual = completed_host_buffer;
+                        exp4_rdb_resync_last_status = exp4_rdb_status;
                         exp4_rx_host_buffer = completed_host_buffer;
                     }
                 }
@@ -4592,12 +4593,6 @@ int brrs_init(void)
                 exp4_rdb_good_events++;
                 exp4_rdb_dispatches++;
                 exp4_rx_good_events++;
-                exp4_clear_rx_status(SYS_STATUS_ALL_RX_GOOD,
-                                     exp4_rearm_needed ?
-                                         &exp4_rearm_status_clear_post_stats : NULL);
-                update_node_latency(&exp4_event_to_status_clear_stats,
-                    exp4_cycles_to_us_ceil(dwt_timer_get_cycles() -
-                                            exp4_hot_path_start_cycles));
 
                 observed_slot_valid = exp4_find_slot_by_rx_timestamp(
                     rx_ts_high32, &observed_rx_slot);
@@ -4627,8 +4622,17 @@ int brrs_init(void)
                                             exp4_hot_path_start_cycles));
 
                 /* All buffer-specific values are cached now. Return this
-                 * buffer and advance the driver's host pointer. */
+                 * buffer and advance the driver's host pointer before doing
+                 * any remaining global-status maintenance. */
                 exp4_release_rx_buffer();
+                exp4_record_hot_path(exp4_cycles_to_us_ceil(
+                    dwt_timer_get_cycles() - exp4_hot_path_start_cycles));
+                exp4_clear_rx_status(SYS_STATUS_ALL_RX_GOOD,
+                                     exp4_rearm_needed ?
+                                         &exp4_rearm_status_clear_post_stats : NULL);
+                update_node_latency(&exp4_event_to_status_clear_stats,
+                    exp4_cycles_to_us_ceil(dwt_timer_get_cycles() -
+                                            exp4_hot_path_start_cycles));
                 exp4_record->rx_ts_high32 = rx_ts_high32;
                 exp4_record->rx_open_high32 = rx_open_high32;
                 exp4_record->frame_length = rx_frame_len;
@@ -4638,9 +4642,6 @@ int brrs_init(void)
                 exp4_record->completed_host_buffer = completed_host_buffer;
                 exp4_record->observed_slot_valid = observed_slot_valid;
                 exp4_record->rx_open_timing_valid = rx_open_timing_valid;
-                exp4_record_hot_path(exp4_cycles_to_us_ceil(
-                    dwt_timer_get_cycles() - exp4_hot_path_start_cycles));
-
                 if (exp4_record_storable) {
                     exp4_rx_record_count++;
                     exp4_advance_after_event(observed_slot_valid ?
