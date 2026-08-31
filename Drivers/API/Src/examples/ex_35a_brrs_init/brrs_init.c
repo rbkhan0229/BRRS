@@ -263,8 +263,14 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #ifndef BRRS_EXP4_SPI_PERSISTENT
 #define BRRS_EXP4_SPI_PERSISTENT 0
 #endif
+#ifndef BRRS_EXP4_SPI_DIRECT
+#define BRRS_EXP4_SPI_DIRECT 0
+#endif
 #if BRRS_EXP4_SPI_PERSISTENT != 0 && BRRS_EXP4_SPI_PERSISTENT != 1
 #error "BRRS_EXP4_SPI_PERSISTENT must be 0 or 1"
+#endif
+#if BRRS_EXP4_SPI_DIRECT && !BRRS_EXP4_SPI_PERSISTENT
+#error "BRRS_EXP4_SPI_DIRECT requires BRRS_EXP4_SPI_PERSISTENT"
 #endif
 #if BRRS_EXP4_SLOT_REPEATS < 1
 #error "BRRS_EXP4_SLOT_REPEATS must be at least 1"
@@ -2202,6 +2208,79 @@ static bool schedule_rx_slot(uint8_t slot_idx)
  * receiver PLL configured, so the burst re-arm path does not repeat the
  * PLL_COMMON write performed by dwt_rxenable(). */
 #define BRRS_DW3000_FAST_CMD_RX 0x02U
+#define BRRS_DW3000_FAST_CMD_DB_TOGGLE 0x13U
+
+static uint8_t exp4_spi_build_header(uint32_t reg_file_id,
+                                     uint16_t index,
+                                     bool write,
+                                     uint16_t length,
+                                     uint8_t header[2])
+{
+    uint32_t address = reg_file_id + index;
+    uint16_t reg_file = (uint16_t)((address >> 16U) & 0x1FU);
+    uint16_t reg_offset = (uint16_t)(address & 0x7FU);
+    uint16_t mode = write ? (uint16_t)DW3000_SPI_WR_BIT :
+                            (uint16_t)DW3000_SPI_RD_BIT;
+    uint16_t encoded_address =
+        (uint16_t)((reg_file << 9U) | (reg_offset << 2U));
+
+    if (length == 0U && write) {
+        header[0] = (uint8_t)((mode >> 8U) |
+                              (uint16_t)(reg_file_id << 1U) | 1U);
+        return 1U;
+    }
+
+    header[0] = (uint8_t)((mode | encoded_address) >> 8U);
+    header[1] = (uint8_t)(encoded_address | (mode & 0x03U));
+    if (reg_offset == 0U) {
+        return 1U;
+    }
+    header[0] |= 0x40U;
+    return 2U;
+}
+
+static void exp4_spi_read_device(uint32_t reg_file_id,
+                                 uint16_t index,
+                                 uint16_t length,
+                                 uint8_t *buffer)
+{
+#if BRRS_EXP4_SPI_DIRECT
+    uint8_t header[2];
+    uint8_t header_length = exp4_spi_build_header(
+        reg_file_id, index, false, length, header);
+    (void)readfromspi(header_length, header, length, buffer);
+#else
+    dwt_readfromdevice(reg_file_id, index, length, buffer);
+#endif
+}
+
+static void exp4_spi_write_device(uint32_t reg_file_id,
+                                  uint16_t index,
+                                  uint16_t length,
+                                  uint8_t *buffer)
+{
+#if BRRS_EXP4_SPI_DIRECT
+    static uint8_t empty_body;
+    uint8_t header[2];
+    uint8_t header_length = exp4_spi_build_header(
+        reg_file_id, index, true, length, header);
+    (void)writetospi(header_length, header, length,
+                     length > 0U ? buffer : &empty_body);
+#else
+    dwt_writetodevice(reg_file_id, index, length, buffer);
+#endif
+}
+
+static void exp4_spi_write_u32(uint32_t reg_file_id, uint32_t value)
+{
+    uint8_t bytes[4] = {
+        (uint8_t)value,
+        (uint8_t)(value >> 8U),
+        (uint8_t)(value >> 16U),
+        (uint8_t)(value >> 24U)
+    };
+    exp4_spi_write_device(reg_file_id, 0U, sizeof(bytes), bytes);
+}
 
 static bool exp4_find_slot_by_rx_timestamp(uint32_t rx_ts_high32,
                                            uint8_t *slot_idx)
@@ -2278,10 +2357,11 @@ static void exp4_read_rx_metadata(uint8_t host_buffer,
      * SPI transaction so both values describe the same completed frame even
      * while the other double buffer is receiving the next slot. */
     if ((host_buffer & 1U) == 0U) {
-        dwt_readfromdevice(BUF0_RX_FINFO, 0U, sizeof(metadata), metadata);
+        exp4_spi_read_device(BUF0_RX_FINFO, 0U,
+                             sizeof(metadata), metadata);
     } else {
-        dwt_readfromdevice(INDIRECT_POINTER_B_ID, 0U,
-                           sizeof(metadata), metadata);
+        exp4_spi_read_device(INDIRECT_POINTER_B_ID, 0U,
+                             sizeof(metadata), metadata);
     }
 
     finfo16 = (uint16_t)metadata[0] | ((uint16_t)metadata[1] << 8);
@@ -2298,7 +2378,7 @@ static void exp4_read_rx_buffer(uint8_t host_buffer, uint8_t *buffer,
     uint32_t buffer_id = ((host_buffer & 1U) == 0U) ?
                          RX_BUFFER_0_ID : RX_BUFFER_1_ID;
 
-    dwt_readfromdevice(buffer_id, offset, length, buffer);
+    exp4_spi_read_device(buffer_id, offset, length, buffer);
 }
 
 static void exp4_clear_rx_status(uint32_t mask, latency_stats_t *stats)
@@ -2307,7 +2387,7 @@ static void exp4_clear_rx_status(uint32_t mask, latency_stats_t *stats)
     uint32_t phase_cycles;
     uint32_t phase_us;
 
-    dwt_writesysstatuslo(mask);
+    exp4_spi_write_u32(SYS_STATUS_ID, mask);
     phase_cycles = dwt_timer_get_cycles() - phase_start_cycles;
     phase_us = (phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
                (CPU_FREQ_HZ / 1000000UL);
@@ -2327,8 +2407,9 @@ static void exp4_release_rx_buffer(void)
 
     /* DW3000 User Manual section 4.4 requires the processed buffer's
      * RDB_STATUS flags to be cleared as well as issuing CMD_DB_TOGGLE. */
-    dwt_writerdbstatus(clear_mask);
-    dwt_signal_rx_buff_free();
+    exp4_spi_write_device(RDB_STATUS_ID, 0U, 1U, &clear_mask);
+    exp4_spi_write_device(BRRS_DW3000_FAST_CMD_DB_TOGGLE,
+                          0U, 0U, NULL);
     exp4_rx_host_buffer ^= 1U;
     phase_cycles = dwt_timer_get_cycles() - phase_start_cycles;
     phase_us = (phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
@@ -2359,7 +2440,8 @@ static bool exp4_rearm_after_event(uint32_t event_start_cycles)
         current_rx_open_timing_valid = false;
 
         phase_start_cycles = dwt_timer_get_cycles();
-        dwt_writetodevice(BRRS_DW3000_FAST_CMD_RX, 0U, 0U, NULL);
+        exp4_spi_write_device(BRRS_DW3000_FAST_CMD_RX,
+                              0U, 0U, NULL);
         phase_cycles = dwt_timer_get_cycles() - phase_start_cycles;
         phase_us = (phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
                    (CPU_FREQ_HZ / 1000000UL);
@@ -2966,7 +3048,7 @@ int brrs_init(void)
                      "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=26,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,rx_metadata=single_completed_buffer_spi_read,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+            "EXP4_FIRMWARE_REV,rev=27,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -4214,7 +4296,8 @@ int brrs_init(void)
              * Its RX masks were verified at boot. Polling one byte keeps the
              * good-frame path short; detailed SYS_STATUS is needed only to
              * classify an RX error or timeout. */
-            dwt_readfromdevice(FINT_STAT_ID, 0U, 1U, &exp4_fint_status);
+            exp4_spi_read_device(FINT_STAT_ID, 0U, 1U,
+                                 &exp4_fint_status);
             uint32_t exp4_status_poll_cycles =
                 dwt_timer_get_cycles() - exp4_status_poll_start_cycles;
             uint32_t exp4_status_poll_us =
@@ -4240,7 +4323,8 @@ int brrs_init(void)
                 {
                     uint8_t rdb_at_overrun = 0U;
                     static char overrun_line[170];
-                    dwt_readfromdevice(RDB_STATUS_ID, 0U, 1U, &rdb_at_overrun);
+                    exp4_spi_read_device(RDB_STATUS_ID, 0U, 1U,
+                                         &rdb_at_overrun);
                     snprintf(overrun_line, sizeof(overrun_line),
                              "EXP4_RDB_OVERRUN_CSV,count=%lu,slot=%u,host_buffer=%u,burst_active=%u,rdb_status=0x%02X,sys_status=0x%08lX",
                              (unsigned long)exp4_rx_buffer_overruns,
@@ -4303,8 +4387,8 @@ int brrs_init(void)
                  * state; resync from RDB_STATUS truth instead of trusting
                  * the tracked index blindly. */
                 exp4_phase_start_cycles = dwt_timer_get_cycles();
-                dwt_readfromdevice(RDB_STATUS_ID, 0U, 1U,
-                                   &exp4_rdb_status);
+                exp4_spi_read_device(RDB_STATUS_ID, 0U, 1U,
+                                     &exp4_rdb_status);
                 exp4_phase_cycles =
                     dwt_timer_get_cycles() - exp4_phase_start_cycles;
                 exp4_phase_us =
@@ -4439,8 +4523,8 @@ int brrs_init(void)
                     uint32_t retry_elapsed_us = 0U;
                     bool cia_error = false;
                     for (;;) {
-                        dwt_readfromdevice(RDB_STATUS_ID, 0U, 1U,
-                                           &exp4_rdb_status);
+                        exp4_spi_read_device(RDB_STATUS_ID, 0U, 1U,
+                                             &exp4_rdb_status);
                         if ((exp4_rdb_status & exp4_rdb_current_ready_mask) ==
                             exp4_rdb_current_ready_mask) {
                             break;
