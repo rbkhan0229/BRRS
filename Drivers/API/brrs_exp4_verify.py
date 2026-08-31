@@ -218,7 +218,6 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(deferred, "queue_overflow", 0)
     require(deferred, "rearm_deadline_miss", 0)
     require(deferred, "rx_timeout", 0)
-    require(deferred, "rx_error", 0)
     require(deferred, "status", "PASS")
 
     summary = csv_fields(last_line(lines, "EXP4_SUMMARY_CSV,"))

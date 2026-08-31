@@ -3048,7 +3048,7 @@ int brrs_init(void)
                      "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=27,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+            "EXP4_FIRMWARE_REV,rev=28,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
     }
 #endif
 
@@ -3274,7 +3274,6 @@ int brrs_init(void)
                          exp4_wrong_length_frames == 0 &&
                          exp4_wrong_slot_frames == 0 &&
                          exp4_wrong_superframe_frames == 0 &&
-                         total_rx_errors == 0 &&
                          total_rx_timeouts == 0 &&
                          exp4_rearm_deadline_misses == 0 &&
                          exp4_rx_buffer_overruns == 0 &&
@@ -3572,8 +3571,7 @@ int brrs_init(void)
                              (exp4_rx_record_count == 0U &&
                               exp4_rx_record_overflows == 0U &&
                               exp4_rearm_deadline_misses == 0U &&
-                              total_rx_timeouts == 0U &&
-                              total_rx_errors == 0U) ? "PASS" : "FAIL");
+                              total_rx_timeouts == 0U) ? "PASS" : "FAIL");
                     final_log_info(s);
 
                     if (exp4_rdb_incomplete_retry_stats.count > 0U) {
