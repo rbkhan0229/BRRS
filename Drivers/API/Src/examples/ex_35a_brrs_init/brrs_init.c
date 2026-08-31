@@ -1202,6 +1202,7 @@ static uint32_t exp4_rdb_incomplete_ciaerr = 0;
 static uint32_t exp4_rdb_resync_count = 0;
 static uint32_t exp4_spi_begin_failures = 0;
 static uint32_t exp4_spi_end_failures = 0;
+static uint32_t exp4_spi_device_id_failures = 0;
 static uint8_t exp4_rx_host_buffer = 0;
 static uint32_t exp4_wrong_length_by_slot[BRRS_MAX_DATA_SLOTS + 1U] = {0};
 static uint32_t exp4_wrong_length_by_buffer[2] = {0};
@@ -2507,6 +2508,13 @@ static void exp4_close_data_burst(exp4_burst_close_reason_t reason)
     if (port_dw_spi_burst_end() != NRF_SUCCESS) {
         exp4_spi_end_failures++;
     }
+    {
+        uint32_t device_id = dwt_readdevid();
+        if (device_id != (uint32_t)DWT_DW3000_DEV_ID &&
+            device_id != (uint32_t)DWT_DW3000_PDOA_DEV_ID) {
+            exp4_spi_device_id_failures++;
+        }
+    }
 #endif
     exp4_data_burst_active = false;
     current_rx_slot = 0xFF;
@@ -3165,7 +3173,8 @@ int brrs_init(void)
                          spi_stats.state_error_count == 0U &&
                          spi_stats.recovery_count == 0U &&
                          exp4_spi_begin_failures == 0U &&
-                         exp4_spi_end_failures == 0U);
+                         exp4_spi_end_failures == 0U &&
+                         exp4_spi_device_id_failures == 0U);
 #if BRRS_EXP4_SPI_PERSISTENT
                     spi_session_pass = spi_session_pass &&
                         spi_stats.begin_count == total_cycles &&
@@ -3501,7 +3510,7 @@ int brrs_init(void)
                     }
 
                     snprintf(s, sizeof(s),
-                             "EXP4_SPI_CSV,mode=%s,begin=%lu,end=%lu,active=%u,begin_fail=%lu,end_fail=%lu,state_error=%lu,transfer_error=%lu,recovery=%lu,status=%s",
+                             "EXP4_SPI_CSV,mode=%s,begin=%lu,end=%lu,active=%u,begin_fail=%lu,end_fail=%lu,device_id_fail=%lu,state_error=%lu,transfer_error=%lu,recovery=%lu,status=%s",
                              BRRS_EXP4_SPI_PERSISTENT ?
                                  "persistent_data_burst" :
                                  "legacy_per_transaction",
@@ -3510,6 +3519,7 @@ int brrs_init(void)
                              (unsigned int)spi_stats.active,
                              (unsigned long)exp4_spi_begin_failures,
                              (unsigned long)exp4_spi_end_failures,
+                             (unsigned long)exp4_spi_device_id_failures,
                              (unsigned long)spi_stats.state_error_count,
                              (unsigned long)spi_stats.transfer_error_count,
                              (unsigned long)spi_stats.recovery_count,

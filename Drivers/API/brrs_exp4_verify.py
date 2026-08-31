@@ -178,6 +178,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(spi, "active", 0)
     require(spi, "begin_fail", 0)
     require(spi, "end_fail", 0)
+    require(spi, "device_id_fail", 0)
     require(spi, "state_error", 0)
     require(spi, "transfer_error", 0)
     require(spi, "recovery", 0)

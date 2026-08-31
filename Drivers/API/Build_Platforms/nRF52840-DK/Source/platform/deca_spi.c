@@ -227,6 +227,13 @@ static void spi_deassert_cs(void)
     {
         nrfx_gpiote_out_toggle(current_cs_pin);
         spi_cs_asserted = false;
+        /* Per-transaction SPIM disable used to provide an implicit idle gap.
+         * Preserve a conservative CS-high interval when the peripheral stays
+         * enabled so adjacent DW3000 commands cannot run together. */
+        if (spi_burst_active)
+        {
+            nrf_delay_us(1U);
+        }
     }
 }
 
