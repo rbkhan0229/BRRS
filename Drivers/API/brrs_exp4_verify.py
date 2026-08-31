@@ -189,6 +189,33 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         require(spi, "begin", 0)
         require(spi, "end", 0)
 
+    hot_path = key_values(last_line(lines, "EXP4_HOT_PATH_CSV,"))
+    require(hot_path, "scope", "event_detect_to_buffer_free")
+    require(hot_path, "count", good_events)
+    require(hot_path, "hist_overflow", 0)
+    if integer(hot_path, "max_us") < integer(hot_path, "p999_us"):
+        fail("hot-path max is below p99.9")
+
+    hot_phases = [key_values(line) for line in lines
+                  if line.startswith("EXP4_HOT_PATH_PHASE_CSV,")]
+    expected_hot_phases = {
+        "event_detect_to_metadata_done",
+        "event_detect_to_status_clear_done",
+        "event_detect_to_header_copy_done",
+    }
+    if {row.get("phase") for row in hot_phases} != expected_hot_phases:
+        fail("hot-path phase set is incomplete")
+    for row in hot_phases:
+        require(row, "count", good_events)
+
+    deferred = key_values(last_line(lines, "EXP4_DEFERRED_CSV,"))
+    require(deferred, "pending", 0)
+    require(deferred, "queue_overflow", 0)
+    require(deferred, "rearm_deadline_miss", 0)
+    require(deferred, "rx_timeout", 0)
+    require(deferred, "rx_error", 0)
+    require(deferred, "status", "PASS")
+
     summary = csv_fields(last_line(lines, "EXP4_SUMMARY_CSV,"))
     if len(summary) != 20:
         fail(f"EXP4_SUMMARY_CSV has {len(summary)} fields, expected 20")
