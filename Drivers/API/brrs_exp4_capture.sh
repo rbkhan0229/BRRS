@@ -19,6 +19,7 @@ Options:
   --lead <us>          Coordinator RX lead margin (default: 15).
   --pac <4|8>          Coordinator DATA RX PAC size (default: 8).
   --spi-opt            Keep SPIM enabled during each bounded DATA burst.
+  --irq                Use GPIO IRQ pending events; foreground remains sole SPI owner.
   --serial <S/N>       Select a J-Link when multiple probes are attached.
   --no-build           Reuse an image previously made with the same parameters.
   --timeout <seconds>  Override capture timeout (INIT 90 s, sensor 180 s).
@@ -62,6 +63,7 @@ TIMEOUT=""
 FORCE=0
 SEQUENCE=""
 SPI_OPT=0
+IRQ_PENDING=0
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -95,6 +97,7 @@ while (( $# > 0 )); do
             SEQUENCE="$2"; shift 2
             ;;
         --spi-opt) SPI_OPT=1; shift ;;
+        --irq) IRQ_PENDING=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -167,12 +170,18 @@ fi
 if (( SPI_OPT )); then
     IMAGE_DIR+="_spiopt"
 fi
+if (( IRQ_PENDING )); then
+    IMAGE_DIR+="_irq"
+fi
 IMAGE_BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_${IMAGE_ROLE}"
 HEX_FILE="${IMAGE_DIR}/${IMAGE_BASE}.hex"
 ELF_FILE="${IMAGE_DIR}/${IMAGE_BASE}.elf"
 CONFIG="Generated_Exp4_${PREAMBLE}_S${SENSOR_COUNT}_G${GUARD_US}_L${LEAD_US}_PAC${PAC}_${ROLE_LABEL}"
 if (( SPI_OPT )); then
     CONFIG+="_SPIOPT"
+fi
+if (( IRQ_PENDING )); then
+    CONFIG+="_IRQ"
 fi
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
@@ -183,6 +192,9 @@ if [[ -n "${SEQUENCE}" ]]; then
 fi
 if (( SPI_OPT )); then
     OUTDIR+="_spiopt"
+fi
+if (( IRQ_PENDING )); then
+    OUTDIR+="_irq"
 fi
 mkdir -p "${OUTDIR}"
 
@@ -251,6 +263,7 @@ echo "  Guard:         ${GUARD_US} us"
 echo "  RX lead:       ${LEAD_US} us"
 echo "  RX PAC:        ${PAC}"
 echo "  SPI mode:      $((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
+echo "  RX event:      $((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
@@ -262,6 +275,7 @@ if (( NO_BUILD == 0 )); then
         "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}" --pac "${PAC}")
     [[ -n "${SEQUENCE}" ]] && BUILD_CMD+=(--sequence "${SEQUENCE}")
     (( SPI_OPT == 0 )) || BUILD_CMD+=(--spi-opt)
+    (( IRQ_PENDING == 0 )) || BUILD_CMD+=(--irq)
     EMBUILD="${EMBUILD}" "${BUILD_CMD[@]}" \
         >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
@@ -293,6 +307,8 @@ VERIFY_SEQ_ARGS=()
 [[ -n "${SEQUENCE}" ]] && VERIFY_SEQ_ARGS+=(--sequence "${SEQUENCE}")
 VERIFY_SPI_ARGS=()
 (( SPI_OPT == 0 )) || VERIFY_SPI_ARGS+=(--spi-opt)
+VERIFY_IRQ_ARGS=()
+(( IRQ_PENDING == 0 )) || VERIFY_IRQ_ARGS+=(--irq)
 # bash 3.2 (macOS default) raises "unbound variable" under set -u when
 # expanding "${arr[@]}" on a zero-length array, even though it was
 # declared -- the ${arr[@]+"${arr[@]}"} idiom works around it.
@@ -300,7 +316,8 @@ VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     "${VERIFY_ARGS[@]}" --preamble "${PREAMBLE}" \
     --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" \
     ${VERIFY_SEQ_ARGS[@]+"${VERIFY_SEQ_ARGS[@]}"} \
-    ${VERIFY_SPI_ARGS[@]+"${VERIFY_SPI_ARGS[@]}"})"
+    ${VERIFY_SPI_ARGS[@]+"${VERIFY_SPI_ARGS[@]}"} \
+    ${VERIFY_IRQ_ARGS[@]+"${VERIFY_IRQ_ARGS[@]}"})"
 echo "${VERIFY_OUTPUT}"
 DETAIL="${VERIFY_OUTPUT#\[verify\] PASS: }"
 
@@ -337,6 +354,7 @@ fi
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'pac=%s\n' "${PAC}"
     printf 'spi_mode=%s\n' "$((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
+    printf 'rx_event_source=%s\n' "$((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"
     printf 'spi_clock_hz=32000000\n'
     printf 'cpu_clock_hz=64000000\n'
     printf 'cs_idle_floor_ns=%s\n' "${CS_IDLE_FLOOR_NS}"

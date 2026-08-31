@@ -70,7 +70,8 @@ def expected_owners(sensors, sequence=None):
 
 
 def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
-                expected_pac, sequence=None, spi_opt=False):
+                expected_pac, sequence=None, spi_opt=False,
+                irq_pending=False):
     slot_count = len(sequence) if sequence is not None else sensors
     expected = 1000 * slot_count
 
@@ -111,7 +112,10 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
 
     require_status_line(lines, "EXP4_DOUBLE_BUFFER_CONFIG_CSV,")
     require_status_line(lines, "EXP4_EVENT_MASK_CONFIG_CSV,")
-    require_status_line(lines, "EXP4_HOST_IRQ_CONFIG_CSV,")
+    host_irq = require_status_line(lines, "EXP4_HOST_IRQ_CONFIG_CSV,")
+    require(host_irq, "mode", "pending_event" if irq_pending else "polling")
+    require(host_irq, "spi_owner", "foreground")
+    require(host_irq, "enabled", 0)
 
     done = key_values(last_line(lines, "EXP4_DONE,"))
     require(done, "plen", preamble)
@@ -158,10 +162,31 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         fail("burst close counts do not sum to 1000")
 
     rearm = key_values(last_line(lines, "EXP4_REARM_CSV,"))
+    require(rearm, "event_source",
+            "gpio_irq_pending" if irq_pending else "fint_polling")
     require(rearm, "delayed_schedule_late", 0)
     required_guard = integer(rearm, "required_guard_us")
     if required_guard > guard_us:
         fail(f"required guard {required_guard} us > configured guard {guard_us} us")
+
+    irq_lines = [line for line in lines if line.startswith("EXP4_IRQ_CSV,")]
+    if irq_pending:
+        if len(irq_lines) != 1:
+            fail(f"EXP4_IRQ_CSV rows {len(irq_lines)}, expected 1")
+        irq = key_values(irq_lines[0])
+        require(irq, "mode", "pending_event")
+        require(irq, "spi_owner", "foreground")
+        require(irq, "pending", 0)
+        require(irq, "duplicates", 0)
+        require(irq, "spurious", 0)
+        require(irq, "burst_arms", 1000)
+        require(irq, "arm_failures", 0)
+        require(irq, "enabled", 0)
+        require(irq, "status", "PASS")
+        if integer(irq, "events") != integer(irq, "dispatches"):
+            fail("IRQ event and foreground dispatch counts differ")
+    elif irq_lines:
+        fail("polling run unexpectedly emitted EXP4_IRQ_CSV")
 
     double_buffer = key_values(last_line(lines, "EXP4_DOUBLE_BUFFER_CSV,"))
     good_events = integer(double_buffer, "rx_good_events")
@@ -400,6 +425,8 @@ def main():
                              "default one-slot-per-node round robin.")
     parser.add_argument("--spi-opt", action="store_true",
                         help="Expect persistent SPIM during DATA bursts.")
+    parser.add_argument("--irq", action="store_true",
+                        help="Expect GPIO IRQ pending-event dispatch.")
     args = parser.parse_args()
 
     if args.role == "sensor" and args.node is None:
@@ -418,7 +445,7 @@ def main():
         if args.role == "init":
             detail = verify_init(lines, args.preamble, args.sensors,
                                  args.guard, args.lead, args.pac, args.sequence,
-                                 args.spi_opt)
+                                 args.spi_opt, args.irq)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard, args.sequence)

@@ -266,8 +266,14 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #ifndef BRRS_EXP4_SPI_DIRECT
 #define BRRS_EXP4_SPI_DIRECT 0
 #endif
+#ifndef BRRS_EXP4_IRQ_PENDING
+#define BRRS_EXP4_IRQ_PENDING 0
+#endif
 #if BRRS_EXP4_SPI_PERSISTENT != 0 && BRRS_EXP4_SPI_PERSISTENT != 1
 #error "BRRS_EXP4_SPI_PERSISTENT must be 0 or 1"
+#endif
+#if BRRS_EXP4_IRQ_PENDING != 0 && BRRS_EXP4_IRQ_PENDING != 1
+#error "BRRS_EXP4_IRQ_PENDING must be 0 or 1"
 #endif
 #if BRRS_EXP4_SPI_DIRECT && !BRRS_EXP4_SPI_PERSISTENT
 #error "BRRS_EXP4_SPI_DIRECT requires BRRS_EXP4_SPI_PERSISTENT"
@@ -1193,7 +1199,68 @@ static uint32_t exp4_period_min_x1000_us = 0xFFFFFFFF;
 static uint32_t exp4_period_max_x1000_us = 0;
 static uint64_t exp4_period_sum_x1000_us = 0;
 static uint32_t exp4_period_count = 0;
-static bool exp4_data_burst_active = false;
+static uint32_t dwt_timer_get_cycles(void);
+static volatile bool exp4_data_burst_active = false;
+#if BRRS_EXP4_IRQ_PENDING
+/* The GPIO ISR never accesses DW3000 registers. It only timestamps one edge
+ * and hands ownership to the foreground, which remains the sole SPI owner. */
+static volatile bool exp4_irq_pending = false;
+static volatile uint32_t exp4_irq_event_cycles = 0U;
+static volatile uint32_t exp4_irq_event_count = 0U;
+static volatile uint32_t exp4_irq_dispatch_count = 0U;
+static volatile uint32_t exp4_irq_duplicate_count = 0U;
+static volatile uint32_t exp4_irq_spurious_count = 0U;
+static uint32_t exp4_irq_arm_count = 0U;
+static uint32_t exp4_irq_arm_failures = 0U;
+
+static void exp4_irq_pending_isr(void)
+{
+    uint32_t event_cycles = dwt_timer_get_cycles();
+
+    if (!exp4_data_burst_active) {
+        exp4_irq_spurious_count++;
+    } else if (exp4_irq_pending) {
+        exp4_irq_duplicate_count++;
+    } else {
+        exp4_irq_event_cycles = event_cycles;
+        __DMB();
+        exp4_irq_pending = true;
+        exp4_irq_event_count++;
+    }
+}
+
+static void exp4_irq_arm_burst(void)
+{
+    port_DisableEXT_IRQ();
+    exp4_irq_pending = false;
+    exp4_irq_event_cycles = 0U;
+    __DMB();
+    port_EnableEXT_IRQ();
+    exp4_irq_arm_count++;
+    if (port_GetEXT_IRQStatus() == 0U) {
+        exp4_irq_arm_failures++;
+    }
+}
+
+static bool exp4_irq_take_event(uint32_t *event_cycles)
+{
+    uint32_t primask = __get_PRIMASK();
+    bool pending;
+
+    __disable_irq();
+    pending = exp4_irq_pending;
+    if (pending) {
+        *event_cycles = exp4_irq_event_cycles;
+        exp4_irq_pending = false;
+        exp4_irq_dispatch_count++;
+    }
+    __DMB();
+    if (primask == 0U) {
+        __enable_irq();
+    }
+    return pending;
+}
+#endif
 static uint32_t exp4_burst_early_close_count = 0;
 static uint32_t exp4_burst_deadline_close_count = 0;
 static uint32_t exp4_burst_forced_prep_close_count = 0;
@@ -2614,6 +2681,11 @@ static void exp4_close_data_burst(exp4_burst_close_reason_t reason)
         return;
     }
 
+#if BRRS_EXP4_IRQ_PENDING
+    /* Stop new GPIO handoffs before foreground performs the burst-close SPI
+     * sequence and returns the radio to the SYNC PHY. */
+    port_DisableEXT_IRQ();
+#endif
     dwt_forcetrxoff();
     dwt_writesysstatuslo(0xFFFFFFFF);
     dwt_writerdbstatus(0xFFU);
@@ -2986,11 +3058,13 @@ int brrs_init(void)
             DWT_INT_RXOVRR_BIT_MASK;
         uint32_t enabled_event_mask;
         static char event_mask_line[192];
-        static char host_irq_line[128];
+        static char host_irq_line[192];
 
         /* FINT_STAT is a masked aggregate: the corresponding SYS_ENABLE_LO
-         * bits must be enabled even though Exp4 polls rather than servicing
-         * the DW3000 IRQ pin. */
+         * bits must be enabled for both polling and pending-event modes. */
+#if BRRS_EXP4_IRQ_PENDING
+        port_set_dwic_isr_oneshot(exp4_irq_pending_isr);
+#endif
         port_DisableEXT_IRQ();
         dwt_setinterrupt(exp4_event_mask, 0U, DWT_ENABLE_INT_ONLY);
         enabled_event_mask = dwt_read_reg(SYS_ENABLE_LO_ID);
@@ -3004,10 +3078,17 @@ int brrs_init(void)
         if ((enabled_event_mask & exp4_event_mask) != exp4_event_mask) {
             while (1) { };
         }
+#if BRRS_EXP4_IRQ_PENDING
         snprintf(host_irq_line, sizeof(host_irq_line),
-                 "EXP4_HOST_IRQ_CONFIG_CSV,mode=polling,enabled=%lu,status=%s",
+                 "EXP4_HOST_IRQ_CONFIG_CSV,mode=pending_event,spi_owner=foreground,enabled=%lu,arm=per_data_burst,status=%s",
                  (unsigned long)port_GetEXT_IRQStatus(),
                  (port_GetEXT_IRQStatus() == 0U) ? "PASS" : "FAIL");
+#else
+        snprintf(host_irq_line, sizeof(host_irq_line),
+                 "EXP4_HOST_IRQ_CONFIG_CSV,mode=polling,spi_owner=foreground,enabled=%lu,status=%s",
+                 (unsigned long)port_GetEXT_IRQStatus(),
+                 (port_GetEXT_IRQStatus() == 0U) ? "PASS" : "FAIL");
+#endif
         test_run_info((unsigned char *)host_irq_line);
         if (port_GetEXT_IRQStatus() != 0U) {
             while (1) { };
@@ -3078,8 +3159,13 @@ int brrs_init(void)
                  BRRS_EXP4_SPI_PERSISTENT ?
                      "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
+#if BRRS_EXP4_IRQ_PENDING
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=37,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=38,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_pending,event_mask=validated,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+#else
+        test_run_info((unsigned char *)
+            "EXP4_FIRMWARE_REV,rev=38,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=validated,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+#endif
     }
 #endif
 
@@ -3334,7 +3420,17 @@ int brrs_init(void)
                          exp4_rearm_service_stats.max_us +
                              RX_LEAD_MARGIN_US <= SLOT_GUARD_US &&
                          exp4_burst_forced_prep_close_count == 0 &&
-                         spi_session_pass);
+                         spi_session_pass
+#if BRRS_EXP4_IRQ_PENDING
+                         && !exp4_irq_pending
+                         && exp4_irq_event_count == exp4_irq_dispatch_count
+                         && exp4_irq_duplicate_count == 0U
+                         && exp4_irq_spurious_count == 0U
+                         && exp4_irq_arm_count == total_cycles
+                         && exp4_irq_arm_failures == 0U
+                         && port_GetEXT_IRQStatus() == 0U
+#endif
+                         );
                     bool timing_pass = slot_timing_counts_match();
                     bool link_pass = (exp4_frames_received == expected_frames);
                     bool collection_pass =
@@ -3467,7 +3563,12 @@ int brrs_init(void)
                             (exp4_rearm_service_stats.sum_us * 1000ULL /
                              exp4_rearm_service_stats.count) : 0;
                         snprintf(s, sizeof(s),
-                                 "EXP4_REARM_CSV,mode=manual_double_buffer_burst,scope=event_specific_detect_to_rx_command,count=%lu,service_min_us=%lu,service_max_us=%lu,service_avg_x1000_us=%llu,poll_count=%lu,rx_enable_count=%lu,clear_pre_count=%lu,clear_post_count=%lu,poll_max_us=%lu,poll_detection_allowance_us=%lu,startup_allowance_us=%u,required_guard_us=%lu,delayed_schedule_late=%lu",
+                                 "EXP4_REARM_CSV,mode=manual_double_buffer_burst,event_source=%s,scope=event_specific_detect_to_rx_command,count=%lu,service_min_us=%lu,service_max_us=%lu,service_avg_x1000_us=%llu,poll_count=%lu,rx_enable_count=%lu,clear_pre_count=%lu,clear_post_count=%lu,poll_max_us=%lu,poll_detection_allowance_us=%lu,startup_allowance_us=%u,required_guard_us=%lu,delayed_schedule_late=%lu",
+#if BRRS_EXP4_IRQ_PENDING
+                                 "gpio_irq_pending",
+#else
+                                 "fint_polling",
+#endif
                                  (unsigned long)exp4_rearm_service_stats.count,
                                  (unsigned long)(exp4_rearm_service_stats.count ? exp4_rearm_service_stats.min_us : 0),
                                  (unsigned long)exp4_rearm_service_stats.max_us,
@@ -3485,6 +3586,27 @@ int brrs_init(void)
                         final_log_info(s);
                     }
 
+#if BRRS_EXP4_IRQ_PENDING
+                    snprintf(s, sizeof(s),
+                             "EXP4_IRQ_CSV,mode=pending_event,spi_owner=foreground,events=%lu,dispatches=%lu,pending=%u,duplicates=%lu,spurious=%lu,burst_arms=%lu,arm_failures=%lu,enabled=%lu,status=%s",
+                             (unsigned long)exp4_irq_event_count,
+                             (unsigned long)exp4_irq_dispatch_count,
+                             exp4_irq_pending ? 1U : 0U,
+                             (unsigned long)exp4_irq_duplicate_count,
+                             (unsigned long)exp4_irq_spurious_count,
+                             (unsigned long)exp4_irq_arm_count,
+                             (unsigned long)exp4_irq_arm_failures,
+                             (unsigned long)port_GetEXT_IRQStatus(),
+                             (!exp4_irq_pending &&
+                              exp4_irq_event_count == exp4_irq_dispatch_count &&
+                              exp4_irq_duplicate_count == 0U &&
+                              exp4_irq_spurious_count == 0U &&
+                              exp4_irq_arm_count == total_cycles &&
+                              exp4_irq_arm_failures == 0U &&
+                              port_GetEXT_IRQStatus() == 0U) ? "PASS" : "FAIL");
+                    final_log_info(s);
+#endif
+
                     {
                         latency_stats_t *phase_stats[] = {
                             &exp4_status_poll_stats,
@@ -3497,7 +3619,11 @@ int brrs_init(void)
                             &exp4_error_detail_post_rearm_stats
                         };
                         const char *phase_names[] = {
+#if BRRS_EXP4_IRQ_PENDING
+                            "irq_detect_to_fint_read",
+#else
                             "status_poll_detecting_read",
+#endif
                             "rx_enable_critical",
                             "rdb_status_read_post_rearm",
                             "rx_metadata_read_post_rearm",
@@ -4294,6 +4420,9 @@ int brrs_init(void)
 #endif
                     if (spi_burst_ready && schedule_rx_slot(0)) {
                         exp4_data_burst_active = true;
+#if BRRS_EXP4_IRQ_PENDING
+                        exp4_irq_arm_burst();
+#endif
                     } else {
 #if BRRS_EXP4_SPI_PERSISTENT
                         if (spi_burst_ready &&
@@ -4332,21 +4461,34 @@ int brrs_init(void)
             uint32_t status_poll_end = dwt_timer_get_cycles();
             exp3_capture_status(status_reg, status_poll_start, status_poll_end);
 #elif BRRS_EXPERIMENT == 4
-            uint32_t exp4_status_poll_start_cycles = dwt_timer_get_cycles();
+            uint32_t exp4_status_poll_start_cycles = 0U;
             uint8_t exp4_fint_status = 0U;
             uint32_t status_reg = 0U;
+            uint32_t exp4_status_poll_cycles = 0U;
+            uint32_t exp4_status_poll_us = 0U;
 
             /* FINT_STAT is the driver's fast masked aggregate event source.
              * Its RX masks were verified at boot. Synthetic status bits only
              * dispatch the event below; detailed SYS_STATUS is read after the
              * next-slot RX command so classification is outside the guard. */
+#if BRRS_EXP4_IRQ_PENDING
+            if (exp4_irq_take_event(&exp4_status_poll_start_cycles)) {
+                exp4_spi_read_device(FINT_STAT_ID, 0U, 1U,
+                                     &exp4_fint_status);
+                exp4_status_poll_cycles =
+                    dwt_timer_get_cycles() - exp4_status_poll_start_cycles;
+                exp4_status_poll_us = exp4_cycles_to_us_ceil(
+                    exp4_status_poll_cycles);
+            }
+#else
+            exp4_status_poll_start_cycles = dwt_timer_get_cycles();
             exp4_spi_read_device(FINT_STAT_ID, 0U, 1U,
                                  &exp4_fint_status);
-            uint32_t exp4_status_poll_cycles =
+            exp4_status_poll_cycles =
                 dwt_timer_get_cycles() - exp4_status_poll_start_cycles;
-            uint32_t exp4_status_poll_us =
-                (exp4_status_poll_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
-                (CPU_FREQ_HZ / 1000000UL);
+            exp4_status_poll_us = exp4_cycles_to_us_ceil(
+                exp4_status_poll_cycles);
+#endif
             if ((exp4_fint_status & FINT_STAT_RXERR_BIT_MASK) != 0U) {
                 status_reg |= DWT_INT_RXPHE_BIT_MASK;
             }
@@ -4364,7 +4506,7 @@ int brrs_init(void)
             if (status_reg & DWT_INT_RXFCG_BIT_MASK) {
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = exp4_status_poll_start_cycles;
-                uint32_t exp4_hot_path_start_cycles = dwt_timer_get_cycles();
+                uint32_t exp4_hot_path_start_cycles = exp4_event_start_cycles;
                 uint32_t exp4_phase_start_cycles;
                 uint32_t exp4_phase_cycles;
                 uint32_t exp4_phase_us;

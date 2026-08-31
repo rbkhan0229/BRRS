@@ -26,6 +26,7 @@ extern uint16_t  current_irq_pin;
  *******************************************************************************/
 /* DW IC IRQ handler definition. */
 static port_dwic_isr_t port_dwic_isr = NULL;
+static volatile bool port_dwic_irq_oneshot = false;
 /* Track the GPIOTE event state separately from the physical IRQ pin level.
  * The previous implementation treated a HIGH pin as an enabled interrupt,
  * which could accidentally enable an IRQ with no ISR in polling examples. */
@@ -194,6 +195,15 @@ void make_very_short_wakeup_io(void)
  * */
 __INLINE void process_deca_irq(void)
 {
+    if (port_dwic_irq_oneshot)
+    {
+        if ((port_CheckEXT_IRQ() != 0U) && (port_dwic_isr != NULL))
+        {
+            port_dwic_isr();
+        }
+        return;
+    }
+
     while (port_CheckEXT_IRQ() != 0)
     {
         if (port_dwic_isr)
@@ -270,6 +280,23 @@ void port_set_dwic_isr(port_dwic_isr_t dwic_isr)
     /* Deactivate the event while replacing the handler. */
     port_DisableEXT_IRQ();
 
+    port_dwic_irq_oneshot = false;
+    port_dwic_isr = dwic_isr;
+
+    if (port_dwic_isr != NULL)
+    {
+        port_EnableEXT_IRQ();
+    }
+}
+
+void port_set_dwic_isr_oneshot(port_dwic_isr_t dwic_isr)
+{
+    /* A manual double-buffer consumer intentionally leaves the DW IRQ pin
+     * high until foreground code has inspected and released the completed
+     * buffer. Invoke its callback once for the rising edge instead of looping
+     * inside GPIOTE waiting for foreground work that cannot run in the ISR. */
+    port_DisableEXT_IRQ();
+    port_dwic_irq_oneshot = true;
     port_dwic_isr = dwic_isr;
 
     if (port_dwic_isr != NULL)

@@ -19,6 +19,7 @@ Options:
   --pac <4|8>               Coordinator DATA RX PAC size (default: 8).
   --sequence <digits>       Custom per-slot owner schedule, e.g. 232323.
   --spi-opt                 Use the matching persistent-SPIM image set.
+  --irq                     Use the matching GPIO IRQ pending-event image set.
   --timeout <seconds>       Sensor capture timeout (default: 180).
   --probe-serials <csv>     Diagnostic override; default discovers every USB probe.
   --no-build                Reuse previously built node images.
@@ -55,6 +56,7 @@ PROBE_SERIALS=""
 NO_BUILD=0
 FORCE=0
 SPI_OPT=0
+IRQ_PENDING=0
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -82,6 +84,7 @@ while (( $# > 0 )); do
         --no-build) NO_BUILD=1; shift ;;
         --force) FORCE=1; shift ;;
         --spi-opt) SPI_OPT=1; shift ;;
+        --irq) IRQ_PENDING=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -150,6 +153,9 @@ fi
 if (( SPI_OPT )); then
     OUTDIR+="_spiopt"
 fi
+if (( IRQ_PENDING )); then
+    OUTDIR+="_irq"
+fi
 mkdir -p "${OUTDIR}"
 BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_r${RUN_NUMBER}_multi_tx"
 ASSIGNMENT_FILE="${OUTDIR}/${BASE}.assignments.csv"
@@ -190,6 +196,7 @@ if (( NO_BUILD == 0 )); then
     BUILD_ARGS=("${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" tx "${LEAD_US}" --pac "${PAC}")
     [[ -n "${SEQUENCE}" ]] && BUILD_ARGS+=(--sequence "${SEQUENCE}")
     (( SPI_OPT == 0 )) || BUILD_ARGS+=(--spi-opt)
+    (( IRQ_PENDING == 0 )) || BUILD_ARGS+=(--irq)
     "${SCRIPT_DIR}/brrs_exp4_build.sh" "${BUILD_ARGS[@]}"
 fi
 
@@ -234,6 +241,7 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
     command+=(--guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" --serial "${serial}" --timeout "${TIMEOUT}" --no-build)
     [[ -n "${SEQUENCE}" ]] && command+=(--sequence "${SEQUENCE}")
     (( SPI_OPT == 0 )) || command+=(--spi-opt)
+    (( IRQ_PENDING == 0 )) || command+=(--irq)
     (( FORCE == 0 )) || command+=(--force)
     "${command[@]}" >"${console_log}" 2>&1 &
     PIDS+=("$!")

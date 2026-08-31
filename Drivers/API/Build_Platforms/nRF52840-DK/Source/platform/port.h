@@ -196,6 +196,10 @@ void gpio_init(void);
      */
     void port_set_dwic_isr(port_dwic_isr_t dwic_isr);
 
+    /* Install an edge callback that runs once even if the level-style DW IRQ
+     * pin remains asserted until foreground processing clears its source. */
+    void port_set_dwic_isr_oneshot(port_dwic_isr_t dwic_isr);
+
 typedef enum
 {
     SPI_1=0,
