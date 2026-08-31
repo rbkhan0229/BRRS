@@ -251,7 +251,16 @@ static void spi_deassert_cs(void)
          * enabled so adjacent DW3000 commands cannot run together. */
         if (spi_burst_active)
         {
+#if BRRS_EXP4_SPI_DIRECT
+            /* DW3000 t9 requires at least 40 ns between consecutive SPI
+             * accesses. Eight 64 MHz core NOPs provide a 125 ns floor in
+             * addition to GPIO and call overhead, without paying 1 us on
+             * every hot-path transaction. */
+            __NOP(); __NOP(); __NOP(); __NOP();
+            __NOP(); __NOP(); __NOP(); __NOP();
+#else
             nrf_delay_us(1U);
+#endif
         }
     }
 }
