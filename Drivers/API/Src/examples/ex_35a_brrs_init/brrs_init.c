@@ -1272,6 +1272,7 @@ static latency_stats_t exp4_rearm_rx_metadata_stats;
 static latency_stats_t exp4_rearm_header_read_stats;
 static latency_stats_t exp4_rearm_status_clear_pre_stats;
 static latency_stats_t exp4_rearm_status_clear_post_stats;
+static latency_stats_t exp4_error_detail_post_rearm_stats;
 static latency_stats_t exp4_rearm_rx_enable_stats;
 static latency_stats_t exp4_sync_prep_stats;
 static latency_stats_t exp4_rx_buffer_free_stats;
@@ -2293,6 +2294,19 @@ static uint32_t exp4_spi_read_u32(uint32_t reg_file_id)
            ((uint32_t)bytes[3] << 24U);
 }
 
+static uint32_t exp4_read_error_detail(latency_stats_t *stats)
+{
+    uint32_t phase_start_cycles = dwt_timer_get_cycles();
+    uint32_t status = exp4_spi_read_u32(SYS_STATUS_ID);
+    uint32_t phase_us = exp4_cycles_to_us_ceil(
+        dwt_timer_get_cycles() - phase_start_cycles);
+
+    if (stats != NULL) {
+        update_node_latency(stats, phase_us);
+    }
+    return status;
+}
+
 static bool exp4_find_slot_by_rx_timestamp(uint32_t rx_ts_high32,
                                            uint8_t *slot_idx)
 {
@@ -3059,7 +3073,7 @@ int brrs_init(void)
                      "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=30,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_rearm,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=31,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_rearm,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
     }
 #endif
 
@@ -3117,6 +3131,7 @@ int brrs_init(void)
     exp4_rearm_header_read_stats.min_us = 0xFFFFFFFF;
     exp4_rearm_status_clear_pre_stats.min_us = 0xFFFFFFFF;
     exp4_rearm_status_clear_post_stats.min_us = 0xFFFFFFFF;
+    exp4_error_detail_post_rearm_stats.min_us = 0xFFFFFFFF;
     exp4_rearm_rx_enable_stats.min_us = 0xFFFFFFFF;
     exp4_sync_prep_stats.min_us = 0xFFFFFFFF;
     exp4_rx_buffer_free_stats.min_us = 0xFFFFFFFF;
@@ -3472,7 +3487,8 @@ int brrs_init(void)
                             &exp4_rearm_rx_metadata_stats,
                             &exp4_rearm_header_read_stats,
                             &exp4_rearm_status_clear_pre_stats,
-                            &exp4_rearm_status_clear_post_stats
+                            &exp4_rearm_status_clear_post_stats,
+                            &exp4_error_detail_post_rearm_stats
                         };
                         const char *phase_names[] = {
                             "status_poll_detecting_read",
@@ -3481,11 +3497,12 @@ int brrs_init(void)
                             "rx_metadata_read_post_rearm",
                             "data_header_read_post_rearm",
                             "status_clear_pre_rearm_unused",
-                            "status_clear_post_rearm_all_paths"
+                            "status_clear_post_rearm_all_paths",
+                            "error_detail_read_post_rearm"
                         };
                         uint8_t phase;
 
-                        for (phase = 0U; phase < 7U; phase++) {
+                        for (phase = 0U; phase < 8U; phase++) {
                             latency_stats_t *stats = phase_stats[phase];
                             uint64_t avg_x1000 = stats->count ?
                                 (stats->sum_us * 1000ULL / stats->count) : 0;
@@ -4302,9 +4319,9 @@ int brrs_init(void)
             uint32_t status_reg = 0U;
 
             /* FINT_STAT is the driver's fast masked aggregate event source.
-             * Its RX masks were verified at boot. Polling one byte keeps the
-             * good-frame path short; detailed SYS_STATUS is needed only to
-             * classify an RX error or timeout. */
+             * Its RX masks were verified at boot. Synthetic status bits only
+             * dispatch the event below; detailed SYS_STATUS is read after the
+             * next-slot RX command so classification is outside the guard. */
             exp4_spi_read_device(FINT_STAT_ID, 0U, 1U,
                                  &exp4_fint_status);
             uint32_t exp4_status_poll_cycles =
@@ -4312,10 +4329,11 @@ int brrs_init(void)
             uint32_t exp4_status_poll_us =
                 (exp4_status_poll_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
                 (CPU_FREQ_HZ / 1000000UL);
-            if ((exp4_fint_status &
-                 (FINT_STAT_RXERR_BIT_MASK |
-                  FINT_STAT_RXTO_BIT_MASK)) != 0U) {
-                status_reg = exp4_spi_read_u32(SYS_STATUS_ID);
+            if ((exp4_fint_status & FINT_STAT_RXERR_BIT_MASK) != 0U) {
+                status_reg |= DWT_INT_RXPHE_BIT_MASK;
+            }
+            if ((exp4_fint_status & FINT_STAT_RXTO_BIT_MASK) != 0U) {
+                status_reg |= DWT_INT_RXFTO_BIT_MASK;
             }
             if (exp4_data_burst_active &&
                 (exp4_fint_status & FINT_STAT_RXOK_BIT_MASK) != 0U) {
@@ -4325,32 +4343,6 @@ int brrs_init(void)
             uint32_t status_reg = dwt_readsysstatuslo();
 #endif
 
-#if BRRS_EXPERIMENT == 4
-            if (status_reg & DWT_INT_RXOVRR_BIT_MASK) {
-                exp4_rx_buffer_overruns++;
-                total_rx_errors++;
-                {
-                    uint8_t rdb_at_overrun = 0U;
-                    static char overrun_line[170];
-                    exp4_spi_read_device(RDB_STATUS_ID, 0U, 1U,
-                                         &rdb_at_overrun);
-                    snprintf(overrun_line, sizeof(overrun_line),
-                             "EXP4_RDB_OVERRUN_CSV,count=%lu,slot=%u,host_buffer=%u,burst_active=%u,rdb_status=0x%02X,sys_status=0x%08lX",
-                             (unsigned long)exp4_rx_buffer_overruns,
-                             (unsigned int)current_rx_slot,
-                             (unsigned int)exp4_rx_host_buffer,
-                             exp4_data_burst_active ? 1U : 0U,
-                             (unsigned int)rdb_at_overrun,
-                             (unsigned long)status_reg);
-                    test_run_info((unsigned char *)overrun_line);
-                }
-                exp4_close_data_burst(EXP4_BURST_CLOSE_DEADLINE);
-                dwt_setdblrxbuffmode(DBL_BUF_STATE_DIS, DBL_BUF_MODE_MAN);
-                dwt_setdblrxbuffmode(DBL_BUF_STATE_EN, DBL_BUF_MODE_MAN);
-                exp4_rx_host_buffer = 0U;
-            }
-            else
-#endif
             if (status_reg & DWT_INT_RXFCG_BIT_MASK) {
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = exp4_status_poll_start_cycles;
@@ -4843,6 +4835,8 @@ int brrs_init(void)
                  * loop. This keeps the recovery path inside the same guard
                  * budget without allowing a stale FINT event to escape. */
                 exp4_rearm_after_event(exp4_event_start_cycles);
+                status_reg = exp4_read_error_detail(exp4_rearm_needed ?
+                    &exp4_error_detail_post_rearm_stats : NULL);
                 exp4_clear_rx_status(SYS_STATUS_ALL_RX_TO |
                                      DWT_INT_CIADONE_BIT_MASK,
                                      exp4_rearm_needed ?
@@ -4889,6 +4883,34 @@ int brrs_init(void)
                                         exp4_status_poll_us);
                 }
                 exp4_rearm_after_event(exp4_event_start_cycles);
+                status_reg = exp4_read_error_detail(exp4_rearm_needed ?
+                    &exp4_error_detail_post_rearm_stats : NULL);
+                if ((status_reg & DWT_INT_RXOVRR_BIT_MASK) != 0U) {
+                    exp4_rx_buffer_overruns++;
+                    total_rx_errors++;
+                    {
+                        uint8_t rdb_at_overrun = 0U;
+                        static char overrun_line[170];
+                        exp4_spi_read_device(RDB_STATUS_ID, 0U, 1U,
+                                             &rdb_at_overrun);
+                        snprintf(overrun_line, sizeof(overrun_line),
+                                 "EXP4_RDB_OVERRUN_CSV,count=%lu,slot=%u,host_buffer=%u,burst_active=%u,rdb_status=0x%02X,sys_status=0x%08lX",
+                                 (unsigned long)exp4_rx_buffer_overruns,
+                                 (unsigned int)failed_rx_slot,
+                                 (unsigned int)exp4_rx_host_buffer,
+                                 exp4_data_burst_active ? 1U : 0U,
+                                 (unsigned int)rdb_at_overrun,
+                                 (unsigned long)status_reg);
+                        test_run_info((unsigned char *)overrun_line);
+                    }
+                    exp4_close_data_burst(EXP4_BURST_CLOSE_DEADLINE);
+                    dwt_setdblrxbuffmode(DBL_BUF_STATE_DIS,
+                                         DBL_BUF_MODE_MAN);
+                    dwt_setdblrxbuffmode(DBL_BUF_STATE_EN,
+                                         DBL_BUF_MODE_MAN);
+                    exp4_rx_host_buffer = 0U;
+                    continue;
+                }
                 exp4_clear_rx_status(SYS_STATUS_ALL_RX_ERR |
                                      DWT_INT_CIADONE_BIT_MASK |
                                      DWT_INT_RXFR_BIT_MASK,
