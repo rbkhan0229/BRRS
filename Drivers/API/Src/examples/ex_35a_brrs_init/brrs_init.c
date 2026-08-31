@@ -1273,6 +1273,7 @@ static uint32_t exp4_rdb_host_mismatches = 0;
 static uint32_t exp4_rdb_incomplete_events = 0;
 static uint32_t exp4_rdb_incomplete_recovered = 0;
 static uint32_t exp4_rdb_incomplete_ciaerr = 0;
+static uint32_t exp4_rdb_global_ciadone_fallbacks = 0;
 static uint32_t exp4_rdb_resync_count = 0;
 static uint8_t exp4_rdb_resync_last_slot = 0xFFU;
 static uint8_t exp4_rdb_resync_last_tracked = 0U;
@@ -3165,10 +3166,10 @@ int brrs_init(void)
         final_log_info(cfg_msg);
 #if BRRS_EXP4_IRQ_PENDING
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=42,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_rxfcg_pending,event_mask=rxfcg_or_error_validated,irq_good_class=pending_and_fint_rxok,rearm_order=wait_matching_ciadone_then_rearm,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=43,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_rxfcg_pending,event_mask=rxfcg_or_error_validated,irq_good_class=pending_and_fint_rxok,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #else
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=42,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=rxfcg_or_error_validated,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=43,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=rxfcg_or_error_validated,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #endif
     }
 #endif
@@ -3658,7 +3659,7 @@ int brrs_init(void)
                             (exp4_rx_buffer_free_stats.sum_us * 1000ULL /
                              exp4_rx_buffer_free_stats.count) : 0;
                         snprintf(s, sizeof(s),
-                                 "EXP4_DOUBLE_BUFFER_CSV,mode=manual,release=%s,rx_good_events=%lu,rdb_good_events=%lu,rdb_dispatches=%lu,rdb_host_mismatch=%lu,rdb_incomplete=%lu,rdb_incomplete_recovered=%lu,rdb_resync=%lu,free_count=%lu,free_min_us=%lu,free_max_us=%lu,free_avg_x1000_us=%llu,overrun=%lu",
+                                 "EXP4_DOUBLE_BUFFER_CSV,mode=manual,release=%s,rx_good_events=%lu,rdb_good_events=%lu,rdb_dispatches=%lu,rdb_host_mismatch=%lu,rdb_incomplete=%lu,rdb_incomplete_recovered=%lu,rdb_global_ciadone=%lu,rdb_resync=%lu,free_count=%lu,free_min_us=%lu,free_max_us=%lu,free_avg_x1000_us=%llu,overrun=%lu",
                                  "rdb_w1c_plus_cmd_db_toggle",
                                  (unsigned long)exp4_rx_good_events,
                                  (unsigned long)exp4_rdb_good_events,
@@ -3666,6 +3667,7 @@ int brrs_init(void)
                                  (unsigned long)exp4_rdb_host_mismatches,
                                  (unsigned long)exp4_rdb_incomplete_events,
                                  (unsigned long)exp4_rdb_incomplete_recovered,
+                                 (unsigned long)exp4_rdb_global_ciadone_fallbacks,
                                  (unsigned long)exp4_rdb_resync_count,
                                  (unsigned long)exp4_rx_buffer_free_stats.count,
                                  (unsigned long)(exp4_rx_buffer_free_stats.count ?
@@ -4672,18 +4674,33 @@ int brrs_init(void)
                     uint32_t retry_start_cycles = dwt_timer_get_cycles();
                     uint32_t retry_elapsed_us = 0U;
                     bool cia_error = false;
+                    bool global_ciadone_ready = false;
                     for (;;) {
+                        uint32_t cia_status;
+
                         exp4_spi_read_device(RDB_STATUS_ID, 0U, 1U,
                                              &exp4_rdb_status);
                         if ((exp4_rdb_status & exp4_rdb_current_ready_mask) ==
                             exp4_rdb_current_ready_mask) {
                             break;
                         }
-                        if (dwt_readsysstatuslo() & DWT_INT_CIAERR_BIT_MASK) {
+                        cia_status = dwt_readsysstatuslo();
+                        if (cia_status & DWT_INT_CIAERR_BIT_MASK) {
                             cia_error = true;
                             dwt_writesysstatuslo(DWT_INT_CIAERR_BIT_MASK);
                             break;
                         }
+                        /* In IRQ mode no later frame can begin until this
+                         * loop succeeds and RX is re-armed. Therefore a
+                         * global CIADONE observed after this buffer's RXFCG
+                         * is unambiguously the completion of this frame even
+                         * when the matching RDB CIADONEx mirror is absent. */
+#if BRRS_EXP4_IRQ_PENDING
+                        if (cia_status & DWT_INT_CIADONE_BIT_MASK) {
+                            global_ciadone_ready = true;
+                            break;
+                        }
+#endif
                         retry_elapsed_us =
                             (dwt_timer_get_cycles() - retry_start_cycles) /
                             (CPU_FREQ_HZ / 1000000UL);
@@ -4697,8 +4714,12 @@ int brrs_init(void)
                     update_node_latency(&exp4_rdb_incomplete_retry_stats,
                                         retry_elapsed_us);
                     if ((exp4_rdb_status & exp4_rdb_current_ready_mask) ==
-                        exp4_rdb_current_ready_mask) {
+                            exp4_rdb_current_ready_mask ||
+                        global_ciadone_ready) {
                         exp4_rdb_incomplete_recovered++;
+                        if (global_ciadone_ready) {
+                            exp4_rdb_global_ciadone_fallbacks++;
+                        }
                     } else {
                         if (cia_error) {
                             exp4_rdb_incomplete_ciaerr++;
