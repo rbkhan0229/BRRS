@@ -2427,13 +2427,18 @@ static void exp4_release_rx_buffer(void)
     uint32_t phase_start_cycles = dwt_timer_get_cycles();
     uint32_t phase_cycles;
     uint32_t phase_us;
+#if !BRRS_EXP4_SPI_DIRECT
     uint8_t clear_mask = (exp4_rx_host_buffer == 0U) ?
         DWT_RDB_STATUS_CLEAR_BUFF0_EVENTS :
         DWT_RDB_STATUS_CLEAR_BUFF1_EVENTS;
 
-    /* DW3000 User Manual section 4.4 requires the processed buffer's
-     * RDB_STATUS flags to be cleared as well as issuing CMD_DB_TOGGLE. */
+    /* Preserve the legacy explicit W1C sequence for A/B comparison. */
     exp4_spi_write_device(RDB_STATUS_ID, 0U, 1U, &clear_mask);
+#endif
+    /* Qorvo's DW3000 ull_signal_rx_buff_free() releases a manual double
+     * buffer with CMD_DB_TOGGLE alone. The optimized path follows that
+     * implementation; every run still fails closed on any RDB mismatch or
+     * overrun so an incompatible lifecycle cannot be accepted silently. */
     exp4_spi_write_device(BRRS_DW3000_FAST_CMD_DB_TOGGLE,
                           0U, 0U, NULL);
     exp4_rx_host_buffer ^= 1U;
@@ -3074,7 +3079,7 @@ int brrs_init(void)
                      "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=32,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_rearm,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=33,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_rearm,buffer_release=feature_flagged_qorvo_cmd_db_toggle,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
     }
 #endif
 
@@ -3523,7 +3528,10 @@ int brrs_init(void)
                             (exp4_rx_buffer_free_stats.sum_us * 1000ULL /
                              exp4_rx_buffer_free_stats.count) : 0;
                         snprintf(s, sizeof(s),
-                                 "EXP4_DOUBLE_BUFFER_CSV,mode=manual,rx_good_events=%lu,rdb_good_events=%lu,rdb_dispatches=%lu,rdb_host_mismatch=%lu,rdb_incomplete=%lu,rdb_incomplete_recovered=%lu,rdb_resync=%lu,free_count=%lu,free_min_us=%lu,free_max_us=%lu,free_avg_x1000_us=%llu,overrun=%lu",
+                                 "EXP4_DOUBLE_BUFFER_CSV,mode=manual,release=%s,rx_good_events=%lu,rdb_good_events=%lu,rdb_dispatches=%lu,rdb_host_mismatch=%lu,rdb_incomplete=%lu,rdb_incomplete_recovered=%lu,rdb_resync=%lu,free_count=%lu,free_min_us=%lu,free_max_us=%lu,free_avg_x1000_us=%llu,overrun=%lu",
+                                 BRRS_EXP4_SPI_DIRECT ?
+                                     "cmd_db_toggle" :
+                                     "rdb_w1c_plus_cmd_db_toggle",
                                  (unsigned long)exp4_rx_good_events,
                                  (unsigned long)exp4_rdb_good_events,
                                  (unsigned long)exp4_rdb_dispatches,
