@@ -3052,15 +3052,11 @@ int brrs_init(void)
 #if BRRS_EXPERIMENT == 4
     {
         const uint32_t exp4_event_mask =
-#if BRRS_EXP4_IRQ_PENDING
-            /* RXFCG precedes CIA completion. Triggering the foreground rearm
-             * there can interrupt adjusted-timestamp production in the just
-             * completed buffer. CIADONE is the earliest good-frame IRQ that
-             * guarantees the metadata consumed by this path is ready. */
-            DWT_INT_CIADONE_BIT_MASK |
-#else
+            /* CIADONE may precede RXFCG, so it is not by itself evidence of a
+             * complete CRC-valid frame. Wake on RXFCG and, in IRQ mode, let
+             * the foreground wait for the matching per-buffer CIADONE before
+             * reading adjusted metadata or re-arming RX. */
             DWT_INT_RXFCG_BIT_MASK |
-#endif
             SYS_STATUS_ALL_RX_ERR |
             SYS_STATUS_ALL_RX_TO |
             DWT_INT_RXOVRR_BIT_MASK;
@@ -3169,10 +3165,10 @@ int brrs_init(void)
         final_log_info(cfg_msg);
 #if BRRS_EXP4_IRQ_PENDING
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=41,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_ciadone_pending,event_mask=ciadone_or_error_validated,irq_good_class=pending_and_no_error_means_ciadone,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=42,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_rxfcg_pending,event_mask=rxfcg_or_error_validated,irq_good_class=pending_and_fint_rxok,rearm_order=wait_matching_ciadone_then_rearm,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #else
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=41,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=rxfcg_or_error_validated,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=42,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=rxfcg_or_error_validated,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #endif
     }
 #endif
@@ -4512,17 +4508,9 @@ int brrs_init(void)
             }
             if (exp4_data_burst_active &&
 #if BRRS_EXP4_IRQ_PENDING
-                /* In IRQ mode CIADONE is the sole good-frame interrupt mask.
-                 * FINT.RXOK follows the disabled RXFCG mask, so a pending
-                 * event with no error/timeout class is the CIADONE event. */
                 exp4_event_detected &&
-                (exp4_fint_status &
-                 (FINT_STAT_RXERR_BIT_MASK |
-                  FINT_STAT_RXTO_BIT_MASK |
-                  FINT_STAT_RXTSERR_BIT_MASK)) == 0U) {
-#else
-                (exp4_fint_status & FINT_STAT_RXOK_BIT_MASK) != 0U) {
 #endif
+                (exp4_fint_status & FINT_STAT_RXOK_BIT_MASK) != 0U) {
                 status_reg |= DWT_INT_RXFCG_BIT_MASK;
             }
 #else
@@ -4560,11 +4548,14 @@ int brrs_init(void)
                                         exp4_status_poll_us);
                 }
 
-                /* Manual double buffering lets the other buffer receive while
-                 * the completed buffer is still owned by the host. Re-enable
-                 * RX first, then clear this event before the next frame can
-                 * complete and assert a fresh RXFCG. */
+                /* Polling retains the established early re-arm ordering. In
+                 * IRQ mode RXFCG can precede per-buffer CIADONE; re-arming at
+                 * that point can interrupt adjusted-timestamp production.
+                 * The IRQ path therefore validates readiness first and
+                 * re-arms immediately after the matching buffer is ready. */
+#if !BRRS_EXP4_IRQ_PENDING
                 exp4_rearm_after_event(exp4_event_start_cycles);
+#endif
 
                 /* Read RDB_STATUS before touching any buffer-specific
                  * register (DW3000 manual section 4.4, Figure 17: "Check
@@ -4627,26 +4618,6 @@ int brrs_init(void)
                         exp4_rx_host_buffer = completed_host_buffer;
                     }
                 }
-
-                /* Cache adjacent FINFO and RX_TIME in one transaction before
-                 * the next slot can advance the double-buffer swinging set.
-                 * completed_host_buffer is now resynced against hardware
-                 * truth above. */
-                exp4_phase_start_cycles = dwt_timer_get_cycles();
-                exp4_read_rx_metadata(completed_host_buffer, &rx_ts_high32,
-                                      &rx_frame_len);
-                exp4_phase_cycles =
-                    dwt_timer_get_cycles() - exp4_phase_start_cycles;
-                exp4_phase_us =
-                    (exp4_phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
-                    (CPU_FREQ_HZ / 1000000UL);
-                if (exp4_rearm_needed) {
-                    update_node_latency(&exp4_rearm_rx_metadata_stats,
-                                        exp4_phase_us);
-                }
-                update_node_latency(&exp4_event_to_metadata_stats,
-                    exp4_cycles_to_us_ceil(dwt_timer_get_cycles() -
-                                            exp4_hot_path_start_cycles));
 
                 /* RXFCG identifies a complete CRC-valid frame and CIADONE
                  * validates the adjusted receive timestamp. Qorvo's DW3000
@@ -4757,6 +4728,29 @@ int brrs_init(void)
                         continue;
                     }
                 }
+#if BRRS_EXP4_IRQ_PENDING
+                exp4_rearm_after_event(exp4_event_start_cycles);
+#endif
+
+                /* Cache adjacent FINFO and RX_TIME in one transaction only
+                 * after RXFCG and CIADONE are both present for the selected
+                 * buffer. The other buffer may receive the next slot while
+                 * this foreground-only SPI read completes. */
+                exp4_phase_start_cycles = dwt_timer_get_cycles();
+                exp4_read_rx_metadata(completed_host_buffer, &rx_ts_high32,
+                                      &rx_frame_len);
+                exp4_phase_cycles =
+                    dwt_timer_get_cycles() - exp4_phase_start_cycles;
+                exp4_phase_us =
+                    (exp4_phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
+                    (CPU_FREQ_HZ / 1000000UL);
+                if (exp4_rearm_needed) {
+                    update_node_latency(&exp4_rearm_rx_metadata_stats,
+                                        exp4_phase_us);
+                }
+                update_node_latency(&exp4_event_to_metadata_stats,
+                    exp4_cycles_to_us_ceil(dwt_timer_get_cycles() -
+                                            exp4_hot_path_start_cycles));
                 exp4_rdb_good_events++;
                 exp4_rdb_dispatches++;
                 exp4_rx_good_events++;
