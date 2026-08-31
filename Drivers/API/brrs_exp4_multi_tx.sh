@@ -247,6 +247,29 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
     PIDS+=("$!")
     CONSOLE_LOGS+=("${console_log}")
     echo "[multi-tx] started ${role} on J-Link ${serial}"
+
+    # J-Link OB probes on one USB host can intermittently lose a connection
+    # when several flash operations run concurrently. Start each worker and
+    # wait for its RTT READY marker before flashing the next board. Workers
+    # remain alive and listen together once INIT begins, so this serializes
+    # only setup, not the radio experiment.
+    STARTUP_DEADLINE=$(( $(date '+%s') + 60 ))
+    while ! grep -q "READY marker seen" "${console_log}" 2>/dev/null; do
+        if ! kill -0 "${PIDS[index]}" 2>/dev/null; then
+            echo "ERROR: ${role} exited before READY" >&2
+            cat "${console_log}" >&2
+            cleanup_children
+            exit 1
+        fi
+        if (( $(date '+%s') >= STARTUP_DEADLINE )); then
+            echo "ERROR: ${role} did not reach READY in 60 seconds" >&2
+            cat "${console_log}" >&2
+            cleanup_children
+            exit 1
+        fi
+        sleep 0.2
+    done
+    echo "[multi-tx] ${role} READY on J-Link ${serial}"
 done
 
 READY_DEADLINE=$(( $(date '+%s') + 60 ))
