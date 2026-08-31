@@ -3048,7 +3048,7 @@ int brrs_init(void)
                      "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=28,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=29,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_rearm,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
     }
 #endif
 
@@ -3469,8 +3469,8 @@ int brrs_init(void)
                             "rdb_status_read_post_rearm",
                             "rx_metadata_read_post_rearm",
                             "data_header_read_post_rearm",
-                            "status_clear_pre_rearm_error_path",
-                            "status_clear_post_rearm_good_path"
+                            "status_clear_pre_rearm_unused",
+                            "status_clear_post_rearm_all_paths"
                         };
                         uint8_t phase;
 
@@ -4826,11 +4826,16 @@ int brrs_init(void)
                     update_node_latency(&exp4_status_poll_stats,
                                         exp4_status_poll_us);
                 }
+                /* Sticky timeout/error bits do not gate the RX fast command.
+                 * Rearm first, as already done on the RX-good path, then
+                 * clear the completed event before returning to the poll
+                 * loop. This keeps the recovery path inside the same guard
+                 * budget without allowing a stale FINT event to escape. */
+                exp4_rearm_after_event(exp4_event_start_cycles);
                 exp4_clear_rx_status(SYS_STATUS_ALL_RX_TO |
                                      DWT_INT_CIADONE_BIT_MASK,
                                      exp4_rearm_needed ?
-                                         &exp4_rearm_status_clear_pre_stats : NULL);
-                exp4_rearm_after_event(exp4_event_start_cycles);
+                                         &exp4_rearm_status_clear_post_stats : NULL);
 #endif
 #if BRRS_EXPERIMENT == 3 && EXP3_RX_STAGE_DIAG
                 exp3_trace_cancel();
@@ -4872,12 +4877,12 @@ int brrs_init(void)
                     update_node_latency(&exp4_status_poll_stats,
                                         exp4_status_poll_us);
                 }
+                exp4_rearm_after_event(exp4_event_start_cycles);
                 exp4_clear_rx_status(SYS_STATUS_ALL_RX_ERR |
                                      DWT_INT_CIADONE_BIT_MASK |
                                      DWT_INT_RXFR_BIT_MASK,
                                      exp4_rearm_needed ?
-                                         &exp4_rearm_status_clear_pre_stats : NULL);
-                exp4_rearm_after_event(exp4_event_start_cycles);
+                                         &exp4_rearm_status_clear_post_stats : NULL);
 #endif
 #if BRRS_EXPERIMENT == 3 && EXP3_RX_STAGE_DIAG
                 exp3_trace_cancel();
