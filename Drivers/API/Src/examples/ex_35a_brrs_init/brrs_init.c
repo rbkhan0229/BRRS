@@ -2282,6 +2282,17 @@ static void exp4_spi_write_u32(uint32_t reg_file_id, uint32_t value)
     exp4_spi_write_device(reg_file_id, 0U, sizeof(bytes), bytes);
 }
 
+static uint32_t exp4_spi_read_u32(uint32_t reg_file_id)
+{
+    uint8_t bytes[4];
+
+    exp4_spi_read_device(reg_file_id, 0U, sizeof(bytes), bytes);
+    return (uint32_t)bytes[0] |
+           ((uint32_t)bytes[1] << 8U) |
+           ((uint32_t)bytes[2] << 16U) |
+           ((uint32_t)bytes[3] << 24U);
+}
+
 static bool exp4_find_slot_by_rx_timestamp(uint32_t rx_ts_high32,
                                            uint8_t *slot_idx)
 {
@@ -3048,7 +3059,7 @@ int brrs_init(void)
                      "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=29,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_rearm,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=30,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_rearm,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
     }
 #endif
 
@@ -4304,7 +4315,7 @@ int brrs_init(void)
             if ((exp4_fint_status &
                  (FINT_STAT_RXERR_BIT_MASK |
                   FINT_STAT_RXTO_BIT_MASK)) != 0U) {
-                status_reg = dwt_readsysstatuslo();
+                status_reg = exp4_spi_read_u32(SYS_STATUS_ID);
             }
             if (exp4_data_burst_active &&
                 (exp4_fint_status & FINT_STAT_RXOK_BIT_MASK) != 0U) {
