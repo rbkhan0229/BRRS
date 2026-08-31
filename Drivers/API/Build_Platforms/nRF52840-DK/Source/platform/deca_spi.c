@@ -59,6 +59,10 @@ const dw_t *SPI2 = &s2; /**< by default SPI2 */
 
 static volatile bool spi_xfer_done;
 static uint8_t spi_init_stat = 0; // use 1 for slow, use 2 for fast;
+static bool spi_burst_active = false;
+static bool spi_cs_asserted = false;
+static spi_handle_t *spi_burst_handler = NULL;
+static dw_spi_burst_stats_t spi_burst_stats;
 
 static uint8_t idatabuf[DATALEN1] = { 0 }; // Never define this inside the Spi read/write
 static uint8_t itempbuf[DATALEN1] = { 0 }; // As that will use the stack from the Task, which are not such long!!!!
@@ -208,6 +212,96 @@ static int closespi(nrf_drv_spi_t *p_instance)
     return 0;
 } // end closespi()
 
+static void spi_assert_cs(void)
+{
+    if (!spi_cs_asserted)
+    {
+        nrfx_gpiote_out_toggle(current_cs_pin);
+        spi_cs_asserted = true;
+    }
+}
+
+static void spi_deassert_cs(void)
+{
+    if (spi_cs_asserted)
+    {
+        nrfx_gpiote_out_toggle(current_cs_pin);
+        spi_cs_asserted = false;
+    }
+}
+
+static bool spi_keep_enabled(void)
+{
+    return spi_burst_active && spi_burst_handler == pgSpiHandler;
+}
+
+void port_dw_spi_burst_force_recover(void)
+{
+    spi_deassert_cs();
+    if (spi_burst_active && spi_burst_handler != NULL)
+    {
+        closespi(&spi_burst_handler->spi_inst);
+    }
+    spi_burst_active = false;
+    spi_burst_handler = NULL;
+    spi_burst_stats.active = 0U;
+    spi_burst_stats.recovery_count++;
+}
+
+int32_t port_dw_spi_burst_begin(void)
+{
+    if (spi_burst_active || spi_cs_asserted ||
+        pgSpiHandler->lock != DW_HAL_NODE_UNLOCKED)
+    {
+        spi_burst_stats.state_error_count++;
+        port_dw_spi_burst_force_recover();
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    if (openspi(&pgSpiHandler->spi_inst) != 0)
+    {
+        spi_burst_stats.state_error_count++;
+        return NRF_ERROR_INTERNAL;
+    }
+
+    spi_burst_handler = pgSpiHandler;
+    spi_burst_active = true;
+    spi_burst_stats.active = 1U;
+    spi_burst_stats.begin_count++;
+    return NRF_SUCCESS;
+}
+
+int32_t port_dw_spi_burst_end(void)
+{
+    if (!spi_burst_active || spi_burst_handler != pgSpiHandler ||
+        pgSpiHandler->lock != DW_HAL_NODE_UNLOCKED)
+    {
+        spi_burst_stats.state_error_count++;
+        port_dw_spi_burst_force_recover();
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    if (spi_cs_asserted)
+    {
+        spi_burst_stats.state_error_count++;
+        spi_deassert_cs();
+    }
+    closespi(&pgSpiHandler->spi_inst);
+    spi_burst_active = false;
+    spi_burst_handler = NULL;
+    spi_burst_stats.active = 0U;
+    spi_burst_stats.end_count++;
+    return NRF_SUCCESS;
+}
+
+void port_dw_spi_burst_get_stats(dw_spi_burst_stats_t *stats)
+{
+    if (stats != NULL)
+    {
+        *stats = spi_burst_stats;
+    }
+}
+
 /**
  * @brief SPI user event handler.
  * @param event
@@ -282,6 +376,7 @@ int32_t writetospiwithcrc(uint16_t headerLength, const uint8_t *headerBuffer, ui
 {
 #ifdef DWT_ENABLE_CRC
     uint8_t *p1;
+    ret_code_t transfer_result;
     uint32_t idatalength = headerLength + bodyLength + sizeof(crc8); // It cannot be more than 255 in total length (header + body)
 
     if (idatalength > DATALEN1)
@@ -293,7 +388,10 @@ int32_t writetospiwithcrc(uint16_t headerLength, const uint8_t *headerBuffer, ui
 
     __HAL_LOCK(pgSpiHandler);
 
-    openspi(&pgSpiHandler->spi_inst);
+    if (!spi_keep_enabled())
+    {
+        openspi(&pgSpiHandler->spi_inst);
+    }
 
     p1 = idatabuf;
     memcpy(p1, headerBuffer, headerLength);
@@ -302,15 +400,24 @@ int32_t writetospiwithcrc(uint16_t headerLength, const uint8_t *headerBuffer, ui
     p1 += bodyLength;
     memcpy(p1, &crc8, 1);
 
-    nrfx_gpiote_out_toggle(current_cs_pin);
+    spi_assert_cs();
 
     spi_xfer_done = false;
-    nrf_drv_spi_transfer(&pgSpiHandler->spi_inst, idatabuf, idatalength, itempbuf, idatalength);
+    transfer_result = nrf_drv_spi_transfer(&pgSpiHandler->spi_inst, idatabuf, idatalength, itempbuf, idatalength);
 
-    closespi(&pgSpiHandler->spi_inst);
-    nrfx_gpiote_out_toggle(current_cs_pin);
+    spi_deassert_cs();
+    if (!spi_keep_enabled())
+    {
+        closespi(&pgSpiHandler->spi_inst);
+    }
 
     __HAL_UNLOCK(pgSpiHandler);
+    if (transfer_result != NRF_SUCCESS)
+    {
+        spi_burst_stats.transfer_error_count++;
+        port_dw_spi_burst_force_recover();
+        return (int32_t)transfer_result;
+    }
 #endif //DWT_ENABLE_CRC
     return 0;
 } // end writetospiwithcrc()
@@ -325,6 +432,7 @@ int32_t writetospiwithcrc(uint16_t headerLength, const uint8_t *headerBuffer, ui
 int32_t writetospi(uint16_t headerLength, const uint8_t *headerBuffer, uint16_t bodyLength, const uint8_t *bodyBuffer)
 {
     uint8_t *p1;
+    ret_code_t transfer_result;
     uint32_t idatalength = headerLength + bodyLength;
 
     if (idatalength > DATALEN1)
@@ -336,21 +444,34 @@ int32_t writetospi(uint16_t headerLength, const uint8_t *headerBuffer, uint16_t 
 
     __HAL_LOCK(pgSpiHandler);
 
-    openspi(&pgSpiHandler->spi_inst);
+    if (!spi_keep_enabled())
+    {
+        openspi(&pgSpiHandler->spi_inst);
+    }
 
     p1 = idatabuf;
     memcpy(p1, headerBuffer, headerLength);
     p1 += headerLength;
     memcpy(p1, bodyBuffer, bodyLength);
 
-    nrfx_gpiote_out_toggle(current_cs_pin);
+    spi_assert_cs();
 
     spi_xfer_done = false;
-    nrf_drv_spi_transfer(&pgSpiHandler->spi_inst, idatabuf, idatalength, itempbuf, idatalength);
+    transfer_result = nrf_drv_spi_transfer(&pgSpiHandler->spi_inst, idatabuf, idatalength, itempbuf, idatalength);
 
-    closespi(&pgSpiHandler->spi_inst);
-    nrfx_gpiote_out_toggle(current_cs_pin);
-     __HAL_UNLOCK(pgSpiHandler);
+    spi_deassert_cs();
+    if (!spi_keep_enabled())
+    {
+        closespi(&pgSpiHandler->spi_inst);
+    }
+    __HAL_UNLOCK(pgSpiHandler);
+
+    if (transfer_result != NRF_SUCCESS)
+    {
+        spi_burst_stats.transfer_error_count++;
+        port_dw_spi_burst_force_recover();
+        return (int32_t)transfer_result;
+    }
 
     return 0;
 } // end writetospi()
@@ -366,6 +487,7 @@ int32_t writetospi(uint16_t headerLength, const uint8_t *headerBuffer, uint16_t 
 int32_t readfromspi(uint16_t headerLength, uint8_t *headerBuffer, uint16_t readLength, uint8_t *readBuffer)
 {
     uint8_t *p1;
+    ret_code_t transfer_result;
     uint32_t idatalength = headerLength + readLength;
 
     if (idatalength > DATALEN1)
@@ -377,7 +499,10 @@ int32_t readfromspi(uint16_t headerLength, uint8_t *headerBuffer, uint16_t readL
 
     __HAL_LOCK(pgSpiHandler);
 
-    openspi(&pgSpiHandler->spi_inst);
+    if (!spi_keep_enabled())
+    {
+        openspi(&pgSpiHandler->spi_inst);
+    }
 
     p1 = idatabuf;
     memcpy(p1, headerBuffer, headerLength);
@@ -387,18 +512,28 @@ int32_t readfromspi(uint16_t headerLength, uint8_t *headerBuffer, uint16_t readL
 
     idatalength = headerLength + readLength;
 
-    nrfx_gpiote_out_toggle(current_cs_pin);
+    spi_assert_cs();
 
     spi_xfer_done = false;
-    nrf_drv_spi_transfer(&pgSpiHandler->spi_inst, idatabuf, idatalength, itempbuf, idatalength);
+    transfer_result = nrf_drv_spi_transfer(&pgSpiHandler->spi_inst, idatabuf, idatalength, itempbuf, idatalength);
+
+    spi_deassert_cs();
+    if (!spi_keep_enabled())
+    {
+        closespi(&pgSpiHandler->spi_inst);
+    }
+
+    __HAL_UNLOCK(pgSpiHandler);
+
+    if (transfer_result != NRF_SUCCESS)
+    {
+        spi_burst_stats.transfer_error_count++;
+        port_dw_spi_burst_force_recover();
+        return (int32_t)transfer_result;
+    }
 
     p1 = itempbuf + headerLength;
     memcpy(readBuffer, p1, readLength);
-
-    closespi(&pgSpiHandler->spi_inst);
-    nrfx_gpiote_out_toggle(current_cs_pin);
-
-    __HAL_UNLOCK(pgSpiHandler);
 
     return 0;
 } // end readfromspi()

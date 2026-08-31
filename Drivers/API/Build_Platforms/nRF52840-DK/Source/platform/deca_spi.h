@@ -74,6 +74,16 @@ typedef struct
   spi_handle_t    *pSpi;
 }dw_t;
 
+typedef struct
+{
+    uint32_t begin_count;
+    uint32_t end_count;
+    uint32_t recovery_count;
+    uint32_t transfer_error_count;
+    uint32_t state_error_count;
+    uint8_t active;
+} dw_spi_burst_stats_t;
+
 /* @fn    nrf52840_dk_spi_init
  * Initialise nRF52840-DK SPI
  * */
@@ -93,6 +103,13 @@ void port_set_dw_ic_spi_slowrate(void);
      * @brief   set 16MHz
      * */
     void port_set_dw_ic_spi_fastrate(void);
+
+    /* Keep the currently selected SPIM peripheral enabled across a bounded
+     * DATA burst. Chip select is still toggled for every transaction. */
+    int32_t port_dw_spi_burst_begin(void);
+    int32_t port_dw_spi_burst_end(void);
+    void port_dw_spi_burst_force_recover(void);
+    void port_dw_spi_burst_get_stats(dw_spi_burst_stats_t *stats);
 
     /*! ------------------------------------------------------------------------------------------------------------------
      * Function: writetospiwithcrc()

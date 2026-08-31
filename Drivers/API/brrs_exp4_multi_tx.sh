@@ -18,6 +18,7 @@ Options:
   --lead <us>               Coordinator RX lead margin (default: 15).
   --pac <4|8>               Coordinator DATA RX PAC size (default: 8).
   --sequence <digits>       Custom per-slot owner schedule, e.g. 232323.
+  --spi-opt                 Use the matching persistent-SPIM image set.
   --timeout <seconds>       Sensor capture timeout (default: 180).
   --probe-serials <csv>     Diagnostic override; default discovers every USB probe.
   --no-build                Reuse previously built node images.
@@ -53,6 +54,7 @@ TIMEOUT=180
 PROBE_SERIALS=""
 NO_BUILD=0
 FORCE=0
+SPI_OPT=0
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -79,6 +81,7 @@ while (( $# > 0 )); do
             PROBE_SERIALS="$2"; shift 2 ;;
         --no-build) NO_BUILD=1; shift ;;
         --force) FORCE=1; shift ;;
+        --spi-opt) SPI_OPT=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -144,6 +147,9 @@ OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${L
 if [[ -n "${SEQUENCE}" ]]; then
     OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_seq${SEQUENCE}_${DATE_TAG}"
 fi
+if (( SPI_OPT )); then
+    OUTDIR+="_spiopt"
+fi
 mkdir -p "${OUTDIR}"
 BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_r${RUN_NUMBER}_multi_tx"
 ASSIGNMENT_FILE="${OUTDIR}/${BASE}.assignments.csv"
@@ -183,6 +189,7 @@ if (( NO_BUILD == 0 )); then
     echo "[build] preparing every TX role once"
     BUILD_ARGS=("${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" tx "${LEAD_US}" --pac "${PAC}")
     [[ -n "${SEQUENCE}" ]] && BUILD_ARGS+=(--sequence "${SEQUENCE}")
+    (( SPI_OPT == 0 )) || BUILD_ARGS+=(--spi-opt)
     "${SCRIPT_DIR}/brrs_exp4_build.sh" "${BUILD_ARGS[@]}"
 fi
 
@@ -226,6 +233,7 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
     [[ "${DISTANCE}" == "na" ]] || command+=("${DISTANCE}")
     command+=(--guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" --serial "${serial}" --timeout "${TIMEOUT}" --no-build)
     [[ -n "${SEQUENCE}" ]] && command+=(--sequence "${SEQUENCE}")
+    (( SPI_OPT == 0 )) || command+=(--spi-opt)
     (( FORCE == 0 )) || command+=(--force)
     "${command[@]}" >"${console_log}" 2>&1 &
     PIDS+=("$!")

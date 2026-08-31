@@ -70,7 +70,7 @@ def expected_owners(sensors, sequence=None):
 
 
 def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
-                expected_pac, sequence=None):
+                expected_pac, sequence=None, spi_opt=False):
     slot_count = len(sequence) if sequence is not None else sensors
     expected = 1000 * slot_count
 
@@ -91,6 +91,9 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         fail(f"lead_us={lead_us}, expected {expected_lead}")
     require(config, "frame_airtime_us", FRAME_AIRTIME_US[preamble])
     require(config, "slot_us", FRAME_AIRTIME_US[preamble] + expected_guard)
+    expected_spi_mode = ("persistent_data_burst" if spi_opt else
+                         "legacy_per_transaction")
+    require(config, "spi_mode", expected_spi_mode)
 
     verify_revision(lines, "EXP4_FIRMWARE_REV,")
 
@@ -120,8 +123,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(done, "collection", "PASS")
     require(done, "status", "PASS")
     rx = integer(done, "rx")
-    if not 0 <= rx <= expected:
-        fail(f"rx={rx}, expected range 0..{expected}")
+    if not 0 < rx <= expected:
+        fail(f"rx={rx}, expected range 1..{expected}")
     expected_link = "PASS" if rx == expected else "LOSS"
     require(done, "link", expected_link)
 
@@ -169,6 +172,22 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         require(double_buffer, key, 0)
     if good_events != rx:
         fail(f"double-buffer good events {good_events} != accepted RX {rx}")
+
+    spi = key_values(last_line(lines, "EXP4_SPI_CSV,"))
+    require(spi, "mode", expected_spi_mode)
+    require(spi, "active", 0)
+    require(spi, "begin_fail", 0)
+    require(spi, "end_fail", 0)
+    require(spi, "state_error", 0)
+    require(spi, "transfer_error", 0)
+    require(spi, "recovery", 0)
+    require(spi, "status", "PASS")
+    if spi_opt:
+        require(spi, "begin", 1000)
+        require(spi, "end", 1000)
+    else:
+        require(spi, "begin", 0)
+        require(spi, "end", 0)
 
     summary = csv_fields(last_line(lines, "EXP4_SUMMARY_CSV,"))
     if len(summary) != 20:
@@ -348,6 +367,8 @@ def main():
                         help="Custom per-slot owner digit string (init image "
                              "only), e.g. 2323232323232. Omit for the "
                              "default one-slot-per-node round robin.")
+    parser.add_argument("--spi-opt", action="store_true",
+                        help="Expect persistent SPIM during DATA bursts.")
     args = parser.parse_args()
 
     if args.role == "sensor" and args.node is None:
@@ -365,7 +386,8 @@ def main():
         lines = args.log.read_text(errors="replace").splitlines()
         if args.role == "init":
             detail = verify_init(lines, args.preamble, args.sensors,
-                                 args.guard, args.lead, args.pac, args.sequence)
+                                 args.guard, args.lead, args.pac, args.sequence,
+                                 args.spi_opt)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard, args.sequence)

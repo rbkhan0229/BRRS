@@ -260,6 +260,12 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #ifndef BRRS_EXP4_SLOT_REPEATS
 #define BRRS_EXP4_SLOT_REPEATS 1
 #endif
+#ifndef BRRS_EXP4_SPI_PERSISTENT
+#define BRRS_EXP4_SPI_PERSISTENT 0
+#endif
+#if BRRS_EXP4_SPI_PERSISTENT != 0 && BRRS_EXP4_SPI_PERSISTENT != 1
+#error "BRRS_EXP4_SPI_PERSISTENT must be 0 or 1"
+#endif
 #if BRRS_EXP4_SLOT_REPEATS < 1
 #error "BRRS_EXP4_SLOT_REPEATS must be at least 1"
 #endif
@@ -1193,6 +1199,8 @@ static uint32_t exp4_rdb_incomplete_events = 0;
 static uint32_t exp4_rdb_incomplete_recovered = 0;
 static uint32_t exp4_rdb_incomplete_ciaerr = 0;
 static uint32_t exp4_rdb_resync_count = 0;
+static uint32_t exp4_spi_begin_failures = 0;
+static uint32_t exp4_spi_end_failures = 0;
 static uint8_t exp4_rx_host_buffer = 0;
 static uint32_t exp4_wrong_length_by_slot[BRRS_MAX_DATA_SLOTS + 1U] = {0};
 static uint32_t exp4_wrong_length_by_buffer[2] = {0};
@@ -2316,6 +2324,11 @@ static void exp4_close_data_burst(exp4_burst_close_reason_t reason)
     dwt_forcetrxoff();
     dwt_writesysstatuslo(0xFFFFFFFF);
     dwt_writerdbstatus(0xFFU);
+#if BRRS_EXP4_SPI_PERSISTENT
+    if (port_dw_spi_burst_end() != NRF_SUCCESS) {
+        exp4_spi_end_failures++;
+    }
+#endif
     exp4_data_burst_active = false;
     current_rx_slot = 0xFF;
 
@@ -2747,7 +2760,7 @@ int brrs_init(void)
     {
         static char cfg_msg[560];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "EXP4_CONFIG_CSV,physical_sensors=%d,data_slots=%d,slot_repeats=%d,data_plen=%d,data_pac=%u,psdu_bytes=%d,app_payload_bytes=%d,sync_plen=%d,superframe_us=%d,sync_rmarker_offset_us=%d,sync_buffer_us=%d,frame_airtime_us=%d,slot_us=%d,guard_us=%d,lead_us=%d,tail_us=%d,data_burst_deadline_us=%d,sync_prep_deadline_us=%d,burst_rearm_budget_us=%d,max_slots=%d",
+                 "EXP4_CONFIG_CSV,physical_sensors=%d,data_slots=%d,slot_repeats=%d,data_plen=%d,data_pac=%u,psdu_bytes=%d,app_payload_bytes=%d,sync_plen=%d,superframe_us=%d,sync_rmarker_offset_us=%d,sync_buffer_us=%d,frame_airtime_us=%d,slot_us=%d,guard_us=%d,lead_us=%d,tail_us=%d,data_burst_deadline_us=%d,sync_prep_deadline_us=%d,burst_rearm_budget_us=%d,max_slots=%d,spi_mode=%s",
                  brrs_active_node_count(brrs_configured_sensor_bitmap()),
                  BRRS_EXP4_DATA_SLOT_COUNT, BRRS_EXP4_SLOT_REPEATS,
                  PREAMBLE_SYMBOLS, (unsigned)DATA_PAC_SYMBOLS, PSDU_BYTES,
@@ -2760,10 +2773,12 @@ int brrs_init(void)
                  EXP4_DATA_BURST_END_US,
                  CONFIG_SWITCH_US,
                  SLOT_GUARD_US,
-                 EXP4_MAX_DATA_SLOTS);
+                 EXP4_MAX_DATA_SLOTS,
+                 BRRS_EXP4_SPI_PERSISTENT ?
+                     "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=24,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,rx_metadata=single_completed_buffer_spi_read,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
+            "EXP4_FIRMWARE_REV,rev=25,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,rx_metadata=single_completed_buffer_spi_read,rdb_status=validate_current_host_buffer_post_metadata,slot_class_diag=source_observed_host,burst_end=last_valid_frame_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -2941,6 +2956,7 @@ int brrs_init(void)
                 {
                     uint32_t active_sensor_count =
                         brrs_active_node_count(brrs_configured_sensor_bitmap());
+                    dw_spi_burst_stats_t spi_stats = {0};
                     uint32_t data_slots_per_superframe = BRRS_EXP4_DATA_SLOT_COUNT;
                     uint32_t expected_frames = data_slots_per_superframe * TARGET_CYCLES;
                     uint32_t missed_frames = (expected_frames >= exp4_frames_received) ?
@@ -2957,6 +2973,24 @@ int brrs_init(void)
                     uint64_t offered_bps = (elapsed_us > 0) ?
                         ((uint64_t)expected_frames * BRRS_APP_PAYLOAD_BYTES * 8ULL * 1000000ULL /
                          elapsed_us) : 0;
+                    bool spi_session_pass;
+                    port_dw_spi_burst_get_stats(&spi_stats);
+                    spi_session_pass =
+                        (spi_stats.active == 0U &&
+                         spi_stats.transfer_error_count == 0U &&
+                         spi_stats.state_error_count == 0U &&
+                         spi_stats.recovery_count == 0U &&
+                         exp4_spi_begin_failures == 0U &&
+                         exp4_spi_end_failures == 0U);
+#if BRRS_EXP4_SPI_PERSISTENT
+                    spi_session_pass = spi_session_pass &&
+                        spi_stats.begin_count == total_cycles &&
+                        spi_stats.end_count == total_cycles;
+#else
+                    spi_session_pass = spi_session_pass &&
+                        spi_stats.begin_count == 0U &&
+                        spi_stats.end_count == 0U;
+#endif
                     bool schedule_pass =
                         (exp4_sync_tx_delayed_late == 0 &&
                          total_rx_delayed_fallbacks == 0 &&
@@ -2979,11 +3013,14 @@ int brrs_init(void)
                              exp4_rearm_service_stats.count &&
                          exp4_rearm_service_stats.max_us +
                              RX_LEAD_MARGIN_US <= SLOT_GUARD_US &&
-                         exp4_burst_forced_prep_close_count == 0);
+                         exp4_burst_forced_prep_close_count == 0 &&
+                         spi_session_pass);
                     bool timing_pass = slot_timing_counts_match();
                     bool link_pass = (exp4_frames_received == expected_frames);
                     bool collection_pass =
                         (total_cycles == TARGET_CYCLES &&
+                         expected_frames > 0U &&
+                         exp4_frames_received > 0U &&
                          expected_frames == data_slots_per_superframe * total_cycles &&
                          exp4_end_ok &&
                          exp4_end_tx_count == EXP4_END_REPEAT_COUNT &&
@@ -3197,6 +3234,22 @@ int brrs_init(void)
                                  (int)EXP4_RDB_CIADONE_RETRY_TIMEOUT_US);
                         final_log_info(s);
                     }
+
+                    snprintf(s, sizeof(s),
+                             "EXP4_SPI_CSV,mode=%s,begin=%lu,end=%lu,active=%u,begin_fail=%lu,end_fail=%lu,state_error=%lu,transfer_error=%lu,recovery=%lu,status=%s",
+                             BRRS_EXP4_SPI_PERSISTENT ?
+                                 "persistent_data_burst" :
+                                 "legacy_per_transaction",
+                             (unsigned long)spi_stats.begin_count,
+                             (unsigned long)spi_stats.end_count,
+                             (unsigned int)spi_stats.active,
+                             (unsigned long)exp4_spi_begin_failures,
+                             (unsigned long)exp4_spi_end_failures,
+                             (unsigned long)spi_stats.state_error_count,
+                             (unsigned long)spi_stats.transfer_error_count,
+                             (unsigned long)spi_stats.recovery_count,
+                             spi_session_pass ? "PASS" : "FAIL");
+                    final_log_info(s);
 
                     snprintf(s, sizeof(s),
                              "EXP4_STATUS_CSV,schedule=%s,timing=%s,collection=%s,link=%s",
@@ -3824,8 +3877,22 @@ int brrs_init(void)
 #elif BRRS_EXPERIMENT == 4
                 if (!config_is_sync && current_beacon_config.slot_count > 0U &&
                     !slots_scheduled[0]) {
-                    if (schedule_rx_slot(0)) {
+                    bool spi_burst_ready = true;
+#if BRRS_EXP4_SPI_PERSISTENT
+                    if (port_dw_spi_burst_begin() != NRF_SUCCESS) {
+                        exp4_spi_begin_failures++;
+                        spi_burst_ready = false;
+                    }
+#endif
+                    if (spi_burst_ready && schedule_rx_slot(0)) {
                         exp4_data_burst_active = true;
+                    } else {
+#if BRRS_EXP4_SPI_PERSISTENT
+                        if (spi_burst_ready &&
+                            port_dw_spi_burst_end() != NRF_SUCCESS) {
+                            exp4_spi_end_failures++;
+                        }
+#endif
                     }
                 }
 #endif

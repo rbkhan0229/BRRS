@@ -18,6 +18,7 @@ Options:
   --guard <us>         Inter-slot guard used by every board (default: 200).
   --lead <us>          Coordinator RX lead margin (default: 15).
   --pac <4|8>          Coordinator DATA RX PAC size (default: 8).
+  --spi-opt            Keep SPIM enabled during each bounded DATA burst.
   --serial <S/N>       Select a J-Link when multiple probes are attached.
   --no-build           Reuse an image previously made with the same parameters.
   --timeout <seconds>  Override capture timeout (INIT 90 s, sensor 180 s).
@@ -60,6 +61,7 @@ NO_BUILD=0
 TIMEOUT=""
 FORCE=0
 SEQUENCE=""
+SPI_OPT=0
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -92,6 +94,7 @@ while (( $# > 0 )); do
             (( $# >= 2 )) || { echo "--sequence requires a value" >&2; exit 2; }
             SEQUENCE="$2"; shift 2
             ;;
+        --spi-opt) SPI_OPT=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -161,16 +164,25 @@ fi
 if [[ -n "${SEQUENCE}" ]]; then
     IMAGE_DIR+="_seq${SEQUENCE}"
 fi
+if (( SPI_OPT )); then
+    IMAGE_DIR+="_spiopt"
+fi
 IMAGE_BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_${IMAGE_ROLE}"
 HEX_FILE="${IMAGE_DIR}/${IMAGE_BASE}.hex"
 ELF_FILE="${IMAGE_DIR}/${IMAGE_BASE}.elf"
 CONFIG="Generated_Exp4_${PREAMBLE}_S${SENSOR_COUNT}_G${GUARD_US}_L${LEAD_US}_PAC${PAC}_${ROLE_LABEL}"
+if (( SPI_OPT )); then
+    CONFIG+="_SPIOPT"
+fi
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
 OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_${DATE_TAG}"
 if [[ -n "${SEQUENCE}" ]]; then
     OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_seq${SEQUENCE}_${DATE_TAG}"
+fi
+if (( SPI_OPT )); then
+    OUTDIR+="_spiopt"
 fi
 mkdir -p "${OUTDIR}"
 
@@ -238,6 +250,7 @@ echo "  Configuration: ${CONFIG}"
 echo "  Guard:         ${GUARD_US} us"
 echo "  RX lead:       ${LEAD_US} us"
 echo "  RX PAC:        ${PAC}"
+echo "  SPI mode:      $((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
@@ -248,6 +261,7 @@ if (( NO_BUILD == 0 )); then
     BUILD_CMD=("${SCRIPT_DIR}/brrs_exp4_build.sh"
         "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}" --pac "${PAC}")
     [[ -n "${SEQUENCE}" ]] && BUILD_CMD+=(--sequence "${SEQUENCE}")
+    (( SPI_OPT == 0 )) || BUILD_CMD+=(--spi-opt)
     EMBUILD="${EMBUILD}" "${BUILD_CMD[@]}" \
         >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
@@ -277,13 +291,16 @@ PYLINK_ARGS=(
 
 VERIFY_SEQ_ARGS=()
 [[ -n "${SEQUENCE}" ]] && VERIFY_SEQ_ARGS+=(--sequence "${SEQUENCE}")
+VERIFY_SPI_ARGS=()
+(( SPI_OPT == 0 )) || VERIFY_SPI_ARGS+=(--spi-opt)
 # bash 3.2 (macOS default) raises "unbound variable" under set -u when
 # expanding "${arr[@]}" on a zero-length array, even though it was
 # declared -- the ${arr[@]+"${arr[@]}"} idiom works around it.
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     "${VERIFY_ARGS[@]}" --preamble "${PREAMBLE}" \
     --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" \
-    ${VERIFY_SEQ_ARGS[@]+"${VERIFY_SEQ_ARGS[@]}"})"
+    ${VERIFY_SEQ_ARGS[@]+"${VERIFY_SEQ_ARGS[@]}"} \
+    ${VERIFY_SPI_ARGS[@]+"${VERIFY_SPI_ARGS[@]}"})"
 echo "${VERIFY_OUTPUT}"
 DETAIL="${VERIFY_OUTPUT#\[verify\] PASS: }"
 
@@ -303,6 +320,7 @@ fi
     printf 'guard_us=%s\n' "${GUARD_US}"
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'pac=%s\n' "${PAC}"
+    printf 'spi_mode=%s\n' "$((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
     printf 'slot_sequence=%s\n' "${SEQUENCE:-default-round-robin}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"
