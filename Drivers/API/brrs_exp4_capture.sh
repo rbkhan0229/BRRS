@@ -312,6 +312,22 @@ else
     FIRMWARE_SHA256="$(shasum -a 256 "${HEX_FILE}" | awk '{print $1}')"
 fi
 
+GIT_COMMIT="$(git -C "${SDK_ROOT}" rev-parse HEAD)"
+GIT_BRANCH="$(git -C "${SDK_ROOT}" branch --show-current)"
+if [[ -n "$(git -C "${SDK_ROOT}" status --porcelain --untracked-files=no)" ]]; then
+    GIT_WORKTREE="dirty"
+else
+    GIT_WORKTREE="clean"
+fi
+SDK_VERSION="$(basename "${SDK_ROOT}")"
+if (( SPI_OPT )); then
+    OPTIMIZATION="debug-project-O0_direct-spi-hot-functions-O3"
+    CS_IDLE_FLOOR_NS=125
+else
+    OPTIMIZATION="debug-project-O0"
+    CS_IDLE_FLOOR_NS="not-applicable-per-transaction-spim-cycle"
+fi
+
 {
     printf 'role=%s\n' "${ROLE_LABEL}"
     printf 'configuration=%s\n' "${CONFIG}"
@@ -321,11 +337,22 @@ fi
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'pac=%s\n' "${PAC}"
     printf 'spi_mode=%s\n' "$((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
+    printf 'spi_clock_hz=32000000\n'
+    printf 'cpu_clock_hz=64000000\n'
+    printf 'cs_idle_floor_ns=%s\n' "${CS_IDLE_FLOOR_NS}"
     printf 'slot_sequence=%s\n' "${SEQUENCE:-default-round-robin}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"
     printf 'distance_m=%s\n' "${DISTANCE}"
     printf 'captured_at=%s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')"
+    printf 'git_commit=%s\n' "${GIT_COMMIT}"
+    printf 'git_branch=%s\n' "${GIT_BRANCH}"
+    printf 'git_worktree=%s\n' "${GIT_WORKTREE}"
+    printf 'sdk_version=%s\n' "${SDK_VERSION}"
+    printf 'build_tool=SEGGER Embedded Studio 8.28 emBuild\n'
+    printf 'build_configuration=Debug\n'
+    printf 'optimization=%s\n' "${OPTIMIZATION}"
+    printf 'firmware_path=%s\n' "${HEX_FILE}"
     printf 'firmware_sha256=%s\n' "${FIRMWARE_SHA256}"
     printf 'rtt_address=%s\n' "${RTT_ADDR}"
     printf 'capture_method=pylink\n'
