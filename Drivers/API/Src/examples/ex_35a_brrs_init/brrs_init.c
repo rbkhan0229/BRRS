@@ -3170,6 +3170,7 @@ int brrs_init(void)
                     spi_session_pass =
                         (spi_stats.active == 0U &&
                          spi_stats.transfer_error_count == 0U &&
+                         spi_stats.direct_timeout_count == 0U &&
                          spi_stats.state_error_count == 0U &&
                          spi_stats.recovery_count == 0U &&
                          exp4_spi_begin_failures == 0U &&
@@ -3510,7 +3511,7 @@ int brrs_init(void)
                     }
 
                     snprintf(s, sizeof(s),
-                             "EXP4_SPI_CSV,mode=%s,begin=%lu,end=%lu,active=%u,begin_fail=%lu,end_fail=%lu,device_id_fail=%lu,state_error=%lu,transfer_error=%lu,recovery=%lu,status=%s",
+                             "EXP4_SPI_CSV,mode=%s,begin=%lu,end=%lu,active=%u,begin_fail=%lu,end_fail=%lu,device_id_fail=%lu,state_error=%lu,transfer_error=%lu,direct_xfers=%lu,direct_timeout=%lu,recovery=%lu,status=%s",
                              BRRS_EXP4_SPI_PERSISTENT ?
                                  "persistent_data_burst" :
                                  "legacy_per_transaction",
@@ -3522,6 +3523,8 @@ int brrs_init(void)
                              (unsigned long)exp4_spi_device_id_failures,
                              (unsigned long)spi_stats.state_error_count,
                              (unsigned long)spi_stats.transfer_error_count,
+                             (unsigned long)spi_stats.direct_transfer_count,
+                             (unsigned long)spi_stats.direct_timeout_count,
                              (unsigned long)spi_stats.recovery_count,
                              spi_session_pass ? "PASS" : "FAIL");
                     final_log_info(s);

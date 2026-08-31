@@ -181,14 +181,18 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(spi, "device_id_fail", 0)
     require(spi, "state_error", 0)
     require(spi, "transfer_error", 0)
+    require(spi, "direct_timeout", 0)
     require(spi, "recovery", 0)
     require(spi, "status", "PASS")
     if spi_opt:
         require(spi, "begin", 1000)
         require(spi, "end", 1000)
+        if integer(spi, "direct_xfers") <= 0:
+            fail("optimized SPI run used no direct transfers")
     else:
         require(spi, "begin", 0)
         require(spi, "end", 0)
+        require(spi, "direct_xfers", 0)
 
     hot_path = key_values(last_line(lines, "EXP4_HOT_PATH_CSV,"))
     require(hot_path, "scope", "event_detect_to_buffer_free")

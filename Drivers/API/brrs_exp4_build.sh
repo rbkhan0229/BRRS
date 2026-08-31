@@ -155,7 +155,7 @@ build_image() {
         extra_defs=";BRRS_EXP4_CUSTOM_SEQUENCE=\"${SEQUENCE}\""
     fi
     if (( SPI_OPT )) && [[ "${role}" == "init" ]]; then
-        extra_defs+=";BRRS_EXP4_SPI_PERSISTENT=1"
+        extra_defs+=";BRRS_EXP4_SPI_PERSISTENT=1;BRRS_EXP4_SPI_DIRECT=1"
     fi
 
     echo "Building ${base}..."

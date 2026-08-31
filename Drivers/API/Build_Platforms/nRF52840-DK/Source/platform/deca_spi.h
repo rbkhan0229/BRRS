@@ -81,6 +81,8 @@ typedef struct
     uint32_t recovery_count;
     uint32_t transfer_error_count;
     uint32_t state_error_count;
+    uint32_t direct_transfer_count;
+    uint32_t direct_timeout_count;
     uint8_t active;
 } dw_spi_burst_stats_t;
 

@@ -15,6 +15,10 @@
 #include "port.h"
 #include <deca_device_api.h>
 
+#ifndef BRRS_EXP4_SPI_DIRECT
+#define BRRS_EXP4_SPI_DIRECT 0
+#endif
+
 // static
 // spi_handle_t spi_handler = {
 ///* below will be configured in the port_init_dw_chip() */
@@ -242,6 +246,98 @@ static bool spi_keep_enabled(void)
     return spi_burst_active && spi_burst_handler == pgSpiHandler;
 }
 
+#if BRRS_EXP4_SPI_DIRECT
+#define DW_SPI_DIRECT_TIMEOUT_CYCLES 64000U
+
+static uint32_t spi_anomaly_198_enable(const uint8_t *buffer,
+                                       uint32_t length)
+{
+    uint32_t preserved = *((volatile uint32_t *)0x40000E00);
+    uint32_t buffer_end;
+    uint32_t block_addr;
+    uint32_t block_flag;
+    uint32_t occupied_blocks = 0U;
+
+    if (length == 0U)
+    {
+        return preserved;
+    }
+    buffer_end = (uint32_t)buffer + length;
+    block_addr = (uint32_t)buffer & ~0x1FFFU;
+    block_flag = 1UL << ((block_addr >> 13) & 0xFFFFU);
+    if (block_addr >= 0x20010000U)
+    {
+        occupied_blocks = 1UL << 8;
+    }
+    else
+    {
+        do
+        {
+            occupied_blocks |= block_flag;
+            block_flag <<= 1;
+            block_addr += 0x2000U;
+        } while (block_addr < buffer_end && block_addr < 0x20012000U);
+    }
+    *((volatile uint32_t *)0x40000E00) = occupied_blocks;
+    return preserved;
+}
+
+__attribute__((optimize("O3")))
+static ret_code_t spi_direct_transfer(const uint8_t *tx_buffer,
+                                      uint32_t length,
+                                      uint8_t *rx_buffer)
+{
+    NRF_SPIM_Type *spim = pgSpiHandler->spi_inst.u.spim.p_reg;
+    uint32_t anomaly_preserved;
+    uint32_t start_cycles;
+
+    if (!spi_keep_enabled() || spim != NRF_SPIM3 ||
+        (DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk) == 0U)
+    {
+        return nrf_drv_spi_transfer(&pgSpiHandler->spi_inst,
+                                    tx_buffer, length,
+                                    rx_buffer, length);
+    }
+
+    anomaly_preserved = spi_anomaly_198_enable(tx_buffer, length);
+    nrf_spim_tx_list_disable(spim);
+    nrf_spim_rx_list_disable(spim);
+    nrf_spim_tx_buffer_set(spim, tx_buffer, length);
+    nrf_spim_rx_buffer_set(spim, rx_buffer, length);
+    nrf_spim_event_clear(spim, NRF_SPIM_EVENT_END);
+    start_cycles = DWT->CYCCNT;
+    nrf_spim_task_trigger(spim, NRF_SPIM_TASK_START);
+    while (!nrf_spim_event_check(spim, NRF_SPIM_EVENT_END))
+    {
+        if ((uint32_t)(DWT->CYCCNT - start_cycles) >=
+            DW_SPI_DIRECT_TIMEOUT_CYCLES)
+        {
+            nrf_spim_task_trigger(spim, NRF_SPIM_TASK_STOP);
+            *((volatile uint32_t *)0x40000E00) = anomaly_preserved;
+            spi_burst_stats.direct_timeout_count++;
+            return NRF_ERROR_TIMEOUT;
+        }
+    }
+    *((volatile uint32_t *)0x40000E00) = anomaly_preserved;
+    spi_burst_stats.direct_transfer_count++;
+    return NRF_SUCCESS;
+}
+#endif
+
+static ret_code_t spi_transfer(const uint8_t *tx_buffer,
+                               uint32_t length,
+                               uint8_t *rx_buffer)
+{
+#if BRRS_EXP4_SPI_DIRECT
+    if (spi_keep_enabled())
+    {
+        return spi_direct_transfer(tx_buffer, length, rx_buffer);
+    }
+#endif
+    return nrf_drv_spi_transfer(&pgSpiHandler->spi_inst,
+                                tx_buffer, length, rx_buffer, length);
+}
+
 void port_dw_spi_burst_force_recover(void)
 {
     spi_deassert_cs();
@@ -410,7 +506,7 @@ int32_t writetospiwithcrc(uint16_t headerLength, const uint8_t *headerBuffer, ui
     spi_assert_cs();
 
     spi_xfer_done = false;
-    transfer_result = nrf_drv_spi_transfer(&pgSpiHandler->spi_inst, idatabuf, idatalength, itempbuf, idatalength);
+    transfer_result = spi_transfer(idatabuf, idatalength, itempbuf);
 
     spi_deassert_cs();
     if (!spi_keep_enabled())
@@ -464,7 +560,7 @@ int32_t writetospi(uint16_t headerLength, const uint8_t *headerBuffer, uint16_t 
     spi_assert_cs();
 
     spi_xfer_done = false;
-    transfer_result = nrf_drv_spi_transfer(&pgSpiHandler->spi_inst, idatabuf, idatalength, itempbuf, idatalength);
+    transfer_result = spi_transfer(idatabuf, idatalength, itempbuf);
 
     spi_deassert_cs();
     if (!spi_keep_enabled())
@@ -522,7 +618,7 @@ int32_t readfromspi(uint16_t headerLength, uint8_t *headerBuffer, uint16_t readL
     spi_assert_cs();
 
     spi_xfer_done = false;
-    transfer_result = nrf_drv_spi_transfer(&pgSpiHandler->spi_inst, idatabuf, idatalength, itempbuf, idatalength);
+    transfer_result = spi_transfer(idatabuf, idatalength, itempbuf);
 
     spi_deassert_cs();
     if (!spi_keep_enabled())
