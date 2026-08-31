@@ -3079,7 +3079,7 @@ int brrs_init(void)
                      "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=36,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=37,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
     }
 #endif
 
@@ -4420,11 +4420,9 @@ int brrs_init(void)
                 {
                     const uint8_t ready0_mask =
                         DWT_RDB_STATUS_RXFCG0_BIT_MASK |
-                        DWT_RDB_STATUS_RXFR0_BIT_MASK |
                         DWT_RDB_STATUS_CIADONE0_BIT_MASK;
                     const uint8_t ready1_mask =
                         DWT_RDB_STATUS_RXFCG1_BIT_MASK |
-                        DWT_RDB_STATUS_RXFR1_BIT_MASK |
                         DWT_RDB_STATUS_CIADONE1_BIT_MASK;
                     bool ready0 = (exp4_rdb_status & ready0_mask) == ready0_mask;
                     bool ready1 = (exp4_rdb_status & ready1_mask) == ready1_mask;
@@ -4482,17 +4480,18 @@ int brrs_init(void)
                     exp4_cycles_to_us_ceil(dwt_timer_get_cycles() -
                                             exp4_hot_path_start_cycles));
 
-                /* RXFR + RXFCG identifies a complete CRC-valid frame;
-                 * CIADONE validates the adjusted receive timestamp. */
+                /* RXFCG identifies a complete CRC-valid frame and CIADONE
+                 * validates the adjusted receive timestamp. Qorvo's DW3000
+                 * good-frame path does not require RXFR in addition to those
+                 * two signals, so do not reject an otherwise ready buffer on
+                 * a redundant per-buffer RXFR bit. */
                 exp4_rdb_current_good_mask = (completed_host_buffer == 0U) ?
                     DWT_RDB_STATUS_RXFCG0_BIT_MASK :
                     DWT_RDB_STATUS_RXFCG1_BIT_MASK;
                 exp4_rdb_current_ready_mask = (completed_host_buffer == 0U) ?
                     (DWT_RDB_STATUS_RXFCG0_BIT_MASK |
-                     DWT_RDB_STATUS_RXFR0_BIT_MASK |
                      DWT_RDB_STATUS_CIADONE0_BIT_MASK) :
                     (DWT_RDB_STATUS_RXFCG1_BIT_MASK |
-                     DWT_RDB_STATUS_RXFR1_BIT_MASK |
                      DWT_RDB_STATUS_CIADONE1_BIT_MASK);
                 if ((exp4_rdb_status & exp4_rdb_current_good_mask) == 0U) {
                     exp4_rdb_host_mismatches++;
@@ -4518,11 +4517,11 @@ int brrs_init(void)
                 }
                 if ((exp4_rdb_status & exp4_rdb_current_ready_mask) !=
                     exp4_rdb_current_ready_mask) {
-                    /* RXFCG passed (checked above), but per the DW3000
-                     * manual (SYS_STATUS RXFR/CIADONE description, section
-                     * 4.4), RXFRx is only set once CIA processing has
-                     * concluded -- either successfully (CIADONEx) or with
-                     * an error, reported via the *global* SYS_STATUS
+                    /* RXFCG passed (checked above), but the adjusted RX
+                     * timestamp is not ready until CIA processing concludes
+                     * successfully (CIADONEx), or reports an error via the
+                     * global SYS_STATUS CIAERR bit
+                     * (RDB_STATUS has no per-buffer CIAERR0/1).
                      * CIAERR bit (RDB_STATUS has no per-buffer CIAERR0/1).
                      * If CIA erred, CIADONEx will never be set, so a short
                      * settling wait is still worth trying (in case this is
