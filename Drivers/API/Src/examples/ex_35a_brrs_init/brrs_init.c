@@ -542,6 +542,7 @@ static uint32_t rx_err_sfdto = 0;    /* RXSTO: preamble은 잡았으나 SFD 실�
 static uint32_t rx_err_phe = 0;      /* PHY header error */
 static uint32_t rx_err_fce = 0;      /* CRC error */
 static uint32_t rx_err_fsl = 0;      /* Reed-Solomon / sync loss */
+static uint32_t rx_err_fint_only = 0; /* aggregate RXERR; subtype cleared by fast rearm */
 
 static const char* get_slot_description(uint8_t slot_idx);
 static uint8_t node_id_to_index(uint8_t node_id);
@@ -3073,7 +3074,7 @@ int brrs_init(void)
                      "persistent_data_burst" : "legacy_per_transaction");
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=31,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_rearm,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=32,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_poll=fint_status,event_mask=validated,host_irq=disabled_polling,spi_session=feature_flagged_bounded_data_burst,hot_spi=direct_register_header,rx_metadata=single_completed_buffer_spi_read,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_current_host_buffer_post_metadata,error_status_clear=post_rearm,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
     }
 #endif
 
@@ -3774,7 +3775,7 @@ int brrs_init(void)
                 {
                     static char s[256];
 #if BRRS_EXPERIMENT == 4
-                    snprintf(s, sizeof(s), "RX timeouts=%lu (fwto=%lu pto=%lu)  RX errors=%lu (sfdto=%lu phe=%lu fce=%lu fsl=%lu overrun=%lu)  delayed schedule late=%lu  data config errors=%lu",
+                    snprintf(s, sizeof(s), "RX timeouts=%lu (fwto=%lu pto=%lu)  RX errors=%lu (sfdto=%lu phe=%lu fce=%lu fsl=%lu fint-only=%lu overrun=%lu)  delayed schedule late=%lu  data config errors=%lu",
                              (unsigned long)total_rx_timeouts,
                              (unsigned long)rx_to_frame,
                              (unsigned long)rx_to_preamble,
@@ -3783,6 +3784,7 @@ int brrs_init(void)
                              (unsigned long)rx_err_phe,
                              (unsigned long)rx_err_fce,
                              (unsigned long)rx_err_fsl,
+                             (unsigned long)rx_err_fint_only,
                              (unsigned long)exp4_rx_buffer_overruns,
                              (unsigned long)total_rx_delayed_fallbacks,
                              (unsigned long)data_config_errors);
@@ -4823,7 +4825,7 @@ int brrs_init(void)
             else if (status_reg & SYS_STATUS_ALL_RX_TO) {
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = exp4_status_poll_start_cycles;
-                uint8_t failed_rx_slot = exp4_slot_from_event_time();
+                uint8_t failed_rx_slot = current_rx_slot;
                 bool exp4_rearm_needed = exp4_has_later_slot();
                 if (exp4_rearm_needed) {
                     update_node_latency(&exp4_status_poll_stats,
@@ -4835,6 +4837,7 @@ int brrs_init(void)
                  * loop. This keeps the recovery path inside the same guard
                  * budget without allowing a stale FINT event to escape. */
                 exp4_rearm_after_event(exp4_event_start_cycles);
+                failed_rx_slot = exp4_slot_from_event_time();
                 status_reg = exp4_read_error_detail(exp4_rearm_needed ?
                     &exp4_error_detail_post_rearm_stats : NULL);
                 exp4_clear_rx_status(SYS_STATUS_ALL_RX_TO |
@@ -4876,13 +4879,13 @@ int brrs_init(void)
                 uint8_t failed_rx_slot = current_rx_slot;
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = exp4_status_poll_start_cycles;
-                failed_rx_slot = exp4_slot_from_event_time();
                 bool exp4_rearm_needed = exp4_has_later_slot();
                 if (exp4_rearm_needed) {
                     update_node_latency(&exp4_status_poll_stats,
                                         exp4_status_poll_us);
                 }
                 exp4_rearm_after_event(exp4_event_start_cycles);
+                failed_rx_slot = exp4_slot_from_event_time();
                 status_reg = exp4_read_error_detail(exp4_rearm_needed ?
                     &exp4_error_detail_post_rearm_stats : NULL);
                 if ((status_reg & DWT_INT_RXOVRR_BIT_MASK) != 0U) {
@@ -4930,6 +4933,14 @@ int brrs_init(void)
                 if (status_reg & DWT_INT_RXPHE_BIT_MASK) rx_err_phe++;
                 if (status_reg & DWT_INT_RXFCE_BIT_MASK) rx_err_fce++;
                 if (status_reg & DWT_INT_RXFSL_BIT_MASK) rx_err_fsl++;
+#if BRRS_EXPERIMENT == 4
+                if ((status_reg & (DWT_INT_RXSTO_BIT_MASK |
+                                   DWT_INT_RXPHE_BIT_MASK |
+                                   DWT_INT_RXFCE_BIT_MASK |
+                                   DWT_INT_RXFSL_BIT_MASK)) == 0U) {
+                    rx_err_fint_only++;
+                }
+#endif
                 if (failed_rx_slot < current_beacon_config.slot_count) {
                     uint8_t owner_seq = current_beacon_config.slot_owner[failed_rx_slot];
                     uint8_t owner_idx = (uint8_t)(owner_seq - 1U);
