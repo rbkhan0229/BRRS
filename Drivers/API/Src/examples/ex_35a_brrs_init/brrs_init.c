@@ -3247,6 +3247,7 @@ int brrs_init(void)
                     bool collection_pass =
                         (total_cycles == TARGET_CYCLES &&
                          expected_frames == data_slots_per_superframe * total_cycles &&
+                         exp4_frames_received > 0U &&
                          exp4_end_ok &&
                          exp4_end_tx_count == EXP4_END_REPEAT_COUNT &&
                          exp4_burst_early_close_count +

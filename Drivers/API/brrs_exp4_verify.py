@@ -122,6 +122,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     rx = integer(done, "rx")
     if not 0 <= rx <= expected:
         fail(f"rx={rx}, expected range 0..{expected}")
+    if rx == 0:
+        fail("rx=0 is not a valid collected hardware run")
     expected_link = "PASS" if rx == expected else "LOSS"
     require(done, "link", expected_link)
 
