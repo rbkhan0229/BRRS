@@ -333,6 +333,8 @@ PYLINK_ARGS=(
     --ready-marker "EXP_LOG_READY,channel=1"
     --end-marker "===== END STATS ====="
     --timeout "${TIMEOUT}"
+    --reconnect-attempts 20
+    --reconnect-delay 0.5
     --out "${RAW_LOG}"
 )
 [[ -n "${SERIAL}" ]] && PYLINK_ARGS+=(--serial "${SERIAL}")

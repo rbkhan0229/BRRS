@@ -85,6 +85,40 @@ def parse_expect_lines(specs):
     return out
 
 
+def attach_running_target(serial, speed, rtt_addr, channel,
+                          attempts, delay_s):
+    """Reattach to a running target without reset or reflashing."""
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        candidate = pylink.JLink()
+        try:
+            candidate.open(serial_no=serial)
+            candidate.set_tif(pylink.enums.JLinkInterfaces.SWD)
+            candidate.connect(DEVICE, speed=speed)
+            candidate.rtt_start(block_address=rtt_addr)
+
+            deadline = time.monotonic() + 2.0
+            while time.monotonic() < deadline:
+                try:
+                    if candidate.rtt_get_num_up_buffers() > channel:
+                        return candidate
+                except pylink.errors.JLinkRTTException:
+                    pass
+                time.sleep(0.05)
+            raise RuntimeError("RTT control block unavailable after reconnect")
+        except Exception as exc:
+            last_error = exc
+            try:
+                candidate.close()
+            except Exception:
+                pass
+            if attempt < attempts:
+                time.sleep(delay_s)
+    raise RuntimeError(
+        f"failed to reattach after {attempts} attempt(s): {last_error}"
+    )
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -104,7 +138,16 @@ def main():
                     help='"PREFIX:COUNT" — PREFIX로 시작하는 행이 COUNT개 이상인지 검증')
     ap.add_argument("--no-reset", action="store_true",
                     help="flash 없이 이미 실행 중인 타깃에 attach만 (reset 안 함)")
+    ap.add_argument("--reconnect-attempts", type=int, default=0,
+                    help="capture 중 J-Link 단절 시 동일 프로브 재접속 횟수")
+    ap.add_argument("--reconnect-delay", type=float, default=0.5,
+                    help="J-Link 재접속 시도 간 대기 시간(초)")
     args = ap.parse_args()
+
+    if args.reconnect_attempts < 0:
+        ap.error("--reconnect-attempts must be >= 0")
+    if args.reconnect_delay <= 0:
+        ap.error("--reconnect-delay must be > 0")
 
     rtt_addr = int(args.rtt_address, 0)
     expectations = parse_expect_lines(args.expect_lines)
@@ -149,10 +192,29 @@ def main():
         end_b = args.end_marker.encode()
         ready_b = (args.ready_marker or "").encode()
         deadline = time.monotonic() + args.timeout
+        reconnect_count = 0
 
         with open(args.out, "wb") as f:
             while time.monotonic() < deadline:
-                data = jl.rtt_read(args.channel, 16384)
+                try:
+                    data = jl.rtt_read(args.channel, 16384)
+                except pylink.errors.JLinkException as exc:
+                    remaining = args.reconnect_attempts - reconnect_count
+                    if remaining <= 0:
+                        raise
+                    log(f"WARNING: J-Link connection lost ({exc}); "
+                        f"reattaching without reset ({remaining} attempt(s) left)")
+                    try:
+                        jl.close()
+                    except Exception:
+                        pass
+                    jl = attach_running_target(
+                        args.serial, args.speed, rtt_addr, args.channel,
+                        remaining, args.reconnect_delay
+                    )
+                    reconnect_count += 1
+                    log(f"reattached to running target (count={reconnect_count})")
+                    continue
                 if data:
                     b = bytes(data)
                     f.write(b)
@@ -164,12 +226,18 @@ def main():
                     if end_b in captured:
                         # 종료 마커 이후 잔여 데이터 flush
                         time.sleep(0.3)
-                        tail = jl.rtt_read(args.channel, 16384)
+                        try:
+                            tail = jl.rtt_read(args.channel, 16384)
+                        except pylink.errors.JLinkException:
+                            tail = []
                         while tail:
                             tb = bytes(tail)
                             f.write(tb)
                             captured += tb
-                            tail = jl.rtt_read(args.channel, 16384)
+                            try:
+                                tail = jl.rtt_read(args.channel, 16384)
+                            except pylink.errors.JLinkException:
+                                tail = []
                         end_seen = True
                         break
                 else:
