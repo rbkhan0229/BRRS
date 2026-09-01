@@ -1723,21 +1723,6 @@ int brrs_normal(void)
                         continue;
                     }
                     current_beacon_config = decoded_config;
-                    if (!beacon_config_logged) {
-                        brrs_log_beacon_config(&current_beacon_config);
-                        {
-                            static char phy_line[180];
-                            snprintf(phy_line, sizeof(phy_line),
-                                     "BRRS_DATA_PHY_APPLIED_CSV,experiment=%d,source=beacon,m=%u,plen_code=%u,sfd_to=%u,node=%u",
-                                     BRRS_EXPERIMENT,
-                                     current_data_preamble_symbols,
-                                     current_data_plen,
-                                     config_data.sfdTO,
-                                     MY_NODE_SEQ);
-                            test_run_info((unsigned char *)phy_line);
-                        }
-                        beacon_config_logged = true;
-                    }
                     brrs_load_owned_slots(&current_beacon_config);
 #if BRRS_EXPERIMENT == 4
                     if (exp4_first_owned_slot_us_observed == 0U &&
@@ -2068,6 +2053,27 @@ int brrs_normal(void)
                         }
                     }
 #endif
+
+                    /* The first-beacon configuration log used to run before
+                     * DATA PHY setup and delayed-TX programming.  Keep it out
+                     * of the SYNC-to-first-DATA critical path: the next SYNC
+                     * RX is already armed here and is several milliseconds
+                     * away. */
+                    if (!beacon_config_logged) {
+                        brrs_log_beacon_config(&current_beacon_config);
+                        {
+                            static char phy_line[180];
+                            snprintf(phy_line, sizeof(phy_line),
+                                     "BRRS_DATA_PHY_APPLIED_CSV,experiment=%d,source=beacon,m=%u,plen_code=%u,sfd_to=%u,node=%u",
+                                     BRRS_EXPERIMENT,
+                                     current_data_preamble_symbols,
+                                     current_data_plen,
+                                     config_data.sfdTO,
+                                     MY_NODE_SEQ);
+                            test_run_info((unsigned char *)phy_line);
+                        }
+                        beacon_config_logged = true;
+                    }
 
                     synchronized = true;
                     continue;
