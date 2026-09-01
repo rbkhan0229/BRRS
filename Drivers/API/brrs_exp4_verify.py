@@ -70,7 +70,8 @@ def expected_owners(sensors, sequence=None):
 
 
 def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
-                expected_pac, sequence=None, spi_opt=False,
+                expected_pac, expected_sync_buffer, expected_sync_prep,
+                max_per_percent, sequence=None, spi_opt=False,
                 irq_pending=False):
     slot_count = len(sequence) if sequence is not None else sensors
     expected = 1000 * slot_count
@@ -84,6 +85,11 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(config, "psdu_bytes", 26)
     require(config, "app_payload_bytes", 16)
     require(config, "superframe_us", 10000)
+    require(config, "sync_buffer_us", expected_sync_buffer)
+    require(config, "sync_prep_us", expected_sync_prep)
+    require(config, "data_budget_us",
+            10000 - expected_sync_buffer - expected_sync_prep)
+    require(config, "sync_prep_deadline_us", 10000 - expected_sync_prep)
     guard_us = integer(config, "guard_us")
     if guard_us != expected_guard:
         fail(f"guard_us={guard_us}, expected {expected_guard}")
@@ -102,6 +108,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(beacon, "m", preamble)
     require(beacon, "data_psdu", 26)
     require(beacon, "period_us", 10000)
+    require(beacon, "first_slot_rmarker_us", expected_sync_buffer)
     require(beacon, "slot_interval_us",
             FRAME_AIRTIME_US[preamble] + expected_guard)
 
@@ -131,6 +138,9 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         fail(f"rx={rx}, expected range 1..{expected}")
     expected_link = "PASS" if rx == expected else "LOSS"
     require(done, "link", expected_link)
+    per_percent = 100.0 * (expected - rx) / expected
+    if per_percent > max_per_percent:
+        fail(f"PER {per_percent:.3f}% > limit {max_per_percent:.3f}%")
 
     status = key_values(last_line(lines, "EXP4_STATUS_CSV,"))
     require(status, "schedule", "PASS")
@@ -151,9 +161,40 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(prep, "count", 999)
     require(prep, "delayed_late", 0)
     prep_budget = integer(prep, "budget_us")
+    if prep_budget != expected_sync_prep:
+        fail(f"SYNC prep budget {prep_budget} us != {expected_sync_prep} us")
     prep_max = integer(prep, "max_us")
     if prep_max >= prep_budget:
         fail(f"SYNC preparation max {prep_max} us >= budget {prep_budget} us")
+
+    first_arm = key_values(last_line(lines, "EXP4_FIRST_RX_ARM_CSV,"))
+    require(first_arm, "budget_us", expected_sync_buffer)
+    require(first_arm, "count", 1000)
+    require(first_arm, "sample_overflow", 0)
+    require(first_arm, "delayed_late", 0)
+    if integer(first_arm, "rx_open_slack_min_us") <= 0:
+        fail("coordinator first delayed-RX arm has no positive RX-open slack")
+
+    prep_e2e = key_values(last_line(lines, "EXP4_SYNC_PREP_E2E_CSV,"))
+    require(prep_e2e, "budget_us", expected_sync_prep)
+    require(prep_e2e, "count", 999)
+    require(prep_e2e, "sample_overflow", 0)
+    require(prep_e2e, "delayed_late", 0)
+    if integer(prep_e2e, "remaining_lead_min_us") <= 0:
+        fail("next-SYNC delayed-TX arm has no positive remaining lead")
+
+    wait_phases = [key_values(line) for line in lines
+                   if line.startswith("EXP4_WAIT_PHASE_CSV,")]
+    expected_wait_phases = {
+        "coordinator_data_phy_config": 1000,
+        "coordinator_delayed_rx_arm_call": 1000,
+        "sync_prep_deadline_detect_lateness": 999,
+        "sync_prep_burst_close": 999,
+    }
+    if {row.get("phase") for row in wait_phases} != set(expected_wait_phases):
+        fail("coordinator wait-budget phase set is incomplete")
+    for row in wait_phases:
+        require(row, "count", expected_wait_phases[row["phase"]])
 
     burst = key_values(last_line(lines, "EXP4_BURST_CSV,"))
     require(burst, "forced_prep_close", 0)
@@ -312,19 +353,28 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         fail(f"slot timing samples {timing_samples} != RX {rx}")
 
     missed = expected - rx
-    per_percent = 100.0 * missed / expected
     return (
         f"collection=PASS; superframes=1000; rx={rx}/{expected}; "
         f"PER={per_percent:.3f}%; link={expected_link}; "
+        f"PER_limit={max_per_percent:.3f}%; "
         f"period={period_avg_x1000 / 1000:.3f}us; "
         f"guard={guard_us}us(required={required_guard}us); lead={lead_us}us"
         f"; pac={expected_pac}"
     )
 
 
-def verify_sensor(lines, preamble, sensors, node, expected_guard, sequence=None):
+def verify_sensor(lines, preamble, sensors, node, expected_guard,
+                  expected_sync_buffer, expected_sync_prep,
+                  sequence=None):
     node_slots = sequence.count(str(node)) if sequence is not None else 1
     verify_revision(lines, "EXP4_TX_FIRMWARE_REV,")
+
+    boot = key_values(last_line(lines, "EXP4_TX_BOOT_CSV,"))
+    require(boot, "superframe_us", 10000)
+    require(boot, "sync_buffer_us", expected_sync_buffer)
+    require(boot, "sync_prep_us", expected_sync_prep)
+    require(boot, "data_budget_us",
+            10000 - expected_sync_buffer - expected_sync_prep)
 
     result = csv_fields(last_line(lines, "EXP4_TX_RESULT_CSV,"))
     if len(result) != 12:
@@ -369,6 +419,7 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard, sequence=None)
     slot_count = len(sequence) if sequence is not None else sensors
     require(beacon, "slot_count", slot_count)
     require(beacon, "period_us", 10000)
+    require(beacon, "first_slot_rmarker_us", expected_sync_buffer)
     require(beacon, "slot_interval_us",
             FRAME_AIRTIME_US[preamble] + expected_guard)
     owners = beacon.get("slot_owners", "")
@@ -396,6 +447,32 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard, sequence=None)
     require(tx_timing, "reference", "sync_rx_rmarker")
     require(tx_timing, "observation", "data_tx_rmarker")
 
+    first_arm = key_values(last_line(lines, "EXP4_TX_FIRST_ARM_CSV,"))
+    require(first_arm, "node", f"N{node}")
+    require(first_arm, "sync_buffer_us", expected_sync_buffer)
+    require(first_arm, "count", beacons)
+    require(first_arm, "sample_overflow", 0)
+    require(first_arm, "delayed_late", 0)
+    if integer(first_arm, "first_owned_slot_us") < expected_sync_buffer:
+        fail("first owned slot precedes the configured sync buffer")
+    if integer(first_arm, "data_rmarker_slack_min_us") <= 0:
+        fail("sensor first delayed-TX arm has no positive DATA-RMARKER slack")
+
+    wait_phases = [key_values(line) for line in lines
+                   if line.startswith("EXP4_TX_WAIT_PHASE_CSV,")]
+    expected_wait_phases = {
+        "sync_event_detect_to_frame_read",
+        "sync_event_detect_to_beacon_ready",
+        "sensor_data_phy_config",
+        "sensor_tx_buffer_write",
+        "sensor_delayed_tx_arm_call",
+    }
+    if {row.get("phase") for row in wait_phases} != expected_wait_phases:
+        fail("sensor wait-budget phase set is incomplete")
+    for row in wait_phases:
+        require(row, "node", f"N{node}")
+        require(row, "count", beacons)
+
     beacon_loss = 1000 - beacons
     return (
         f"collection=PASS; node=N{node}; tx={success}/{beacons * node_slots} "
@@ -419,6 +496,14 @@ def main():
     parser.add_argument("--lead", required=True, type=int,
                         choices=range(0, 1001))
     parser.add_argument("--pac", required=True, type=int, choices=(4, 8))
+    parser.add_argument("--sync-buffer", required=True, type=int,
+                        choices=range(1, 10000))
+    parser.add_argument("--sync-prep", required=True, type=int,
+                        choices=range(1, 10000))
+    parser.add_argument("--max-per-percent", type=float, default=100.0,
+                        help="Maximum aggregate PER for coordinator PASS "
+                             "(default: 100.0; timing sweeps should set an "
+                             "explicit tighter threshold).")
     parser.add_argument("--sequence",
                         help="Custom per-slot owner digit string (init image "
                              "only), e.g. 2323232323232. Omit for the "
@@ -435,6 +520,10 @@ def main():
         parser.error("--node is only valid for role=sensor")
     if args.node is not None and args.node > args.sensors + 1:
         parser.error("node is outside the configured sensor set")
+    if args.sync_buffer + args.sync_prep >= 10000:
+        parser.error("sync buffer + sync prep must leave a positive DATA budget")
+    if not 0.0 <= args.max_per_percent <= 100.0:
+        parser.error("--max-per-percent must be between 0 and 100")
     if args.sequence is not None and not (
             1 <= len(args.sequence) <= 32 and
             all(c in "2345678" for c in args.sequence)):
@@ -444,11 +533,14 @@ def main():
         lines = args.log.read_text(errors="replace").splitlines()
         if args.role == "init":
             detail = verify_init(lines, args.preamble, args.sensors,
-                                 args.guard, args.lead, args.pac, args.sequence,
+                                 args.guard, args.lead, args.pac,
+                                 args.sync_buffer, args.sync_prep,
+                                 args.max_per_percent, args.sequence,
                                  args.spi_opt, args.irq)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
-                                   args.node, args.guard, args.sequence)
+                                   args.node, args.guard, args.sync_buffer,
+                                   args.sync_prep, args.sequence)
     except (OSError, ValueError, VerificationError) as exc:
         print(f"[verify] FAIL: {exc}", file=sys.stderr)
         return 3

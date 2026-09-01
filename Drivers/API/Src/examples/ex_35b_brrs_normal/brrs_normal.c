@@ -498,6 +498,29 @@ typedef struct {
 static exp4_tx_slot_error_stats_t exp4_tx_slot_error_stats = {
     INT64_MAX, INT64_MIN, 0, 0
 };
+
+typedef struct {
+    uint32_t min_us;
+    uint32_t max_us;
+    uint64_t sum_us;
+    uint32_t count;
+} exp4_latency_stats_t;
+
+typedef struct {
+    exp4_latency_stats_t summary;
+    uint16_t samples[TARGET_CYCLES];
+    uint32_t sample_count;
+    uint32_t sample_overflow;
+    bool sorted;
+} exp4_wait_stats_t;
+
+static exp4_wait_stats_t exp4_first_tx_arm_elapsed_stats;
+static exp4_wait_stats_t exp4_first_tx_arm_slack_stats;
+static exp4_latency_stats_t exp4_sync_to_frame_read_stats;
+static exp4_latency_stats_t exp4_sync_to_beacon_ready_stats;
+static exp4_latency_stats_t exp4_data_config_stats;
+static exp4_latency_stats_t exp4_tx_buffer_write_stats;
+static exp4_latency_stats_t exp4_delayed_tx_arm_stats;
 #endif
 
 #if BRRS_EXPERIMENT == 3
@@ -793,6 +816,9 @@ static uint16_t exp4_read_superframe_seq(const uint8_t *msg)
 static brrs_beacon_config_t current_beacon_config;
 static uint32_t current_owned_slot_start_us[BRRS_MAX_DATA_SLOTS];
 static uint8_t current_owned_slot_count = 0U;
+#if BRRS_EXPERIMENT == 4
+static uint32_t exp4_first_owned_slot_us_observed = 0U;
+#endif
 static uint32_t beacon_config_errors = 0U;
 static uint32_t data_config_errors = 0U;
 static bool beacon_config_logged = false;
@@ -990,6 +1016,90 @@ static void exp4_record_tx_slot_error(int64_t error_ns)
     exp4_tx_slot_error_stats.count++;
 }
 
+static uint32_t exp4_cycles_to_us_ceil(uint32_t cycles)
+{
+    return (cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
+           (CPU_FREQ_HZ / 1000000UL);
+}
+
+static void exp4_latency_record(exp4_latency_stats_t *stats,
+                                uint32_t value_us)
+{
+    if (stats->count == 0U || value_us < stats->min_us) {
+        stats->min_us = value_us;
+    }
+    if (value_us > stats->max_us) {
+        stats->max_us = value_us;
+    }
+    stats->sum_us += value_us;
+    stats->count++;
+}
+
+static void exp4_wait_stats_record(exp4_wait_stats_t *stats,
+                                   uint32_t value_us)
+{
+    exp4_latency_record(&stats->summary, value_us);
+    if (stats->sample_count >= TARGET_CYCLES || value_us > UINT16_MAX) {
+        stats->sample_overflow++;
+        return;
+    }
+    stats->samples[stats->sample_count++] = (uint16_t)value_us;
+    stats->sorted = false;
+}
+
+static uint32_t exp4_wait_stats_percentile(exp4_wait_stats_t *stats,
+                                           uint32_t numerator,
+                                           uint32_t denominator)
+{
+    uint32_t i;
+    uint32_t target;
+
+    if (stats->sample_count == 0U || denominator == 0U) {
+        return 0U;
+    }
+    if (!stats->sorted) {
+        for (i = 1U; i < stats->sample_count; i++) {
+            uint16_t value = stats->samples[i];
+            uint32_t j = i;
+
+            while (j > 0U && stats->samples[j - 1U] > value) {
+                stats->samples[j] = stats->samples[j - 1U];
+                j--;
+            }
+            stats->samples[j] = value;
+        }
+        stats->sorted = true;
+    }
+    target = (uint32_t)(((uint64_t)stats->sample_count * numerator +
+                         denominator - 1U) / denominator);
+    if (target == 0U) {
+        target = 1U;
+    }
+    if (target > stats->sample_count) {
+        target = stats->sample_count;
+    }
+    return stats->samples[target - 1U];
+}
+
+static uint32_t exp4_high32_delta_to_us(uint32_t start_high32,
+                                        uint32_t end_high32)
+{
+    return (uint32_t)(((uint64_t)(end_high32 - start_high32) << 8) /
+                      DWT_TIME_UNITS_PER_US);
+}
+
+static uint32_t exp4_future_delta_us(uint32_t now_high32,
+                                     uint32_t target_high32)
+{
+    int32_t delta_high32 = (int32_t)(target_high32 - now_high32);
+
+    if (delta_high32 <= 0) {
+        return 0U;
+    }
+    return (uint32_t)(((uint64_t)(uint32_t)delta_high32 << 8) /
+                      DWT_TIME_UNITS_PER_US);
+}
+
 static bool exp4_schedule_next_sync_rx(void)
 {
     uint32_t offset_us =
@@ -1057,15 +1167,16 @@ int brrs_normal(void)
     {
         static char cfg_msg[320];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "EXP4_TX_BOOT_CSV,%s,seq=%d,data_plen_source=beacon,default_m=%d,psdu_bytes=%d,app_payload_bytes=%d,superframe_us=%d,sync_frame_us=%d,sync_rx_open_offset_us=%d,sync_rx_window_us=%d",
+                 "EXP4_TX_BOOT_CSV,%s,seq=%d,data_plen_source=beacon,default_m=%d,psdu_bytes=%d,app_payload_bytes=%d,superframe_us=%d,sync_buffer_us=%d,sync_prep_us=%d,data_budget_us=%d,sync_frame_us=%d,sync_rx_open_offset_us=%d,sync_rx_window_us=%d",
                  APP_NAME, MY_NODE_SEQ,
                  PREAMBLE_SYMBOLS, PSDU_BYTES, BRRS_APP_PAYLOAD_BYTES,
                  BRRS_SUPERFRAME_US,
+                 SYNC_BUFFER_US, EXP4_SYNC_PREP_US, EXP4_SLOT_BUDGET_US,
                  SYNC_FRAME_US, BRRS_SUPERFRAME_US - SYNC_RX_EARLY_US,
                  SYNC_RX_WINDOW_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=24,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,end_rx=immediate_wide_on_last_cycle,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=25,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,end_rx=immediate_wide_on_last_cycle,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,wait_budget=first_owned_delayed_tx_arm,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -1227,10 +1338,31 @@ int brrs_normal(void)
                          total_tx_delayed_late == 0 &&
                          exp4_sync_rx_delayed_late == 0 &&
                          exp4_sync_duplicates == 0 &&
-                         data_config_errors == 0);
+                         data_config_errors == 0 &&
+                         exp4_first_tx_arm_elapsed_stats.summary.count ==
+                             exp4_sync_frames_received &&
+                         exp4_first_tx_arm_slack_stats.summary.count ==
+                             exp4_sync_frames_received &&
+                         exp4_first_tx_arm_elapsed_stats.sample_count ==
+                             exp4_sync_frames_received &&
+                         exp4_first_tx_arm_slack_stats.sample_count ==
+                             exp4_sync_frames_received &&
+                         exp4_first_tx_arm_elapsed_stats.sample_overflow == 0U &&
+                         exp4_first_tx_arm_slack_stats.sample_overflow == 0U &&
+                         exp4_first_tx_arm_slack_stats.summary.min_us > 0U &&
+                         exp4_sync_to_frame_read_stats.count ==
+                             exp4_sync_frames_received &&
+                         exp4_sync_to_beacon_ready_stats.count ==
+                             exp4_sync_frames_received &&
+                         exp4_data_config_stats.count ==
+                             exp4_sync_frames_received &&
+                         exp4_tx_buffer_write_stats.count ==
+                             exp4_sync_frames_received &&
+                         exp4_delayed_tx_arm_stats.count ==
+                             exp4_sync_frames_received);
                     bool collection_pass = exp4_end_received && schedule_pass;
                     bool beacon_pass = (beacon_missed == 0);
-                    static char s[240];
+                    static char s[640];
                     snprintf(s, sizeof(s),
                              "My TX: success=%lu attempts=%lu delayed_late=%lu",
                              (unsigned long)per_stats[my_slot_idx()].tx_count,
@@ -1248,6 +1380,86 @@ int brrs_normal(void)
                                  (long long)exp4_tx_slot_error_stats.max_ns,
                                  (long long)avg_ns);
                         final_log_info(s);
+                    }
+                    {
+                        uint64_t arm_avg_x1000 =
+                            exp4_first_tx_arm_elapsed_stats.summary.count ?
+                            (exp4_first_tx_arm_elapsed_stats.summary.sum_us *
+                             1000ULL /
+                             exp4_first_tx_arm_elapsed_stats.summary.count) : 0U;
+                        uint64_t slack_avg_x1000 =
+                            exp4_first_tx_arm_slack_stats.summary.count ?
+                            (exp4_first_tx_arm_slack_stats.summary.sum_us *
+                             1000ULL /
+                             exp4_first_tx_arm_slack_stats.summary.count) : 0U;
+
+                        snprintf(s, sizeof(s),
+                                 "EXP4_TX_FIRST_ARM_CSV,node=N%u,scope=sync_rx_rmarker_to_conservative_post_arm_systime,sync_buffer_us=%u,first_owned_slot_us=%lu,count=%lu,min_us=%lu,max_us=%lu,avg_x1000_us=%llu,p50_us=%lu,p95_us=%lu,p99_us=%lu,data_rmarker_slack_min_us=%lu,data_rmarker_slack_avg_x1000_us=%llu,data_rmarker_slack_p01_us=%lu,data_rmarker_slack_p05_us=%lu,data_rmarker_slack_p50_us=%lu,sample_overflow=%lu,delayed_late=%lu",
+                                 MY_NODE_SEQ,
+                                 (unsigned)SYNC_BUFFER_US,
+                                 (unsigned long)
+                                     exp4_first_owned_slot_us_observed,
+                                 (unsigned long)
+                                     exp4_first_tx_arm_elapsed_stats.summary.count,
+                                 (unsigned long)
+                                     (exp4_first_tx_arm_elapsed_stats.summary.count ?
+                                      exp4_first_tx_arm_elapsed_stats.summary.min_us : 0U),
+                                 (unsigned long)
+                                     exp4_first_tx_arm_elapsed_stats.summary.max_us,
+                                 (unsigned long long)arm_avg_x1000,
+                                 (unsigned long)exp4_wait_stats_percentile(
+                                     &exp4_first_tx_arm_elapsed_stats, 50U, 100U),
+                                 (unsigned long)exp4_wait_stats_percentile(
+                                     &exp4_first_tx_arm_elapsed_stats, 95U, 100U),
+                                 (unsigned long)exp4_wait_stats_percentile(
+                                     &exp4_first_tx_arm_elapsed_stats, 99U, 100U),
+                                 (unsigned long)
+                                     (exp4_first_tx_arm_slack_stats.summary.count ?
+                                      exp4_first_tx_arm_slack_stats.summary.min_us : 0U),
+                                 (unsigned long long)slack_avg_x1000,
+                                 (unsigned long)exp4_wait_stats_percentile(
+                                     &exp4_first_tx_arm_slack_stats, 1U, 100U),
+                                 (unsigned long)exp4_wait_stats_percentile(
+                                     &exp4_first_tx_arm_slack_stats, 5U, 100U),
+                                 (unsigned long)exp4_wait_stats_percentile(
+                                     &exp4_first_tx_arm_slack_stats, 50U, 100U),
+                                 (unsigned long)
+                                     (exp4_first_tx_arm_elapsed_stats.sample_overflow +
+                                      exp4_first_tx_arm_slack_stats.sample_overflow),
+                                 (unsigned long)total_tx_delayed_late);
+                        final_log_info(s);
+                    }
+                    {
+                        exp4_latency_stats_t *phase_stats[] = {
+                            &exp4_sync_to_frame_read_stats,
+                            &exp4_sync_to_beacon_ready_stats,
+                            &exp4_data_config_stats,
+                            &exp4_tx_buffer_write_stats,
+                            &exp4_delayed_tx_arm_stats
+                        };
+                        const char *phase_names[] = {
+                            "sync_event_detect_to_frame_read",
+                            "sync_event_detect_to_beacon_ready",
+                            "sensor_data_phy_config",
+                            "sensor_tx_buffer_write",
+                            "sensor_delayed_tx_arm_call"
+                        };
+                        uint8_t phase;
+
+                        for (phase = 0U; phase < 5U; phase++) {
+                            exp4_latency_stats_t *stats = phase_stats[phase];
+                            uint64_t avg_x1000 = stats->count ?
+                                (stats->sum_us * 1000ULL / stats->count) : 0U;
+                            snprintf(s, sizeof(s),
+                                     "EXP4_TX_WAIT_PHASE_CSV,node=N%u,phase=%s,count=%lu,min_us=%lu,max_us=%lu,avg_x1000_us=%llu",
+                                     MY_NODE_SEQ, phase_names[phase],
+                                     (unsigned long)stats->count,
+                                     (unsigned long)(stats->count ?
+                                         stats->min_us : 0U),
+                                     (unsigned long)stats->max_us,
+                                     (unsigned long long)avg_x1000);
+                            final_log_info(s);
+                        }
                     }
                     snprintf(s, sizeof(s),
                              "EXP4_TX_SYNC_RX_CSV,scheduled=%lu,delayed_late=%lu,early_us=%d,window_us=%d",
@@ -1410,12 +1622,20 @@ int brrs_normal(void)
             uint32_t status_reg = dwt_readsysstatuslo();
 
             if (status_reg & DWT_INT_RXFCG_BIT_MASK) {
+#if BRRS_EXPERIMENT == 4
+                uint32_t exp4_sync_event_start_cycles = dwt_timer_get_cycles();
+                uint32_t exp4_frame_read_done_cycles;
+                uint32_t exp4_beacon_ready_cycles = 0U;
+#endif
                 uint16_t rx_frame_len = dwt_getframelength(0);
                 memset(rx_buffer, 0, sizeof(rx_buffer));
                 if (rx_frame_len > 0U && rx_frame_len <= FRAME_LEN_MAX) {
                     dwt_readrxdata(rx_buffer, rx_frame_len, 0);
                 }
                 dwt_writesysstatuslo(DWT_INT_RXFCG_BIT_MASK);
+#if BRRS_EXPERIMENT == 4
+                exp4_frame_read_done_cycles = dwt_timer_get_cycles();
+#endif
 
                 uint8_t msg_type = rx_buffer[IDX_MSG_TYPE];
                 uint8_t src_node = rx_buffer[IDX_SOURCE];
@@ -1519,6 +1739,14 @@ int brrs_normal(void)
                         beacon_config_logged = true;
                     }
                     brrs_load_owned_slots(&current_beacon_config);
+#if BRRS_EXPERIMENT == 4
+                    if (exp4_first_owned_slot_us_observed == 0U &&
+                        current_owned_slot_count > 0U) {
+                        exp4_first_owned_slot_us_observed =
+                            current_owned_slot_start_us[0];
+                    }
+                    exp4_beacon_ready_cycles = dwt_timer_get_cycles();
+#endif
                 }
 
                 if (!is_control_frame) {
@@ -1569,6 +1797,17 @@ int brrs_normal(void)
                     uint32_t current_cycles = dwt_timer_get_cycles();
                     last_sync_cycles = current_cycles;
 
+#if BRRS_EXPERIMENT == 4
+                    exp4_latency_record(&exp4_sync_to_frame_read_stats,
+                        exp4_cycles_to_us_ceil(
+                            exp4_frame_read_done_cycles -
+                            exp4_sync_event_start_cycles));
+                    exp4_latency_record(&exp4_sync_to_beacon_ready_stats,
+                        exp4_cycles_to_us_ceil(
+                            exp4_beacon_ready_cycles -
+                            exp4_sync_event_start_cycles));
+#endif
+
                     /* [NEW] DW3000 RX timestamp 획득 - delayed-TX 기준 */
                     last_sync_rx_ts_high32 = dwt_readrxtimestamphi32();
 
@@ -1618,13 +1857,27 @@ int brrs_normal(void)
 #endif
 
                     /* ===== [NEW] DATA config로 전환 후 delayed-TX 예약 ===== */
+#if BRRS_EXPERIMENT == 4
+                    uint32_t exp4_data_config_start_cycles =
+                        dwt_timer_get_cycles();
+#endif
                     dwt_forcetrxoff();
                     dwt_writesysstatuslo(0xFFFFFFFF);
 
                     if (dwt_configure(&config_data) == DWT_SUCCESS) {
                         config_is_sync = false;
+#if BRRS_EXPERIMENT == 4
+                        exp4_latency_record(&exp4_data_config_stats,
+                            exp4_cycles_to_us_ceil(dwt_timer_get_cycles() -
+                                exp4_data_config_start_cycles));
+#endif
                     } else {
                         static char config_error_line[112];
+#if BRRS_EXPERIMENT == 4
+                        exp4_latency_record(&exp4_data_config_stats,
+                            exp4_cycles_to_us_ceil(dwt_timer_get_cycles() -
+                                exp4_data_config_start_cycles));
+#endif
                         data_config_errors++;
                         snprintf(config_error_line, sizeof(config_error_line),
                                  "BRRS_DATA_CONFIG_ERROR,role=NORMAL,node=%u,experiment=%d,superframe=%lu,count=%lu",
@@ -1654,6 +1907,11 @@ int brrs_normal(void)
                             uint32_t slot_start_us =
                                 current_owned_slot_start_us[owned_slot];
                             int tx_result;
+#if BRRS_EXPERIMENT == 4
+                            uint32_t exp4_tx_write_start_cycles;
+                            uint32_t exp4_arm_start_cycles;
+                            uint32_t exp4_arm_done_cycles;
+#endif
 
                             tx_msg[0] = 0xC5;
                             tx_msg[IDX_MSG_TYPE] = MSG_TYPE_DATA;
@@ -1668,16 +1926,55 @@ int brrs_normal(void)
                                             current_beacon_config.superframe_seq);
 
                             total_tx_attempts++;
+#if BRRS_EXPERIMENT == 4
+                            exp4_tx_write_start_cycles = dwt_timer_get_cycles();
+#endif
                             dwt_writetxdata(sizeof(tx_msg), tx_msg, 0);
                             dwt_writetxfctrl(sizeof(tx_msg), 0, 0);
+#if BRRS_EXPERIMENT == 4
+                            if (owned_slot == 0U) {
+                                exp4_latency_record(&exp4_tx_buffer_write_stats,
+                                    exp4_cycles_to_us_ceil(
+                                        dwt_timer_get_cycles() -
+                                        exp4_tx_write_start_cycles));
+                            }
+#endif
 
 #if BRRS_EXPERIMENT == 3
                             exp3_exttxe_capture_arm();
+#endif
+#if BRRS_EXPERIMENT == 4
+                            exp4_arm_start_cycles = dwt_timer_get_cycles();
 #endif
                             tx_result = schedule_delayed_tx(
                                 last_sync_rx_ts_high32,
                                 slot_start_us,
                                 0);
+#if BRRS_EXPERIMENT == 4
+                            exp4_arm_done_cycles = dwt_timer_get_cycles();
+                            if (owned_slot == 0U) {
+                                uint32_t arm_now_high32 =
+                                    dwt_readsystimestamphi32();
+                                uint32_t data_rmarker_high32 =
+                                    last_sync_rx_ts_high32 + (uint32_t)
+                                    (US_TO_DWT_TIME(slot_start_us) >> 8);
+
+                                exp4_latency_record(&exp4_delayed_tx_arm_stats,
+                                    exp4_cycles_to_us_ceil(
+                                        exp4_arm_done_cycles -
+                                        exp4_arm_start_cycles));
+                                exp4_wait_stats_record(
+                                    &exp4_first_tx_arm_elapsed_stats,
+                                    exp4_high32_delta_to_us(
+                                        last_sync_rx_ts_high32,
+                                        arm_now_high32));
+                                exp4_wait_stats_record(
+                                    &exp4_first_tx_arm_slack_stats,
+                                    exp4_future_delta_us(
+                                        arm_now_high32,
+                                        data_rmarker_high32));
+                            }
+#endif
 
                             if (tx_result == DWT_SUCCESS) {
                                 uint32_t tx_status = 0;

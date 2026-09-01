@@ -18,6 +18,9 @@ Options:
   --guard <us>         Inter-slot guard used by every board (default: 200).
   --lead <us>          Coordinator RX lead margin (default: 15).
   --pac <4|8>          Coordinator DATA RX PAC size (default: 8).
+  --sync-buffer <us>   SYNC RMARKER to first DATA RMARKER (default: 3000).
+  --sync-prep <us>     Reserved DATA-to-next-SYNC preparation (default: 2500).
+  --max-per-percent <n> Aggregate PER ceiling for INIT PASS (default: 5.0).
   --spi-opt            Keep SPIM enabled during each bounded DATA burst.
   --irq                Use GPIO IRQ pending events; foreground remains sole SPI owner.
   --serial <S/N>       Select a J-Link when multiple probes are attached.
@@ -64,6 +67,9 @@ FORCE=0
 SEQUENCE=""
 SPI_OPT=0
 IRQ_PENDING=0
+SYNC_BUFFER_US=3000
+SYNC_PREP_US=2500
+MAX_PER_PERCENT=5.0
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -81,6 +87,18 @@ while (( $# > 0 )); do
         --pac)
             (( $# >= 2 )) || { echo "--pac requires a value" >&2; exit 2; }
             PAC="$2"; shift 2
+            ;;
+        --sync-buffer)
+            (( $# >= 2 )) || { echo "--sync-buffer requires a value" >&2; exit 2; }
+            SYNC_BUFFER_US="$2"; shift 2
+            ;;
+        --sync-prep)
+            (( $# >= 2 )) || { echo "--sync-prep requires a value" >&2; exit 2; }
+            SYNC_PREP_US="$2"; shift 2
+            ;;
+        --max-per-percent)
+            (( $# >= 2 )) || { echo "--max-per-percent requires a value" >&2; exit 2; }
+            MAX_PER_PERCENT="$2"; shift 2
             ;;
         --serial)
             (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }
@@ -128,6 +146,16 @@ if (( SENSOR_COUNT > 1 && GUARD_US < LEAD_US )); then
     echo "multi-sensor guard must be at least the ${LEAD_US} us RX lead margin" >&2
     exit 2
 fi
+[[ "${SYNC_BUFFER_US}" =~ ^[1-9][0-9]*$ ]] && (( SYNC_BUFFER_US < 10000 )) \
+    || { echo "sync buffer must be an integer between 1 and 9999 us" >&2; exit 2; }
+[[ "${SYNC_PREP_US}" =~ ^[1-9][0-9]*$ ]] && (( SYNC_PREP_US < 10000 )) \
+    || { echo "sync prep must be an integer between 1 and 9999 us" >&2; exit 2; }
+(( SYNC_BUFFER_US + SYNC_PREP_US < 10000 )) \
+    || { echo "sync buffer + sync prep must leave a positive DATA budget" >&2; exit 2; }
+[[ "${MAX_PER_PERCENT}" =~ ^([0-9]+)([.][0-9]+)?$ ]] \
+    || { echo "max PER percent must be a number between 0 and 100" >&2; exit 2; }
+awk -v value="${MAX_PER_PERCENT}" 'BEGIN { exit !(value >= 0 && value <= 100) }' \
+    || { echo "max PER percent must be between 0 and 100" >&2; exit 2; }
 
 ROLE_LOWER="$(printf '%s' "${ROLE_INPUT}" | tr '[:upper:]' '[:lower:]')"
 if [[ "${ROLE_LOWER}" == "init" ]]; then
@@ -155,6 +183,7 @@ fi
     || { echo "timeout must be a positive integer" >&2; exit 2; }
 
 IMAGE_DIR="${OUTPUT_DIR}/Debug/Exe/exp4/plen${PREAMBLE}_sensors${SENSOR_COUNT}"
+IMAGE_DIR+="_sb${SYNC_BUFFER_US}_sp${SYNC_PREP_US}"
 if (( GUARD_US != 100 )); then
     IMAGE_DIR+="_guard${GUARD_US}"
 fi
@@ -177,6 +206,7 @@ IMAGE_BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_${IMAGE_ROLE}"
 HEX_FILE="${IMAGE_DIR}/${IMAGE_BASE}.hex"
 ELF_FILE="${IMAGE_DIR}/${IMAGE_BASE}.elf"
 CONFIG="Generated_Exp4_${PREAMBLE}_S${SENSOR_COUNT}_G${GUARD_US}_L${LEAD_US}_PAC${PAC}_${ROLE_LABEL}"
+CONFIG+="_SB${SYNC_BUFFER_US}_SP${SYNC_PREP_US}"
 if (( SPI_OPT )); then
     CONFIG+="_SPIOPT"
 fi
@@ -186,9 +216,9 @@ fi
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
-OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_${DATE_TAG}"
+OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_sb${SYNC_BUFFER_US}_sp${SYNC_PREP_US}_${DATE_TAG}"
 if [[ -n "${SEQUENCE}" ]]; then
-    OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_seq${SEQUENCE}_${DATE_TAG}"
+    OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_sb${SYNC_BUFFER_US}_sp${SYNC_PREP_US}_seq${SEQUENCE}_${DATE_TAG}"
 fi
 if (( SPI_OPT )); then
     OUTDIR+="_spiopt"
@@ -262,6 +292,10 @@ echo "  Configuration: ${CONFIG}"
 echo "  Guard:         ${GUARD_US} us"
 echo "  RX lead:       ${LEAD_US} us"
 echo "  RX PAC:        ${PAC}"
+echo "  SYNC buffer:   ${SYNC_BUFFER_US} us"
+echo "  SYNC prep:     ${SYNC_PREP_US} us"
+echo "  DATA budget:   $((10000 - SYNC_BUFFER_US - SYNC_PREP_US)) us"
+echo "  PER limit:     ${MAX_PER_PERCENT}%"
 echo "  SPI mode:      $((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
 echo "  RX event:      $((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"
 echo "  Run:           ${RUN_NUMBER}"
@@ -272,7 +306,8 @@ echo "  Raw log:       ${RAW_LOG}"
 if (( NO_BUILD == 0 )); then
     echo "[build] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / guard ${GUARD_US} us / lead ${LEAD_US} us"
     BUILD_CMD=("${SCRIPT_DIR}/brrs_exp4_build.sh"
-        "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}" --pac "${PAC}")
+        "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}"
+        --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}")
     [[ -n "${SEQUENCE}" ]] && BUILD_CMD+=(--sequence "${SEQUENCE}")
     (( SPI_OPT == 0 )) || BUILD_CMD+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || BUILD_CMD+=(--irq)
@@ -315,6 +350,8 @@ VERIFY_IRQ_ARGS=()
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     "${VERIFY_ARGS[@]}" --preamble "${PREAMBLE}" \
     --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" \
+    --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}" \
+    --max-per-percent "${MAX_PER_PERCENT}" \
     ${VERIFY_SEQ_ARGS[@]+"${VERIFY_SEQ_ARGS[@]}"} \
     ${VERIFY_SPI_ARGS[@]+"${VERIFY_SPI_ARGS[@]}"} \
     ${VERIFY_IRQ_ARGS[@]+"${VERIFY_IRQ_ARGS[@]}"})"
@@ -353,6 +390,10 @@ fi
     printf 'guard_us=%s\n' "${GUARD_US}"
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'pac=%s\n' "${PAC}"
+    printf 'sync_buffer_us=%s\n' "${SYNC_BUFFER_US}"
+    printf 'sync_prep_us=%s\n' "${SYNC_PREP_US}"
+    printf 'data_budget_us=%s\n' "$((10000 - SYNC_BUFFER_US - SYNC_PREP_US))"
+    printf 'max_per_percent=%s\n' "${MAX_PER_PERCENT}"
     printf 'spi_mode=%s\n' "$((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
     printf 'rx_event_source=%s\n' "$((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"
     printf 'spi_clock_hz=32000000\n'

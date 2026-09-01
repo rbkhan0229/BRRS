@@ -17,6 +17,9 @@ Options:
   --guard <us>              Inter-slot guard (default: 200).
   --lead <us>               Coordinator RX lead margin (default: 15).
   --pac <4|8>               Coordinator DATA RX PAC size (default: 8).
+  --sync-buffer <us>        SYNC-to-first-DATA budget (default: 3000).
+  --sync-prep <us>          DATA-to-next-SYNC reserve (default: 2500).
+  --max-per-percent <n>     Recorded verifier PER ceiling (default: 5.0).
   --sequence <digits>       Custom per-slot owner schedule, e.g. 232323.
   --spi-opt                 Use the matching persistent-SPIM image set.
   --irq                     Use the matching GPIO IRQ pending-event image set.
@@ -57,6 +60,9 @@ NO_BUILD=0
 FORCE=0
 SPI_OPT=0
 IRQ_PENDING=0
+SYNC_BUFFER_US=3000
+SYNC_PREP_US=2500
+MAX_PER_PERCENT=5.0
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -72,6 +78,15 @@ while (( $# > 0 )); do
         --pac)
             (( $# >= 2 )) || { echo "--pac requires a value" >&2; exit 2; }
             PAC="$2"; shift 2 ;;
+        --sync-buffer)
+            (( $# >= 2 )) || { echo "--sync-buffer requires a value" >&2; exit 2; }
+            SYNC_BUFFER_US="$2"; shift 2 ;;
+        --sync-prep)
+            (( $# >= 2 )) || { echo "--sync-prep requires a value" >&2; exit 2; }
+            SYNC_PREP_US="$2"; shift 2 ;;
+        --max-per-percent)
+            (( $# >= 2 )) || { echo "--max-per-percent requires a value" >&2; exit 2; }
+            MAX_PER_PERCENT="$2"; shift 2 ;;
         --sequence)
             (( $# >= 2 )) || { echo "--sequence requires a value" >&2; exit 2; }
             SEQUENCE="$2"; shift 2 ;;
@@ -126,6 +141,16 @@ if (( SENSOR_COUNT > 1 && GUARD_US < LEAD_US )); then
     echo "multi-sensor guard must be at least the ${LEAD_US} us RX lead margin" >&2
     exit 2
 fi
+[[ "${SYNC_BUFFER_US}" =~ ^[1-9][0-9]*$ ]] && (( SYNC_BUFFER_US < 10000 )) \
+    || { echo "sync buffer must be between 1 and 9999 us" >&2; exit 2; }
+[[ "${SYNC_PREP_US}" =~ ^[1-9][0-9]*$ ]] && (( SYNC_PREP_US < 10000 )) \
+    || { echo "sync prep must be between 1 and 9999 us" >&2; exit 2; }
+(( SYNC_BUFFER_US + SYNC_PREP_US < 10000 )) \
+    || { echo "sync buffer + sync prep must leave a positive DATA budget" >&2; exit 2; }
+[[ "${MAX_PER_PERCENT}" =~ ^([0-9]+)([.][0-9]+)?$ ]] \
+    || { echo "max PER percent must be numeric" >&2; exit 2; }
+awk -v value="${MAX_PER_PERCENT}" 'BEGIN { exit !(value >= 0 && value <= 100) }' \
+    || { echo "max PER percent must be between 0 and 100" >&2; exit 2; }
 [[ "${TIMEOUT}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "timeout must be a positive integer" >&2; exit 2; }
 
@@ -146,9 +171,9 @@ done <<<"${ASSIGNMENT_OUTPUT}"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" ]] && DISTANCE_TAG="_${DISTANCE}m"
-OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_${DATE_TAG}"
+OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_sb${SYNC_BUFFER_US}_sp${SYNC_PREP_US}_${DATE_TAG}"
 if [[ -n "${SEQUENCE}" ]]; then
-    OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_seq${SEQUENCE}_${DATE_TAG}"
+    OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_sb${SYNC_BUFFER_US}_sp${SYNC_PREP_US}_seq${SEQUENCE}_${DATE_TAG}"
 fi
 if (( SPI_OPT )); then
     OUTDIR+="_spiopt"
@@ -177,23 +202,25 @@ fi
 exec > >(tee -a "${ORCHESTRATOR_LOG}") 2>&1
 
 ROTATION=$(( (RUN_NUMBER - 1) % SENSOR_COUNT ))
-echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us / PAC ${PAC}"
+echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us / PAC ${PAC} / sync ${SYNC_BUFFER_US}+${SYNC_PREP_US} us"
 echo "[multi-tx] slot sequence: ${SEQUENCE:-default-round-robin}"
 echo "[multi-tx] probe source: $([[ -z "${PROBE_SERIALS}" ]] && echo auto-discovery || echo diagnostic-override)"
 echo "[multi-tx] cyclic rotation: ${ROTATION}"
-printf 'run,preamble_symbols,sensor_count,rotation,role,serial\n' >"${ASSIGNMENT_FILE}"
+printf 'run,preamble_symbols,sensor_count,sync_buffer_us,sync_prep_us,rotation,role,serial\n' >"${ASSIGNMENT_FILE}"
 for (( index=0; index<SENSOR_COUNT; index++ )); do
     role="${ROLES[index]}"
     serial="${SERIALS[index]}"
     echo "EXP4_PROBE_ASSIGNMENT_CSV,run=${RUN_NUMBER},rotation=${ROTATION},role=${role},serial=${serial}"
-    printf '%s,%s,%s,%s,%s,%s\n' \
-        "${RUN_NUMBER}" "${PREAMBLE}" "${SENSOR_COUNT}" "${ROTATION}" \
+    printf '%s,%s,%s,%s,%s,%s,%s,%s\n' \
+        "${RUN_NUMBER}" "${PREAMBLE}" "${SENSOR_COUNT}" \
+        "${SYNC_BUFFER_US}" "${SYNC_PREP_US}" "${ROTATION}" \
         "${role}" "${serial}" >>"${ASSIGNMENT_FILE}"
 done
 
 if (( NO_BUILD == 0 )); then
     echo "[build] preparing every TX role once"
-    BUILD_ARGS=("${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" tx "${LEAD_US}" --pac "${PAC}")
+    BUILD_ARGS=("${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" tx "${LEAD_US}"
+        --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}")
     [[ -n "${SEQUENCE}" ]] && BUILD_ARGS+=(--sequence "${SEQUENCE}")
     (( SPI_OPT == 0 )) || BUILD_ARGS+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || BUILD_ARGS+=(--irq)
@@ -238,7 +265,10 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
         "${ENVIRONMENT}"
     )
     [[ "${DISTANCE}" == "na" ]] || command+=("${DISTANCE}")
-    command+=(--guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" --serial "${serial}" --timeout "${TIMEOUT}" --no-build)
+    command+=(--guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}"
+        --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}"
+        --max-per-percent "${MAX_PER_PERCENT}"
+        --serial "${serial}" --timeout "${TIMEOUT}" --no-build)
     [[ -n "${SEQUENCE}" ]] && command+=(--sequence "${SEQUENCE}")
     (( SPI_OPT == 0 )) || command+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || command+=(--irq)

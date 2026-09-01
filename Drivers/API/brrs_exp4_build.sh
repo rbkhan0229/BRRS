@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sequence <digits>] [--spi-opt] [--irq]"
+    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--sequence <digits>] [--spi-opt] [--irq]"
     echo "Example: $0 32 2 200 N3 15"
     echo "Example (custom slot schedule): $0 64 2 200 all 15 --sequence 2323232323232"
     echo
@@ -20,6 +20,8 @@ SEQUENCE=""
 PAC=8
 SPI_OPT=0
 IRQ_PENDING=0
+SYNC_BUFFER_US=3000
+SYNC_PREP_US=2500
 ARGS=()
 while (( $# > 0 )); do
     case "$1" in
@@ -29,6 +31,12 @@ while (( $# > 0 )); do
         --pac)
             (( $# >= 2 )) || { echo "--pac requires a value" >&2; exit 2; }
             PAC="$2"; shift 2 ;;
+        --sync-buffer)
+            (( $# >= 2 )) || { echo "--sync-buffer requires a value" >&2; exit 2; }
+            SYNC_BUFFER_US="$2"; shift 2 ;;
+        --sync-prep)
+            (( $# >= 2 )) || { echo "--sync-prep requires a value" >&2; exit 2; }
+            SYNC_PREP_US="$2"; shift 2 ;;
         --spi-opt) SPI_OPT=1; shift ;;
         --irq) IRQ_PENDING=1; shift ;;
         *) ARGS+=("$1"); shift ;;
@@ -90,6 +98,18 @@ if (( sensor_count > 1 && guard_us < lead_us )); then
     echo "ERROR: multi-sensor guard must be at least the ${lead_us} us RX lead margin" >&2
     exit 2
 fi
+if ! [[ "${SYNC_BUFFER_US}" =~ ^[1-9][0-9]*$ ]] || (( SYNC_BUFFER_US >= 10000 )); then
+    echo "ERROR: --sync-buffer must be an integer between 1 and 9999 us" >&2
+    exit 2
+fi
+if ! [[ "${SYNC_PREP_US}" =~ ^[1-9][0-9]*$ ]] || (( SYNC_PREP_US >= 10000 )); then
+    echo "ERROR: --sync-prep must be an integer between 1 and 9999 us" >&2
+    exit 2
+fi
+if (( SYNC_BUFFER_US + SYNC_PREP_US >= 10000 )); then
+    echo "ERROR: sync buffer + sync prep must leave a positive DATA budget" >&2
+    exit 2
+fi
 
 if [[ "${requested_role}" == "init" || "${requested_role}" == "all" || "${requested_role}" == "tx" ]]; then
     :
@@ -108,6 +128,7 @@ script_dir="$(cd "$(dirname "$0")" && pwd)"
 project="${script_dir}/Build_Platforms/nRF52840-DK/dw3000_api.emProject"
 build_dir="${script_dir}/Build_Platforms/nRF52840-DK/Output/Debug/Exe"
 dest_dir="${build_dir}/exp4/plen${plen}_sensors${sensor_count}"
+dest_dir+="_sb${SYNC_BUFFER_US}_sp${SYNC_PREP_US}"
 if (( guard_us != 100 )); then
     dest_dir+="_guard${guard_us}"
 fi
@@ -149,6 +170,8 @@ build_image() {
     local base="exp4_${plen}_s${sensor_count}_${role}"
     local macros
     local extra_defs=";BRRS_EXP4_IRQ_PENDING=${IRQ_PENDING}"
+    extra_defs+=";BRRS_SYNC_BUFFER_US=${SYNC_BUFFER_US}"
+    extra_defs+=";BRRS_EXP4_SYNC_PREP_US=${SYNC_PREP_US}"
 
     macros="BRRS_ROLE_DEFINE=${role_define};EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1"
     macros+=";BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=4"
@@ -195,6 +218,9 @@ echo "${dest_dir}"
 echo "Guard: ${guard_us} us"
 echo "RX lead: ${lead_us} us"
 echo "RX PAC: ${PAC}"
+echo "SYNC buffer: ${SYNC_BUFFER_US} us"
+echo "SYNC prep: ${SYNC_PREP_US} us"
+echo "DATA budget: $((10000 - SYNC_BUFFER_US - SYNC_PREP_US)) us"
 echo "SPI mode: $((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
 echo "RX event: $((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"
 echo "Role: ${requested_role}"
