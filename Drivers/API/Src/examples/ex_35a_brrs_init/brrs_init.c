@@ -98,6 +98,7 @@
 #include <shared_defines.h>
 #include <shared_functions.h>
 #include "../brrs_beacon_protocol.h"
+#include "brrs_phy_config_profile.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -1861,6 +1862,52 @@ static uint32_t exp4_cycles_to_us_ceil(uint32_t cycles)
            (CPU_FREQ_HZ / 1000000UL);
 }
 
+#if BRRS_OPT_PHY_CONFIG_PROFILE
+static void exp4_log_phy_config_profile(void)
+{
+    static const char *target_names[] = {"short", "long"};
+    static const char *phase_names[] = {
+        "temp_vdddig",
+        "register_setup",
+        "setchannel",
+        "dgc_rx_tuning",
+        "pgf_cal",
+        "total"
+    };
+    brrs_phy_profile_snapshot_t snapshot;
+    uint8_t target;
+    uint8_t phase;
+    char line[272];
+
+    brrs_phy_profile_snapshot(&snapshot);
+    for (target = 0U; target < BRRS_PHY_PROFILE_TARGET_COUNT; target++) {
+        snprintf(line, sizeof(line),
+                 "EXP4_PHY_CONFIG_STATE_CSV,role=coordinator,target=%s,samples=%lu,idle=%lu,not_idle=%lu",
+                 target_names[target],
+                 (unsigned long)snapshot.state_samples[target],
+                 (unsigned long)snapshot.state_idle[target],
+                 (unsigned long)snapshot.state_not_idle[target]);
+        final_log_info(line);
+        for (phase = 0U; phase < BRRS_PHY_PROFILE_PHASE_COUNT; phase++) {
+            brrs_phy_profile_stats_t *stats = &snapshot.phase[target][phase];
+            uint64_t avg_x1000 = stats->count ?
+                (stats->sum_cycles * 1000ULL /
+                 ((uint64_t)stats->count * (CPU_FREQ_HZ / 1000000UL))) : 0U;
+            snprintf(line, sizeof(line),
+                     "EXP4_PHY_CONFIG_PROFILE_CSV,role=coordinator,target=%s,phase=%s,count=%lu,min_us=%lu,max_us=%lu,avg_x1000_us=%llu",
+                     target_names[target], phase_names[phase],
+                     (unsigned long)stats->count,
+                     (unsigned long)(stats->count ?
+                         exp4_cycles_to_us_ceil(stats->min_cycles) : 0U),
+                     (unsigned long)(stats->count ?
+                         exp4_cycles_to_us_ceil(stats->max_cycles) : 0U),
+                     (unsigned long long)avg_x1000);
+            final_log_info(line);
+        }
+    }
+}
+#endif
+
 static void exp4_record_hot_path(uint32_t latency_us)
 {
     uint32_t bin = latency_us;
@@ -3295,6 +3342,9 @@ int brrs_init(void)
 #endif
 
     dwt_timer_init();
+#if BRRS_EXPERIMENT == 4 && BRRS_OPT_PHY_CONFIG_PROFILE
+    brrs_phy_profile_reset();
+#endif
 
     {
         uint8_t i;
@@ -4083,6 +4133,9 @@ int brrs_init(void)
                              spi_session_pass ? "PASS" : "FAIL");
                     final_log_info(s);
 
+#if BRRS_OPT_PHY_CONFIG_PROFILE
+                    exp4_log_phy_config_profile();
+#endif
                     snprintf(s, sizeof(s),
                              "EXP4_STATUS_CSV,schedule=%s,timing=%s,collection=%s,link=%s",
                              schedule_pass ? "PASS" : "FAIL",

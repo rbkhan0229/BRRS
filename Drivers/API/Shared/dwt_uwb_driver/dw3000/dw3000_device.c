@@ -16,12 +16,55 @@
 #include "dw3000_deca_vals.h"
 #include "deca_version.h"
 #include "deca_rsl.h"
+#include "brrs_phy_config_profile.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define OPTSPEED __attribute__((optimize("O3")))
+
+#if BRRS_OPT_PHY_CONFIG_PROFILE
+#define BRRS_PROFILE_CYCCNT (*(volatile uint32_t *)0xE0001004UL)
+
+static brrs_phy_profile_snapshot_t brrs_phy_profile_data;
+
+static void brrs_phy_profile_record(
+    brrs_phy_profile_target_t target,
+    brrs_phy_profile_phase_t phase,
+    uint32_t start_cycles,
+    uint32_t end_cycles)
+{
+    uint32_t elapsed = end_cycles - start_cycles;
+    brrs_phy_profile_stats_t *stats =
+        &brrs_phy_profile_data.phase[target][phase];
+
+    if (stats->count == 0U || elapsed < stats->min_cycles)
+    {
+        stats->min_cycles = elapsed;
+    }
+    if (elapsed > stats->max_cycles)
+    {
+        stats->max_cycles = elapsed;
+    }
+    stats->count++;
+    stats->sum_cycles += elapsed;
+}
+
+void brrs_phy_profile_reset(void)
+{
+    memset(&brrs_phy_profile_data, 0, sizeof(brrs_phy_profile_data));
+}
+
+void brrs_phy_profile_snapshot(brrs_phy_profile_snapshot_t *snapshot)
+{
+    if (snapshot != NULL)
+    {
+        *snapshot = brrs_phy_profile_data;
+    }
+}
+#endif
 
 #if 0
 #define DWT_API_ERROR_CHECK  /* API checks config input parameters */
@@ -1831,6 +1874,25 @@ static int32_t ull_configure(dwchip_t *dw, dwt_config_t *config)
     uint32_t mode = (config->phrMode == DWT_PHRMODE_EXT) ? SYS_CFG_PHR_MODE_BIT_MASK : 0UL;
     uint16_t sts_len;
     int32_t error = (int32_t)DWT_SUCCESS;
+#if BRRS_OPT_PHY_CONFIG_PROFILE
+    brrs_phy_profile_target_t profile_target =
+        (((config->txPreambLength + 1U) * 8U) >= 256U) ?
+        BRRS_PHY_PROFILE_LONG : BRRS_PHY_PROFILE_SHORT;
+    uint32_t profile_total_start = BRRS_PROFILE_CYCCNT;
+    uint32_t profile_phase_start;
+    uint8_t profile_entry_state =
+        dwt_read8bitoffsetreg(dw, SYS_STATE_LO_ID, 2U);
+
+    brrs_phy_profile_data.state_samples[profile_target]++;
+    if (profile_entry_state == DW_SYS_STATE_IDLE)
+    {
+        brrs_phy_profile_data.state_idle[profile_target]++;
+    }
+    else
+    {
+        brrs_phy_profile_data.state_not_idle[profile_target]++;
+    }
+#endif
 #if DWT_DEBUG_PRINT
     printf("dwt_configure=PAC>%d:BR>%d:PC>%d:PL>%d:CH>%d:CPMode>%d:CPLen>%d:PDOA>%d\n", config->rxPAC, config->dataRate, config->rxCode, config->txPreambLength,
         config->chan, config->stsMode, config->stsLength, config->pdoaMode);
@@ -1861,6 +1923,9 @@ static int32_t ull_configure(dwchip_t *dw, dwt_config_t *config)
     LOCAL_DATA(dw)->ststhreshold = (int16_t)sts_threshold_calc;
     LOCAL_DATA(dw)->stsconfig = (uint8_t)config->stsMode;
 
+#if BRRS_OPT_PHY_CONFIG_PROFILE
+    profile_phase_start = BRRS_PROFILE_CYCCNT;
+#endif
 #ifdef AUTO_PLL_CAL
     // Set the temperature of the device so calibration can use it.
     uint16_t tempvbat = ull_readtempvbat(dw);
@@ -1874,6 +1939,11 @@ static int32_t ull_configure(dwchip_t *dw, dwt_config_t *config)
     {
         error = ull_set_vdddig_mv(dw, VDDDIG_93mV);
     }
+#endif
+#if BRRS_OPT_PHY_CONFIG_PROFILE
+    brrs_phy_profile_record(profile_target, BRRS_PHY_PROFILE_TEMP_VDDDIG,
+                            profile_phase_start, BRRS_PROFILE_CYCCNT);
+    profile_phase_start = BRRS_PROFILE_CYCCNT;
 #endif
 
     /////////////////////////////////////////////////////////////////////////
@@ -1975,7 +2045,17 @@ static int32_t ull_configure(dwchip_t *dw, dwt_config_t *config)
     }
     dwt_write16bitoffsetreg(dw, DTUNE0_ID, 2U, config->sfdTO);
 
+#if BRRS_OPT_PHY_CONFIG_PROFILE
+    brrs_phy_profile_record(profile_target, BRRS_PHY_PROFILE_REGISTER_SETUP,
+                            profile_phase_start, BRRS_PROFILE_CYCCNT);
+    profile_phase_start = BRRS_PROFILE_CYCCNT;
+#endif
     error = ull_setchannel(dw, chan);
+#if BRRS_OPT_PHY_CONFIG_PROFILE
+    brrs_phy_profile_record(profile_target, BRRS_PHY_PROFILE_SETCHANNEL,
+                            profile_phase_start, BRRS_PROFILE_CYCCNT);
+    profile_phase_start = BRRS_PROFILE_CYCCNT;
+#endif
 
     // only enable DGC for PRF 64
     if ((config->rxCode >= 9U) && (config->rxCode <= 24U))
@@ -2009,12 +2089,23 @@ static int32_t ull_configure(dwchip_t *dw, dwt_config_t *config)
     }
 
     dwt_write32bitreg(dw, TX_CTRL_LO_ID, TX_CTRL_LO_DEF);
+#if BRRS_OPT_PHY_CONFIG_PROFILE
+    brrs_phy_profile_record(profile_target, BRRS_PHY_PROFILE_DGC_RX_TUNING,
+                            profile_phase_start, BRRS_PROFILE_CYCCNT);
+    profile_phase_start = BRRS_PROFILE_CYCCNT;
+#endif
 
     ///////////////////////
     // PGF
 
     // if the RX calibration routine fails the device receiver performance will be severely affected, the application should reset and try again
     error = ull_pgf_cal(dw, 1);
+#if BRRS_OPT_PHY_CONFIG_PROFILE
+    brrs_phy_profile_record(profile_target, BRRS_PHY_PROFILE_PGF_CAL,
+                            profile_phase_start, BRRS_PROFILE_CYCCNT);
+    brrs_phy_profile_record(profile_target, BRRS_PHY_PROFILE_TOTAL,
+                            profile_total_start, BRRS_PROFILE_CYCCNT);
+#endif
 #if DWT_DEBUG_PRINT
     if (error != (int32_t)DWT_SUCCESS)
     {

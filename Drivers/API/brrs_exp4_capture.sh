@@ -20,9 +20,11 @@ Options:
   --pac <4|8>          Coordinator DATA RX PAC size (default: 8).
   --sync-buffer <us>   SYNC RMARKER to first DATA RMARKER (default: 3000).
   --sync-prep <us>     Reserved DATA-to-next-SYNC preparation (default: 2500).
+  --cycles <n>         Superframes to collect (default: 1000).
   --max-per-percent <n> Aggregate PER ceiling for INIT PASS (default: 5.0).
   --spi-opt            Keep SPIM enabled during each bounded DATA burst.
   --irq                Use GPIO IRQ pending events; foreground remains sole SPI owner.
+  --phy-profile        Profile internal dwt_configure phases (diagnostic build).
   --serial <S/N>       Select a J-Link when multiple probes are attached.
   --no-build           Reuse an image previously made with the same parameters.
   --timeout <seconds>  Override capture timeout (INIT 90 s, sensor 180 s).
@@ -67,6 +69,8 @@ FORCE=0
 SEQUENCE=""
 SPI_OPT=0
 IRQ_PENDING=0
+PHY_PROFILE=0
+TARGET_CYCLES=1000
 SYNC_BUFFER_US=3000
 SYNC_PREP_US=2500
 MAX_PER_PERCENT=5.0
@@ -96,6 +100,10 @@ while (( $# > 0 )); do
             (( $# >= 2 )) || { echo "--sync-prep requires a value" >&2; exit 2; }
             SYNC_PREP_US="$2"; shift 2
             ;;
+        --cycles)
+            (( $# >= 2 )) || { echo "--cycles requires a value" >&2; exit 2; }
+            TARGET_CYCLES="$2"; shift 2
+            ;;
         --max-per-percent)
             (( $# >= 2 )) || { echo "--max-per-percent requires a value" >&2; exit 2; }
             MAX_PER_PERCENT="$2"; shift 2
@@ -116,6 +124,7 @@ while (( $# > 0 )); do
             ;;
         --spi-opt) SPI_OPT=1; shift ;;
         --irq) IRQ_PENDING=1; shift ;;
+        --phy-profile) PHY_PROFILE=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -152,6 +161,8 @@ fi
     || { echo "sync prep must be an integer between 1 and 9999 us" >&2; exit 2; }
 (( SYNC_BUFFER_US + SYNC_PREP_US < 10000 )) \
     || { echo "sync buffer + sync prep must leave a positive DATA budget" >&2; exit 2; }
+[[ "${TARGET_CYCLES}" =~ ^[1-9][0-9]*$ ]] && (( TARGET_CYCLES <= 10000 )) \
+    || { echo "cycles must be an integer between 1 and 10000" >&2; exit 2; }
 [[ "${MAX_PER_PERCENT}" =~ ^([0-9]+)([.][0-9]+)?$ ]] \
     || { echo "max PER percent must be a number between 0 and 100" >&2; exit 2; }
 awk -v value="${MAX_PER_PERCENT}" 'BEGIN { exit !(value >= 0 && value <= 100) }' \
@@ -202,6 +213,12 @@ fi
 if (( IRQ_PENDING )); then
     IMAGE_DIR+="_irq"
 fi
+if (( PHY_PROFILE )); then
+    IMAGE_DIR+="_phyprofile"
+fi
+if (( TARGET_CYCLES != 1000 )); then
+    IMAGE_DIR+="_cycles${TARGET_CYCLES}"
+fi
 IMAGE_BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_${IMAGE_ROLE}"
 HEX_FILE="${IMAGE_DIR}/${IMAGE_BASE}.hex"
 ELF_FILE="${IMAGE_DIR}/${IMAGE_BASE}.elf"
@@ -212,6 +229,12 @@ if (( SPI_OPT )); then
 fi
 if (( IRQ_PENDING )); then
     CONFIG+="_IRQ"
+fi
+if (( PHY_PROFILE )); then
+    CONFIG+="_PHYPROFILE"
+fi
+if (( TARGET_CYCLES != 1000 )); then
+    CONFIG+="_CYCLES${TARGET_CYCLES}"
 fi
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
@@ -225,6 +248,12 @@ if (( SPI_OPT )); then
 fi
 if (( IRQ_PENDING )); then
     OUTDIR+="_irq"
+fi
+if (( PHY_PROFILE )); then
+    OUTDIR+="_phyprofile"
+fi
+if (( TARGET_CYCLES != 1000 )); then
+    OUTDIR+="_cycles${TARGET_CYCLES}"
 fi
 mkdir -p "${OUTDIR}"
 
@@ -298,6 +327,8 @@ echo "  DATA budget:   $((10000 - SYNC_BUFFER_US - SYNC_PREP_US)) us"
 echo "  PER limit:     ${MAX_PER_PERCENT}%"
 echo "  SPI mode:      $((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
 echo "  RX event:      $((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"
+echo "  PHY profile:   $((( PHY_PROFILE )) && echo enabled || echo disabled)"
+echo "  Superframes:   ${TARGET_CYCLES}"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
@@ -307,10 +338,12 @@ if (( NO_BUILD == 0 )); then
     echo "[build] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / guard ${GUARD_US} us / lead ${LEAD_US} us"
     BUILD_CMD=("${SCRIPT_DIR}/brrs_exp4_build.sh"
         "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}"
-        --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}")
+        --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}"
+        --cycles "${TARGET_CYCLES}")
     [[ -n "${SEQUENCE}" ]] && BUILD_CMD+=(--sequence "${SEQUENCE}")
     (( SPI_OPT == 0 )) || BUILD_CMD+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || BUILD_CMD+=(--irq)
+    (( PHY_PROFILE == 0 )) || BUILD_CMD+=(--phy-profile)
     EMBUILD="${EMBUILD}" "${BUILD_CMD[@]}" \
         >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
@@ -404,9 +437,11 @@ fi
     printf 'sync_buffer_us=%s\n' "${SYNC_BUFFER_US}"
     printf 'sync_prep_us=%s\n' "${SYNC_PREP_US}"
     printf 'data_budget_us=%s\n' "$((10000 - SYNC_BUFFER_US - SYNC_PREP_US))"
+    printf 'target_cycles=%s\n' "${TARGET_CYCLES}"
     printf 'max_per_percent=%s\n' "${MAX_PER_PERCENT}"
     printf 'spi_mode=%s\n' "$((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
     printf 'rx_event_source=%s\n' "$((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"
+    printf 'phy_config_profile=%s\n' "$((( PHY_PROFILE )) && echo enabled || echo disabled)"
     printf 'spi_clock_hz=32000000\n'
     printf 'cpu_clock_hz=64000000\n'
     printf 'cs_idle_floor_ns=%s\n' "${CS_IDLE_FLOOR_NS}"

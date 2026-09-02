@@ -19,10 +19,12 @@ Options:
   --pac <4|8>               Coordinator DATA RX PAC size (default: 8).
   --sync-buffer <us>        SYNC-to-first-DATA budget (default: 3000).
   --sync-prep <us>          DATA-to-next-SYNC reserve (default: 2500).
+  --cycles <n>              Superframes to collect (default: 1000).
   --max-per-percent <n>     Recorded verifier PER ceiling (default: 5.0).
   --sequence <digits>       Custom per-slot owner schedule, e.g. 232323.
   --spi-opt                 Use the matching persistent-SPIM image set.
   --irq                     Use the matching GPIO IRQ pending-event image set.
+  --phy-profile             Use dwt_configure internal profiling images.
   --timeout <seconds>       Sensor capture timeout (default: 180).
   --probe-serials <csv>     Diagnostic override; default discovers every USB probe.
   --no-build                Reuse previously built node images.
@@ -60,6 +62,8 @@ NO_BUILD=0
 FORCE=0
 SPI_OPT=0
 IRQ_PENDING=0
+PHY_PROFILE=0
+TARGET_CYCLES=1000
 SYNC_BUFFER_US=3000
 SYNC_PREP_US=2500
 MAX_PER_PERCENT=5.0
@@ -84,6 +88,9 @@ while (( $# > 0 )); do
         --sync-prep)
             (( $# >= 2 )) || { echo "--sync-prep requires a value" >&2; exit 2; }
             SYNC_PREP_US="$2"; shift 2 ;;
+        --cycles)
+            (( $# >= 2 )) || { echo "--cycles requires a value" >&2; exit 2; }
+            TARGET_CYCLES="$2"; shift 2 ;;
         --max-per-percent)
             (( $# >= 2 )) || { echo "--max-per-percent requires a value" >&2; exit 2; }
             MAX_PER_PERCENT="$2"; shift 2 ;;
@@ -100,6 +107,7 @@ while (( $# > 0 )); do
         --force) FORCE=1; shift ;;
         --spi-opt) SPI_OPT=1; shift ;;
         --irq) IRQ_PENDING=1; shift ;;
+        --phy-profile) PHY_PROFILE=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -147,6 +155,8 @@ fi
     || { echo "sync prep must be between 1 and 9999 us" >&2; exit 2; }
 (( SYNC_BUFFER_US + SYNC_PREP_US < 10000 )) \
     || { echo "sync buffer + sync prep must leave a positive DATA budget" >&2; exit 2; }
+[[ "${TARGET_CYCLES}" =~ ^[1-9][0-9]*$ ]] && (( TARGET_CYCLES <= 10000 )) \
+    || { echo "cycles must be an integer between 1 and 10000" >&2; exit 2; }
 [[ "${MAX_PER_PERCENT}" =~ ^([0-9]+)([.][0-9]+)?$ ]] \
     || { echo "max PER percent must be numeric" >&2; exit 2; }
 awk -v value="${MAX_PER_PERCENT}" 'BEGIN { exit !(value >= 0 && value <= 100) }' \
@@ -181,6 +191,12 @@ fi
 if (( IRQ_PENDING )); then
     OUTDIR+="_irq"
 fi
+if (( PHY_PROFILE )); then
+    OUTDIR+="_phyprofile"
+fi
+if (( TARGET_CYCLES != 1000 )); then
+    OUTDIR+="_cycles${TARGET_CYCLES}"
+fi
 mkdir -p "${OUTDIR}"
 BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_r${RUN_NUMBER}_multi_tx"
 ASSIGNMENT_FILE="${OUTDIR}/${BASE}.assignments.csv"
@@ -202,7 +218,7 @@ fi
 exec > >(tee -a "${ORCHESTRATOR_LOG}") 2>&1
 
 ROTATION=$(( (RUN_NUMBER - 1) % SENSOR_COUNT ))
-echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us / PAC ${PAC} / sync ${SYNC_BUFFER_US}+${SYNC_PREP_US} us"
+echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us / PAC ${PAC} / sync ${SYNC_BUFFER_US}+${SYNC_PREP_US} us / cycles ${TARGET_CYCLES}"
 echo "[multi-tx] slot sequence: ${SEQUENCE:-default-round-robin}"
 echo "[multi-tx] probe source: $([[ -z "${PROBE_SERIALS}" ]] && echo auto-discovery || echo diagnostic-override)"
 echo "[multi-tx] cyclic rotation: ${ROTATION}"
@@ -220,10 +236,12 @@ done
 if (( NO_BUILD == 0 )); then
     echo "[build] preparing every TX role once"
     BUILD_ARGS=("${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" tx "${LEAD_US}"
-        --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}")
+        --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}"
+        --cycles "${TARGET_CYCLES}")
     [[ -n "${SEQUENCE}" ]] && BUILD_ARGS+=(--sequence "${SEQUENCE}")
     (( SPI_OPT == 0 )) || BUILD_ARGS+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || BUILD_ARGS+=(--irq)
+    (( PHY_PROFILE == 0 )) || BUILD_ARGS+=(--phy-profile)
     "${SCRIPT_DIR}/brrs_exp4_build.sh" "${BUILD_ARGS[@]}"
 fi
 
@@ -267,11 +285,13 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
     [[ "${DISTANCE}" == "na" ]] || command+=("${DISTANCE}")
     command+=(--guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}"
         --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}"
+        --cycles "${TARGET_CYCLES}"
         --max-per-percent "${MAX_PER_PERCENT}"
         --serial "${serial}" --timeout "${TIMEOUT}" --no-build)
     [[ -n "${SEQUENCE}" ]] && command+=(--sequence "${SEQUENCE}")
     (( SPI_OPT == 0 )) || command+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || command+=(--irq)
+    (( PHY_PROFILE == 0 )) || command+=(--phy-profile)
     (( FORCE == 0 )) || command+=(--force)
     # J-Link OB probes on one USB host can intermittently lose a connection
     # when several flash operations run concurrently. Start each worker and
