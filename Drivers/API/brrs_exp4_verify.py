@@ -114,7 +114,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
                 max_per_percent, sequence=None, spi_opt=False,
                 irq_pending=False, expected_cycles=1000,
                 phy_fast=False, phy_fast_skip_pgf=False,
-                rx_path_profile=False):
+                rx_path_profile=False, spim_start_end_profile=False):
     slot_count = len(sequence) if sequence is not None else sensors
     expected = expected_cycles * slot_count
 
@@ -148,6 +148,12 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     if actual_rx_path_profile != expected_rx_path_profile:
         fail(f"rx_path_profile={actual_rx_path_profile!r}, expected "
              f"{expected_rx_path_profile!r}")
+    actual_spim_profile = config.get("spim_start_end_profile", "disabled")
+    expected_spim_profile = ("enabled" if spim_start_end_profile else
+                             "disabled")
+    if actual_spim_profile != expected_spim_profile:
+        fail(f"spim_start_end_profile={actual_spim_profile!r}, expected "
+             f"{expected_spim_profile!r}")
 
     verify_revision(lines, "EXP4_FIRMWARE_REV,")
     verify_phy_fast_self_test(
@@ -358,6 +364,36 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         require(profile_summary, "status", "PASS")
     elif profile_rows or profile_irq_rows or profile_summary_rows:
         fail("non-profile run unexpectedly emitted RX path profile records")
+
+    spim_profile_rows = [key_values(line) for line in lines
+                         if line.startswith("EXP4_SPIM_START_END_CSV,")]
+    if spim_start_end_profile:
+        if len(spim_profile_rows) != 1:
+            fail(f"SPIM START-END profile rows {len(spim_profile_rows)}, "
+                 "expected 1")
+        spim_profile = spim_profile_rows[0]
+        require(spim_profile, "enabled", 1)
+        require(spim_profile, "scope",
+                "ppi_timer3_compare_to_spim3_start_end_capture")
+        require(spim_profile, "transfers", 1000)
+        require(spim_profile, "bytes", 1)
+        require(spim_profile, "spi_hz", 32000000)
+        require(spim_profile, "timer_hz", 16000000)
+        require(spim_profile, "timeouts", 0)
+        require(spim_profile, "hist_overflow", 0)
+        require(spim_profile, "register_mismatch", 0)
+        require(spim_profile, "status", "PASS")
+        before = integer(spim_profile, "device_id_before")
+        after = integer(spim_profile, "device_id_after")
+        if before not in (0xDECA0302, 0xDECA0312) or after != before:
+            fail("SPIM profile DW3000 identity self-check failed")
+        min_ticks = integer(spim_profile, "min_ticks")
+        max_ticks = integer(spim_profile, "max_ticks")
+        p99_ticks = integer(spim_profile, "p99_ticks")
+        if min_ticks <= 0 or not min_ticks <= p99_ticks <= max_ticks:
+            fail("SPIM profile tick distribution is inconsistent")
+    elif spim_profile_rows:
+        fail("non-profile run unexpectedly emitted SPIM START-END record")
 
     spi = key_values(last_line(lines, "EXP4_SPI_CSV,"))
     require(spi, "mode", expected_spi_mode)
@@ -649,6 +685,8 @@ def main():
                         help="Expect the no-PGF delta PHY switch variant.")
     parser.add_argument("--rx-path-profile", action="store_true",
                         help="Expect polling RX-path phase profiling.")
+    parser.add_argument("--spim-start-end-profile", action="store_true",
+                        help="Expect boot-only SPIM3 START-to-END profiling.")
     args = parser.parse_args()
 
     if args.role == "sensor" and args.node is None:
@@ -680,7 +718,8 @@ def main():
                                  args.spi_opt, args.irq, args.cycles,
                                  args.phy_fast_switch,
                                  args.phy_fast_skip_pgf,
-                                 args.rx_path_profile)
+                                 args.rx_path_profile,
+                                 args.spim_start_end_profile)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard, args.sync_buffer,

@@ -286,6 +286,9 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #if BRRS_OPT_RX_PATH_PROFILE && BRRS_EXP4_IRQ_PENDING
 #error "RX path profiling timestamps polling and cannot be combined with IRQ dispatch"
 #endif
+#if BRRS_OPT_SPIM_START_END_PROFILE && !BRRS_EXP4_SPI_DIRECT
+#error "SPIM START-END profiling requires the direct persistent-SPIM build"
+#endif
 #if BRRS_EXP4_SPI_DIRECT && !BRRS_EXP4_SPI_PERSISTENT
 #error "BRRS_EXP4_SPI_DIRECT requires BRRS_EXP4_SPI_PERSISTENT"
 #endif
@@ -3614,9 +3617,9 @@ int brrs_init(void)
 #endif
 #if BRRS_EXPERIMENT == 4
     {
-        static char cfg_msg[560];
+        static char cfg_msg[620];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "EXP4_CONFIG_CSV,physical_sensors=%d,data_slots=%d,slot_repeats=%d,data_plen=%d,data_pac=%u,psdu_bytes=%d,app_payload_bytes=%d,sync_plen=%d,superframe_us=%d,sync_rmarker_offset_us=%d,sync_buffer_us=%d,sync_prep_us=%d,data_budget_us=%d,frame_airtime_us=%d,slot_us=%d,guard_us=%d,lead_us=%d,tail_us=%d,data_burst_deadline_us=%d,sync_prep_deadline_us=%d,burst_rearm_budget_us=%d,max_slots=%d,spi_mode=%s,rx_path_profile=%s",
+                 "EXP4_CONFIG_CSV,physical_sensors=%d,data_slots=%d,slot_repeats=%d,data_plen=%d,data_pac=%u,psdu_bytes=%d,app_payload_bytes=%d,sync_plen=%d,superframe_us=%d,sync_rmarker_offset_us=%d,sync_buffer_us=%d,sync_prep_us=%d,data_budget_us=%d,frame_airtime_us=%d,slot_us=%d,guard_us=%d,lead_us=%d,tail_us=%d,data_burst_deadline_us=%d,sync_prep_deadline_us=%d,burst_rearm_budget_us=%d,max_slots=%d,spi_mode=%s,rx_path_profile=%s,spim_start_end_profile=%s",
                  brrs_active_node_count(brrs_configured_sensor_bitmap()),
                  BRRS_EXP4_DATA_SLOT_COUNT, BRRS_EXP4_SLOT_REPEATS,
                  PREAMBLE_SYMBOLS, (unsigned)DATA_PAC_SYMBOLS, PSDU_BYTES,
@@ -3633,17 +3636,18 @@ int brrs_init(void)
                  EXP4_MAX_DATA_SLOTS,
                  BRRS_EXP4_SPI_PERSISTENT ?
                      "persistent_data_burst" : "legacy_per_transaction",
-                 BRRS_OPT_RX_PATH_PROFILE ? "enabled" : "disabled");
+                 BRRS_OPT_RX_PATH_PROFILE ? "enabled" : "disabled",
+                 BRRS_OPT_SPIM_START_END_PROFILE ? "enabled" : "disabled");
         final_log_info(cfg_msg);
 #if BRRS_EXP4_IRQ_PENDING
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=46,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_rxfcg_pending,event_mask=rxfcg_or_error_validated,irq_good_class=pending_and_fint_rxok,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=47,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_rxfcg_pending,event_mask=rxfcg_or_error_validated,irq_good_class=pending_and_fint_rxok,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,spim_start_end_profile=feature_flagged_boot_only,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #elif BRRS_OPT_RX_PATH_PROFILE
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=46,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling_with_gpio_timestamp,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=timestamp_only_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=enabled_nonintrusive_raw_cycles,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=47,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling_with_gpio_timestamp,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=timestamp_only_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=enabled_nonintrusive_raw_cycles,spim_start_end_profile=feature_flagged_boot_only,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #else
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=46,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=47,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,spim_start_end_profile=feature_flagged_boot_only,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #endif
     }
 #endif
@@ -3659,6 +3663,58 @@ int brrs_init(void)
 #endif
 
     dwt_timer_init();
+#if BRRS_EXPERIMENT == 4 && BRRS_OPT_SPIM_START_END_PROFILE
+    {
+        dw_spim_start_end_profile_t profile = {0};
+        uint32_t device_id_before = dwt_readdevid();
+        int32_t profile_result =
+            port_dw_spim_start_end_profile(&profile);
+        uint32_t device_id_after = dwt_readdevid();
+        bool device_id_before_ok =
+            device_id_before == (uint32_t)DWT_DW3000_DEV_ID ||
+            device_id_before == (uint32_t)DWT_DW3000_PDOA_DEV_ID;
+        bool device_id_after_ok =
+            device_id_after == (uint32_t)DWT_DW3000_DEV_ID ||
+            device_id_after == (uint32_t)DWT_DW3000_PDOA_DEV_ID;
+        bool profile_pass =
+            profile_result == NRF_SUCCESS &&
+            profile.count == 1000U &&
+            profile.timeout_count == 0U &&
+            profile.histogram_overflow == 0U &&
+            profile.register_mismatch == 0U &&
+            device_id_before_ok && device_id_after_ok &&
+            device_id_before == device_id_after;
+        uint64_t avg_x1000_ticks = profile.count == 0U ? 0U :
+            (profile.sum_ticks * 1000ULL) / profile.count;
+        uint64_t avg_ns_x1000 = profile.count == 0U ? 0U :
+            (profile.sum_ticks * 62500ULL) / profile.count;
+        static char profile_msg[680];
+
+        snprintf(profile_msg, sizeof(profile_msg),
+                 "EXP4_SPIM_START_END_CSV,enabled=1,scope=ppi_timer3_compare_to_spim3_start_end_capture,transfers=%lu,bytes=1,spi_hz=32000000,timer_hz=16000000,min_ticks=%lu,max_ticks=%lu,avg_x1000_ticks=%llu,p99_ticks=%lu,min_ns_x1000=%llu,max_ns_x1000=%llu,avg_ns_x1000=%llu,p99_ns_x1000=%llu,timeouts=%lu,hist_overflow=%lu,register_mismatch=%lu,device_id_before=0x%08lX,device_id_after=0x%08lX,status=%s",
+                 (unsigned long)profile.count,
+                 (unsigned long)profile.min_ticks,
+                 (unsigned long)profile.max_ticks,
+                 (unsigned long long)avg_x1000_ticks,
+                 (unsigned long)profile.p99_ticks,
+                 (unsigned long long)profile.min_ticks * 62500ULL,
+                 (unsigned long long)profile.max_ticks * 62500ULL,
+                 (unsigned long long)avg_ns_x1000,
+                 (unsigned long long)profile.p99_ticks * 62500ULL,
+                 (unsigned long)profile.timeout_count,
+                 (unsigned long)profile.histogram_overflow,
+                 (unsigned long)profile.register_mismatch,
+                 (unsigned long)device_id_before,
+                 (unsigned long)device_id_after,
+                 profile_pass ? "PASS" : "FAIL");
+        final_log_info(profile_msg);
+        if (!profile_pass) {
+            while (1) {
+                __WFI();
+            }
+        }
+    }
+#endif
 #if BRRS_EXPERIMENT == 4 && BRRS_OPT_PHY_CONFIG_PROFILE
     brrs_phy_profile_reset();
 #endif

@@ -28,6 +28,10 @@ extern "C"
 
 #define DATALEN1 200
 
+#ifndef BRRS_OPT_SPIM_START_END_PROFILE
+#define BRRS_OPT_SPIM_START_END_PROFILE 0
+#endif
+
     typedef enum
     {
         DW_HAL_NODE_UNLOCKED = NRF_SUCCESS,
@@ -86,6 +90,20 @@ typedef struct
     uint8_t active;
 } dw_spi_burst_stats_t;
 
+#if BRRS_OPT_SPIM_START_END_PROFILE
+typedef struct
+{
+    uint32_t count;
+    uint32_t min_ticks;
+    uint32_t max_ticks;
+    uint64_t sum_ticks;
+    uint32_t p99_ticks;
+    uint32_t timeout_count;
+    uint32_t histogram_overflow;
+    uint32_t register_mismatch;
+} dw_spim_start_end_profile_t;
+#endif
+
 /* @fn    nrf52840_dk_spi_init
  * Initialise nRF52840-DK SPI
  * */
@@ -112,6 +130,10 @@ void port_set_dw_ic_spi_slowrate(void);
     int32_t port_dw_spi_burst_end(void);
     void port_dw_spi_burst_force_recover(void);
     void port_dw_spi_burst_get_stats(dw_spi_burst_stats_t *stats);
+#if BRRS_OPT_SPIM_START_END_PROFILE
+    int32_t port_dw_spim_start_end_profile(
+        dw_spim_start_end_profile_t *profile);
+#endif
 
     /*! ------------------------------------------------------------------------------------------------------------------
      * Function: writetospiwithcrc()

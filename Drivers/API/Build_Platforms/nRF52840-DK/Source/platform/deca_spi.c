@@ -14,6 +14,7 @@
 #include "deca_spi.h"
 #include "port.h"
 #include <deca_device_api.h>
+#include <string.h>
 
 #ifndef BRRS_EXP4_SPI_DIRECT
 #define BRRS_EXP4_SPI_DIRECT 0
@@ -348,6 +349,250 @@ static ret_code_t spi_direct_transfer(const uint8_t *tx_buffer,
     spi_burst_stats.direct_transfer_count++;
     return NRF_SUCCESS;
 }
+
+#if BRRS_OPT_SPIM_START_END_PROFILE
+#define DW_SPIM_PROFILE_SAMPLES       1000U
+#define DW_SPIM_PROFILE_HIST_BINS     256U
+#define DW_SPIM_PROFILE_START_PPI_CH  18U
+#define DW_SPIM_PROFILE_END_PPI_CH    19U
+#define DW_SPIM_PROFILE_PPI_MASK      \
+    ((1UL << DW_SPIM_PROFILE_START_PPI_CH) | \
+     (1UL << DW_SPIM_PROFILE_END_PPI_CH))
+#define DW_SPIM_PROFILE_TIMER         NRF_TIMER3
+
+/* Measure only the SPIM3 START-task to END-event interval. TIMER3 compare 0
+ * starts SPIM3 through PPI, and the SPIM3 END event captures TIMER3 CC[1]
+ * through a second PPI channel. CPU event polling therefore cannot extend
+ * the captured interval. CS remains high, so the DW3000 ignores all 1000
+ * one-byte transfers. */
+int32_t port_dw_spim_start_end_profile(
+    dw_spim_start_end_profile_t *profile)
+{
+    static uint32_t histogram[DW_SPIM_PROFILE_HIST_BINS];
+    static uint8_t tx_byte = 0U;
+    static uint8_t rx_byte = 0U;
+    NRF_SPIM_Type *spim = pgSpiHandler->spi_inst.u.spim.p_reg;
+    NRF_TIMER_Type *timer = DW_SPIM_PROFILE_TIMER;
+    uint32_t saved_start_eep;
+    uint32_t saved_start_tep;
+    uint32_t saved_end_eep;
+    uint32_t saved_end_tep;
+    uint32_t saved_timer_mode;
+    uint32_t saved_timer_bitmode;
+    uint32_t saved_timer_prescaler;
+    uint32_t saved_timer_shorts;
+    uint32_t saved_timer_cc0;
+    uint32_t saved_timer_cc1;
+    uint32_t saved_timer_event0;
+    uint32_t saved_timer_event1;
+    uint32_t saved_spim_config;
+    uint32_t saved_spim_frequency;
+    uint32_t saved_spim_sck;
+    uint32_t saved_spim_mosi;
+    uint32_t saved_spim_miso;
+    uint32_t anomaly_preserved = 0U;
+    uint32_t sample;
+    uint32_t cumulative;
+    uint32_t p99_target;
+    int32_t result = NRF_SUCCESS;
+    bool spi_open = false;
+    bool anomaly_active = false;
+
+    if (profile == NULL)
+    {
+        return NRF_ERROR_NULL;
+    }
+    memset(profile, 0, sizeof(*profile));
+    memset(histogram, 0, sizeof(histogram));
+    profile->min_ticks = UINT32_MAX;
+
+    if (!BRRS_EXP4_SPI_DIRECT || spim != NRF_SPIM3 ||
+        spi_burst_active || spi_cs_asserted ||
+        pgSpiHandler->lock != DW_HAL_NODE_UNLOCKED ||
+        nrf_gpio_pin_read(current_cs_pin) == 0U ||
+        (DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk) == 0U ||
+        (NRF_PPI->CHEN & DW_SPIM_PROFILE_PPI_MASK) != 0U ||
+        timer->INTENSET != 0U || timer->SHORTS != 0U ||
+        spim->ENABLE != SPIM_ENABLE_ENABLE_Disabled ||
+        spim->FREQUENCY != NRF_SPIM_FREQ_32M)
+    {
+        return NRF_ERROR_INVALID_STATE;
+    }
+
+    saved_start_eep = NRF_PPI->CH[DW_SPIM_PROFILE_START_PPI_CH].EEP;
+    saved_start_tep = NRF_PPI->CH[DW_SPIM_PROFILE_START_PPI_CH].TEP;
+    saved_end_eep = NRF_PPI->CH[DW_SPIM_PROFILE_END_PPI_CH].EEP;
+    saved_end_tep = NRF_PPI->CH[DW_SPIM_PROFILE_END_PPI_CH].TEP;
+    saved_timer_mode = timer->MODE;
+    saved_timer_bitmode = timer->BITMODE;
+    saved_timer_prescaler = timer->PRESCALER;
+    saved_timer_shorts = timer->SHORTS;
+    saved_timer_cc0 = timer->CC[0];
+    saved_timer_cc1 = timer->CC[1];
+    saved_timer_event0 = timer->EVENTS_COMPARE[0];
+    saved_timer_event1 = timer->EVENTS_COMPARE[1];
+    saved_spim_config = spim->CONFIG;
+    saved_spim_frequency = spim->FREQUENCY;
+    saved_spim_sck = spim->PSEL.SCK;
+    saved_spim_mosi = spim->PSEL.MOSI;
+    saved_spim_miso = spim->PSEL.MISO;
+
+    pgSpiHandler->lock = DW_HAL_NODE_LOCKED;
+    if (openspi(&pgSpiHandler->spi_inst) != 0)
+    {
+        result = NRF_ERROR_INTERNAL;
+        goto cleanup;
+    }
+    spi_open = true;
+    anomaly_preserved = spi_anomaly_198_enable(&tx_byte, 1U);
+    anomaly_active = true;
+
+    nrf_spim_tx_list_disable(spim);
+    nrf_spim_rx_list_disable(spim);
+    timer->TASKS_STOP = 1U;
+    timer->MODE = TIMER_MODE_MODE_Timer;
+    timer->BITMODE = TIMER_BITMODE_BITMODE_32Bit;
+    timer->PRESCALER = 0U;
+    timer->SHORTS = 0U;
+    timer->INTENCLR = 0xFFFFFFFFUL;
+    timer->CC[0] = 1U;
+
+    NRF_PPI->CH[DW_SPIM_PROFILE_START_PPI_CH].EEP =
+        (uint32_t)(uintptr_t)&timer->EVENTS_COMPARE[0];
+    NRF_PPI->CH[DW_SPIM_PROFILE_START_PPI_CH].TEP =
+        (uint32_t)(uintptr_t)&spim->TASKS_START;
+    NRF_PPI->CH[DW_SPIM_PROFILE_END_PPI_CH].EEP =
+        (uint32_t)(uintptr_t)&spim->EVENTS_END;
+    NRF_PPI->CH[DW_SPIM_PROFILE_END_PPI_CH].TEP =
+        (uint32_t)(uintptr_t)&timer->TASKS_CAPTURE[1];
+    NRF_PPI->CHENSET = DW_SPIM_PROFILE_PPI_MASK;
+
+    for (sample = 0U; sample < DW_SPIM_PROFILE_SAMPLES; sample++)
+    {
+        uint32_t timeout_start;
+        uint32_t ticks;
+
+        nrf_spim_tx_buffer_set(spim, &tx_byte, 1U);
+        nrf_spim_rx_buffer_set(spim, &rx_byte, 1U);
+        nrf_spim_event_clear(spim, NRF_SPIM_EVENT_END);
+        timer->TASKS_STOP = 1U;
+        timer->TASKS_CLEAR = 1U;
+        timer->EVENTS_COMPARE[0] = 0U;
+        timer->EVENTS_COMPARE[1] = 0U;
+        timeout_start = DWT->CYCCNT;
+        timer->TASKS_START = 1U;
+
+        while (!nrf_spim_event_check(spim, NRF_SPIM_EVENT_END))
+        {
+            if ((uint32_t)(DWT->CYCCNT - timeout_start) >=
+                DW_SPI_DIRECT_TIMEOUT_CYCLES)
+            {
+                nrf_spim_task_trigger(spim, NRF_SPIM_TASK_STOP);
+                profile->timeout_count++;
+                result = NRF_ERROR_TIMEOUT;
+                goto cleanup;
+            }
+        }
+        timer->TASKS_STOP = 1U;
+        if (timer->CC[1] <= timer->CC[0])
+        {
+            profile->histogram_overflow++;
+            result = NRF_ERROR_INVALID_DATA;
+            goto cleanup;
+        }
+        ticks = timer->CC[1] - timer->CC[0];
+        profile->count++;
+        profile->sum_ticks += ticks;
+        if (ticks < profile->min_ticks)
+        {
+            profile->min_ticks = ticks;
+        }
+        if (ticks > profile->max_ticks)
+        {
+            profile->max_ticks = ticks;
+        }
+        if (ticks < DW_SPIM_PROFILE_HIST_BINS)
+        {
+            histogram[ticks]++;
+        }
+        else
+        {
+            profile->histogram_overflow++;
+        }
+    }
+
+    p99_target = (profile->count * 99U + 99U) / 100U;
+    cumulative = 0U;
+    for (sample = 0U; sample < DW_SPIM_PROFILE_HIST_BINS; sample++)
+    {
+        cumulative += histogram[sample];
+        if (cumulative >= p99_target)
+        {
+            profile->p99_ticks = sample;
+            break;
+        }
+    }
+    if (profile->histogram_overflow != 0U ||
+        profile->count != DW_SPIM_PROFILE_SAMPLES ||
+        profile->p99_ticks == 0U)
+    {
+        result = NRF_ERROR_INVALID_DATA;
+    }
+
+cleanup:
+    NRF_PPI->CHENCLR = DW_SPIM_PROFILE_PPI_MASK;
+    timer->TASKS_STOP = 1U;
+    timer->TASKS_CLEAR = 1U;
+    timer->EVENTS_COMPARE[0] = 0U;
+    timer->EVENTS_COMPARE[1] = 0U;
+    NRF_PPI->CH[DW_SPIM_PROFILE_START_PPI_CH].EEP = saved_start_eep;
+    NRF_PPI->CH[DW_SPIM_PROFILE_START_PPI_CH].TEP = saved_start_tep;
+    NRF_PPI->CH[DW_SPIM_PROFILE_END_PPI_CH].EEP = saved_end_eep;
+    NRF_PPI->CH[DW_SPIM_PROFILE_END_PPI_CH].TEP = saved_end_tep;
+    timer->MODE = saved_timer_mode;
+    timer->BITMODE = saved_timer_bitmode;
+    timer->PRESCALER = saved_timer_prescaler;
+    timer->SHORTS = saved_timer_shorts;
+    timer->CC[0] = saved_timer_cc0;
+    timer->CC[1] = saved_timer_cc1;
+    timer->EVENTS_COMPARE[0] = saved_timer_event0;
+    timer->EVENTS_COMPARE[1] = saved_timer_event1;
+    if (anomaly_active)
+    {
+        *((volatile uint32_t *)0x40000E00) = anomaly_preserved;
+    }
+    if (spi_open)
+    {
+        closespi(&pgSpiHandler->spi_inst);
+    }
+    pgSpiHandler->lock = DW_HAL_NODE_UNLOCKED;
+
+    if (NRF_PPI->CH[DW_SPIM_PROFILE_START_PPI_CH].EEP != saved_start_eep ||
+        NRF_PPI->CH[DW_SPIM_PROFILE_START_PPI_CH].TEP != saved_start_tep ||
+        NRF_PPI->CH[DW_SPIM_PROFILE_END_PPI_CH].EEP != saved_end_eep ||
+        NRF_PPI->CH[DW_SPIM_PROFILE_END_PPI_CH].TEP != saved_end_tep ||
+        timer->MODE != saved_timer_mode ||
+        timer->BITMODE != saved_timer_bitmode ||
+        timer->PRESCALER != saved_timer_prescaler ||
+        timer->SHORTS != saved_timer_shorts ||
+        timer->CC[0] != saved_timer_cc0 ||
+        timer->CC[1] != saved_timer_cc1 ||
+        timer->EVENTS_COMPARE[0] != saved_timer_event0 ||
+        timer->EVENTS_COMPARE[1] != saved_timer_event1 ||
+        spim->CONFIG != saved_spim_config ||
+        spim->FREQUENCY != saved_spim_frequency ||
+        spim->PSEL.SCK != saved_spim_sck ||
+        spim->PSEL.MOSI != saved_spim_mosi ||
+        spim->PSEL.MISO != saved_spim_miso ||
+        spim->ENABLE != SPIM_ENABLE_ENABLE_Disabled ||
+        (NRF_PPI->CHEN & DW_SPIM_PROFILE_PPI_MASK) != 0U)
+    {
+        profile->register_mismatch++;
+        result = NRF_ERROR_INVALID_STATE;
+    }
+    return result;
+}
+#endif
 #endif
 
 DW_SPI_HOT_OPT

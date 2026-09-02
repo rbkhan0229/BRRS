@@ -26,6 +26,7 @@ Options:
   --irq                     Use the matching GPIO IRQ pending-event image set.
   --phy-profile             Use dwt_configure internal profiling images.
   --rx-path-profile         Use polling RX service profiling images.
+  --spim-start-end-profile  Use the boot-only SPIM3 hardware profiling image set.
   --phy-fast-switch         Use the BRRS delta PHY switch path.
   --phy-fast-skip-pgf       Skip delta-path PGF calibration (requires fast switch).
   --timeout <seconds>       Sensor capture timeout (default: 180).
@@ -67,6 +68,7 @@ SPI_OPT=0
 IRQ_PENDING=0
 PHY_PROFILE=0
 RX_PATH_PROFILE=0
+SPIM_START_END_PROFILE=0
 PHY_FAST_SWITCH=0
 PHY_FAST_SKIP_PGF=0
 TARGET_CYCLES=1000
@@ -115,6 +117,7 @@ while (( $# > 0 )); do
         --irq) IRQ_PENDING=1; shift ;;
         --phy-profile) PHY_PROFILE=1; shift ;;
         --rx-path-profile) RX_PATH_PROFILE=1; shift ;;
+        --spim-start-end-profile) SPIM_START_END_PROFILE=1; shift ;;
         --phy-fast-switch) PHY_FAST_SWITCH=1; shift ;;
         --phy-fast-skip-pgf) PHY_FAST_SKIP_PGF=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
@@ -178,6 +181,10 @@ if (( RX_PATH_PROFILE && IRQ_PENDING )); then
     echo "--rx-path-profile cannot be combined with --irq" >&2
     exit 2
 fi
+if (( SPIM_START_END_PROFILE && ! SPI_OPT )); then
+    echo "--spim-start-end-profile requires --spi-opt" >&2
+    exit 2
+fi
 [[ "${TIMEOUT}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "timeout must be a positive integer" >&2; exit 2; }
 
@@ -213,6 +220,9 @@ if (( PHY_PROFILE )); then
 fi
 if (( RX_PATH_PROFILE )); then
     OUTDIR+="_rxprofile"
+fi
+if (( SPIM_START_END_PROFILE )); then
+    OUTDIR+="_spimhwprofile"
 fi
 if (( PHY_FAST_SWITCH )); then
     OUTDIR+="_phyfast"
@@ -269,6 +279,7 @@ if (( NO_BUILD == 0 )); then
     (( IRQ_PENDING == 0 )) || BUILD_ARGS+=(--irq)
     (( PHY_PROFILE == 0 )) || BUILD_ARGS+=(--phy-profile)
     (( RX_PATH_PROFILE == 0 )) || BUILD_ARGS+=(--rx-path-profile)
+    (( SPIM_START_END_PROFILE == 0 )) || BUILD_ARGS+=(--spim-start-end-profile)
     (( PHY_FAST_SWITCH == 0 )) || BUILD_ARGS+=(--phy-fast-switch)
     (( PHY_FAST_SKIP_PGF == 0 )) || BUILD_ARGS+=(--phy-fast-skip-pgf)
     "${SCRIPT_DIR}/brrs_exp4_build.sh" "${BUILD_ARGS[@]}"
@@ -322,6 +333,7 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
     (( IRQ_PENDING == 0 )) || command+=(--irq)
     (( PHY_PROFILE == 0 )) || command+=(--phy-profile)
     (( RX_PATH_PROFILE == 0 )) || command+=(--rx-path-profile)
+    (( SPIM_START_END_PROFILE == 0 )) || command+=(--spim-start-end-profile)
     (( PHY_FAST_SWITCH == 0 )) || command+=(--phy-fast-switch)
     (( PHY_FAST_SKIP_PGF == 0 )) || command+=(--phy-fast-skip-pgf)
     (( FORCE == 0 )) || command+=(--force)

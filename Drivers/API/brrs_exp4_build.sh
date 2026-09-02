@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--cycles <n>] [--sequence <digits>] [--spi-opt] [--irq] [--phy-profile] [--rx-path-profile] [--phy-fast-switch] [--phy-fast-skip-pgf]"
+    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--cycles <n>] [--sequence <digits>] [--spi-opt] [--irq] [--phy-profile] [--rx-path-profile] [--spim-start-end-profile] [--phy-fast-switch] [--phy-fast-skip-pgf]"
     echo "Example: $0 32 2 200 N3 15"
     echo "Example (custom slot schedule): $0 64 2 200 all 15 --sequence 2323232323232"
     echo
@@ -22,6 +22,7 @@ SPI_OPT=0
 IRQ_PENDING=0
 PHY_PROFILE=0
 RX_PATH_PROFILE=0
+SPIM_START_END_PROFILE=0
 PHY_FAST_SWITCH=0
 PHY_FAST_SKIP_PGF=0
 TARGET_CYCLES=1000
@@ -49,6 +50,7 @@ while (( $# > 0 )); do
         --irq) IRQ_PENDING=1; shift ;;
         --phy-profile) PHY_PROFILE=1; shift ;;
         --rx-path-profile) RX_PATH_PROFILE=1; shift ;;
+        --spim-start-end-profile) SPIM_START_END_PROFILE=1; shift ;;
         --phy-fast-switch) PHY_FAST_SWITCH=1; shift ;;
         --phy-fast-skip-pgf) PHY_FAST_SKIP_PGF=1; shift ;;
         *) ARGS+=("$1"); shift ;;
@@ -134,6 +136,10 @@ if (( RX_PATH_PROFILE && IRQ_PENDING )); then
     echo "ERROR: --rx-path-profile cannot be combined with --irq" >&2
     exit 2
 fi
+if (( SPIM_START_END_PROFILE && ! SPI_OPT )); then
+    echo "ERROR: --spim-start-end-profile requires --spi-opt" >&2
+    exit 2
+fi
 
 if [[ "${requested_role}" == "init" || "${requested_role}" == "all" || "${requested_role}" == "tx" ]]; then
     :
@@ -177,6 +183,9 @@ fi
 if (( RX_PATH_PROFILE )); then
     dest_dir+="_rxprofile"
 fi
+if (( SPIM_START_END_PROFILE )); then
+    dest_dir+="_spimhwprofile"
+fi
 if (( PHY_FAST_SWITCH )); then
     dest_dir+="_phyfast"
 fi
@@ -209,6 +218,7 @@ build_image() {
     local base="exp4_${plen}_s${sensor_count}_${role}"
     local macros
     local extra_defs=";BRRS_EXP4_IRQ_PENDING=${IRQ_PENDING}"
+    local role_spim_start_end_profile=0
     extra_defs+=";BRRS_SYNC_BUFFER_US=${SYNC_BUFFER_US}"
     extra_defs+=";BRRS_EXP4_SYNC_PREP_US=${SYNC_PREP_US}"
     extra_defs+=";BRRS_TARGET_CYCLES=${TARGET_CYCLES}"
@@ -229,6 +239,10 @@ build_image() {
     if (( SPI_OPT )) && [[ "${role}" == "init" ]]; then
         extra_defs+=";BRRS_EXP4_SPI_PERSISTENT=1;BRRS_EXP4_SPI_DIRECT=1"
     fi
+    if (( SPIM_START_END_PROFILE )) && [[ "${role}" == "init" ]]; then
+        role_spim_start_end_profile=1
+    fi
+    extra_defs+=";BRRS_OPT_SPIM_START_END_PROFILE=${role_spim_start_end_profile}"
 
     echo "Building ${base}..."
     "${embuild}" \
@@ -269,6 +283,7 @@ echo "SPI mode: $((( SPI_OPT )) && echo persistent-burst || echo legacy-per-tran
 echo "RX event: $((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"
 echo "PHY configure profiling: $((( PHY_PROFILE )) && echo enabled || echo disabled)"
 echo "RX path profiling: $((( RX_PATH_PROFILE )) && echo enabled || echo disabled)"
+echo "SPIM START-END profiling: $((( SPIM_START_END_PROFILE )) && echo enabled-on-init || echo disabled)"
 echo "PHY fast switch: $((( PHY_FAST_SWITCH )) && echo enabled || echo disabled)"
 echo "PHY fast switch PGF: $((( PHY_FAST_SKIP_PGF )) && echo skipped || echo retained)"
 echo "Target cycles: ${TARGET_CYCLES}"
