@@ -349,6 +349,7 @@ VERIFY_IRQ_ARGS=()
 # bash 3.2 (macOS default) raises "unbound variable" under set -u when
 # expanding "${arr[@]}" on a zero-length array, even though it was
 # declared -- the ${arr[@]+"${arr[@]}"} idiom works around it.
+set +e
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     "${VERIFY_ARGS[@]}" --preamble "${PREAMBLE}" \
     --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" \
@@ -357,8 +358,16 @@ VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     ${VERIFY_SEQ_ARGS[@]+"${VERIFY_SEQ_ARGS[@]}"} \
     ${VERIFY_SPI_ARGS[@]+"${VERIFY_SPI_ARGS[@]}"} \
     ${VERIFY_IRQ_ARGS[@]+"${VERIFY_IRQ_ARGS[@]}"})"
+VERIFY_STATUS=$?
+set -e
 echo "${VERIFY_OUTPUT}"
-DETAIL="${VERIFY_OUTPUT#\[verify\] PASS: }"
+if (( VERIFY_STATUS == 0 )); then
+    RESULT_STATUS="PASS"
+    DETAIL="${VERIFY_OUTPUT#\[verify\] PASS: }"
+else
+    RESULT_STATUS="FAIL"
+    DETAIL="${VERIFY_OUTPUT#\[verify\] FAIL: }"
+fi
 
 if command -v sha256sum >/dev/null 2>&1; then
     RAW_SHA256="$(sha256sum "${RAW_LOG}" | awk '{print $1}')"
@@ -421,10 +430,11 @@ fi
     printf 'raw_log=%s\n' "${RAW_LOG}"
     printf 'raw_size_bytes=%s\n' "$(wc -c <"${RAW_LOG}" | tr -d '[:space:]')"
     printf 'raw_sha256=%s\n' "${RAW_SHA256}"
-    printf 'collection_status=PASS\n'
-    printf 'status=PASS\n'
+    printf 'collection_status=%s\n' "${RESULT_STATUS}"
+    printf 'status=%s\n' "${RESULT_STATUS}"
     printf 'detail=%s\n' "${DETAIL}"
 } >"${META_FILE}"
 
 echo "[done] raw=${RAW_LOG}"
 echo "[done] meta=${META_FILE}"
+exit "${VERIFY_STATUS}"
