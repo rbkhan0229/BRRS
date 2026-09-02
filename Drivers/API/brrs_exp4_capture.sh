@@ -25,6 +25,7 @@ Options:
   --spi-opt            Keep SPIM enabled during each bounded DATA burst.
   --irq                Use GPIO IRQ pending events; foreground remains sole SPI owner.
   --phy-profile        Profile internal dwt_configure phases (diagnostic build).
+  --rx-path-profile    Profile the polling RX service path (diagnostic build).
   --phy-fast-switch    Use the BRRS delta PHY switch path.
   --phy-fast-skip-pgf  Skip PGF calibration in the delta path (requires fast switch).
   --serial <S/N>       Select a J-Link when multiple probes are attached.
@@ -72,6 +73,7 @@ SEQUENCE=""
 SPI_OPT=0
 IRQ_PENDING=0
 PHY_PROFILE=0
+RX_PATH_PROFILE=0
 PHY_FAST_SWITCH=0
 PHY_FAST_SKIP_PGF=0
 TARGET_CYCLES=1000
@@ -129,6 +131,7 @@ while (( $# > 0 )); do
         --spi-opt) SPI_OPT=1; shift ;;
         --irq) IRQ_PENDING=1; shift ;;
         --phy-profile) PHY_PROFILE=1; shift ;;
+        --rx-path-profile) RX_PATH_PROFILE=1; shift ;;
         --phy-fast-switch) PHY_FAST_SWITCH=1; shift ;;
         --phy-fast-skip-pgf) PHY_FAST_SKIP_PGF=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
@@ -175,6 +178,10 @@ awk -v value="${MAX_PER_PERCENT}" 'BEGIN { exit !(value >= 0 && value <= 100) }'
     || { echo "max PER percent must be between 0 and 100" >&2; exit 2; }
 if (( PHY_FAST_SKIP_PGF && ! PHY_FAST_SWITCH )); then
     echo "--phy-fast-skip-pgf requires --phy-fast-switch" >&2
+    exit 2
+fi
+if (( RX_PATH_PROFILE && IRQ_PENDING )); then
+    echo "--rx-path-profile cannot be combined with --irq" >&2
     exit 2
 fi
 
@@ -226,6 +233,9 @@ fi
 if (( PHY_PROFILE )); then
     IMAGE_DIR+="_phyprofile"
 fi
+if (( RX_PATH_PROFILE )); then
+    IMAGE_DIR+="_rxprofile"
+fi
 if (( PHY_FAST_SWITCH )); then
     IMAGE_DIR+="_phyfast"
 fi
@@ -248,6 +258,9 @@ if (( IRQ_PENDING )); then
 fi
 if (( PHY_PROFILE )); then
     CONFIG+="_PHYPROFILE"
+fi
+if (( RX_PATH_PROFILE )); then
+    CONFIG+="_RXPROFILE"
 fi
 if (( PHY_FAST_SWITCH )); then
     CONFIG+="_PHYFAST"
@@ -273,6 +286,9 @@ if (( IRQ_PENDING )); then
 fi
 if (( PHY_PROFILE )); then
     OUTDIR+="_phyprofile"
+fi
+if (( RX_PATH_PROFILE )); then
+    OUTDIR+="_rxprofile"
 fi
 if (( PHY_FAST_SWITCH )); then
     OUTDIR+="_phyfast"
@@ -356,6 +372,7 @@ echo "  PER limit:     ${MAX_PER_PERCENT}%"
 echo "  SPI mode:      $((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
 echo "  RX event:      $((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"
 echo "  PHY profile:   $((( PHY_PROFILE )) && echo enabled || echo disabled)"
+echo "  RX path prof.: $((( RX_PATH_PROFILE )) && echo enabled || echo disabled)"
 echo "  PHY fast:      $((( PHY_FAST_SWITCH )) && echo enabled || echo disabled)"
 echo "  Fast PGF:      $((( PHY_FAST_SKIP_PGF )) && echo skipped || echo retained)"
 echo "  Superframes:   ${TARGET_CYCLES}"
@@ -374,6 +391,7 @@ if (( NO_BUILD == 0 )); then
     (( SPI_OPT == 0 )) || BUILD_CMD+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || BUILD_CMD+=(--irq)
     (( PHY_PROFILE == 0 )) || BUILD_CMD+=(--phy-profile)
+    (( RX_PATH_PROFILE == 0 )) || BUILD_CMD+=(--rx-path-profile)
     (( PHY_FAST_SWITCH == 0 )) || BUILD_CMD+=(--phy-fast-switch)
     (( PHY_FAST_SKIP_PGF == 0 )) || BUILD_CMD+=(--phy-fast-skip-pgf)
     EMBUILD="${EMBUILD}" "${BUILD_CMD[@]}" \
@@ -414,6 +432,8 @@ VERIFY_IRQ_ARGS=()
 VERIFY_PHY_FAST_ARGS=()
 (( PHY_FAST_SWITCH == 0 )) || VERIFY_PHY_FAST_ARGS+=(--phy-fast-switch)
 (( PHY_FAST_SKIP_PGF == 0 )) || VERIFY_PHY_FAST_ARGS+=(--phy-fast-skip-pgf)
+VERIFY_RX_PATH_PROFILE_ARGS=()
+(( RX_PATH_PROFILE == 0 )) || VERIFY_RX_PATH_PROFILE_ARGS+=(--rx-path-profile)
 # bash 3.2 (macOS default) raises "unbound variable" under set -u when
 # expanding "${arr[@]}" on a zero-length array, even though it was
 # declared -- the ${arr[@]+"${arr[@]}"} idiom works around it.
@@ -427,7 +447,8 @@ VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     ${VERIFY_SEQ_ARGS[@]+"${VERIFY_SEQ_ARGS[@]}"} \
     ${VERIFY_SPI_ARGS[@]+"${VERIFY_SPI_ARGS[@]}"} \
     ${VERIFY_IRQ_ARGS[@]+"${VERIFY_IRQ_ARGS[@]}"} \
-    ${VERIFY_PHY_FAST_ARGS[@]+"${VERIFY_PHY_FAST_ARGS[@]}"})"
+    ${VERIFY_PHY_FAST_ARGS[@]+"${VERIFY_PHY_FAST_ARGS[@]}"} \
+    ${VERIFY_RX_PATH_PROFILE_ARGS[@]+"${VERIFY_RX_PATH_PROFILE_ARGS[@]}"})"
 VERIFY_STATUS=$?
 set -e
 echo "${VERIFY_OUTPUT}"
@@ -479,6 +500,7 @@ fi
     printf 'spi_mode=%s\n' "$((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
     printf 'rx_event_source=%s\n' "$((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"
     printf 'phy_config_profile=%s\n' "$((( PHY_PROFILE )) && echo enabled || echo disabled)"
+    printf 'rx_path_profile=%s\n' "$((( RX_PATH_PROFILE )) && echo enabled || echo disabled)"
     printf 'phy_fast_switch=%s\n' "$((( PHY_FAST_SWITCH )) && echo enabled || echo disabled)"
     printf 'phy_fast_skip_pgf=%s\n' "$((( PHY_FAST_SKIP_PGF )) && echo enabled || echo disabled)"
     printf 'spi_clock_hz=32000000\n'

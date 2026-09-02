@@ -271,11 +271,20 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #ifndef BRRS_EXP4_IRQ_PENDING
 #define BRRS_EXP4_IRQ_PENDING 0
 #endif
+#ifndef BRRS_OPT_RX_PATH_PROFILE
+#define BRRS_OPT_RX_PATH_PROFILE 0
+#endif
 #if BRRS_EXP4_SPI_PERSISTENT != 0 && BRRS_EXP4_SPI_PERSISTENT != 1
 #error "BRRS_EXP4_SPI_PERSISTENT must be 0 or 1"
 #endif
 #if BRRS_EXP4_IRQ_PENDING != 0 && BRRS_EXP4_IRQ_PENDING != 1
 #error "BRRS_EXP4_IRQ_PENDING must be 0 or 1"
+#endif
+#if BRRS_OPT_RX_PATH_PROFILE != 0 && BRRS_OPT_RX_PATH_PROFILE != 1
+#error "BRRS_OPT_RX_PATH_PROFILE must be 0 or 1"
+#endif
+#if BRRS_OPT_RX_PATH_PROFILE && BRRS_EXP4_IRQ_PENDING
+#error "RX path profiling timestamps polling and cannot be combined with IRQ dispatch"
 #endif
 #if BRRS_EXP4_SPI_DIRECT && !BRRS_EXP4_SPI_PERSISTENT
 #error "BRRS_EXP4_SPI_DIRECT requires BRRS_EXP4_SPI_PERSISTENT"
@@ -1246,7 +1255,7 @@ static uint64_t exp4_period_sum_x1000_us = 0;
 static uint32_t exp4_period_count = 0;
 static uint32_t dwt_timer_get_cycles(void);
 static volatile bool exp4_data_burst_active = false;
-#if BRRS_EXP4_IRQ_PENDING
+#if BRRS_EXP4_IRQ_PENDING || BRRS_OPT_RX_PATH_PROFILE
 /* The GPIO ISR never accesses DW3000 registers. It only timestamps one edge
  * and hands ownership to the foreground, which remains the sole SPI owner. */
 static volatile bool exp4_irq_pending = false;
@@ -1407,6 +1416,54 @@ static latency_stats_t exp4_hot_path_stats;
 #define EXP4_HOT_PATH_HIST_BINS 512U
 static uint32_t exp4_hot_path_hist[EXP4_HOT_PATH_HIST_BINS];
 static uint32_t exp4_hot_path_hist_overflow = 0U;
+
+#if BRRS_OPT_RX_PATH_PROFILE
+typedef enum {
+    EXP4_RX_PATH_POLL_ASSERT_TO_FINT_DETECT = 0,
+    EXP4_RX_PATH_SYS_STATUS_UNUSED,
+    EXP4_RX_PATH_RDB_STATUS_READ,
+    EXP4_RX_PATH_NEXT_RX_FAST_COMMAND,
+    EXP4_RX_PATH_METADATA_SPI_COMBINED,
+    EXP4_RX_PATH_FRAME_LENGTH_DECODE,
+    EXP4_RX_PATH_TIMESTAMP_DECODE,
+    EXP4_RX_PATH_HEADER_COPY_8B,
+    EXP4_RX_PATH_PAYLOAD_COPY_UNUSED,
+    EXP4_RX_PATH_STATUS_CLEAR,
+    EXP4_RX_PATH_RDB_STATUS_CLEAR,
+    EXP4_RX_PATH_CMD_DB_TOGGLE,
+    EXP4_RX_PATH_ASSERT_TO_TOGGLE_TOTAL,
+    EXP4_RX_PATH_PHASE_COUNT
+} exp4_rx_path_phase_t;
+
+#define EXP4_RX_PATH_HIST_BINS 512U
+typedef struct {
+    latency_stats_t summary;
+    uint32_t histogram[EXP4_RX_PATH_HIST_BINS];
+    uint32_t histogram_overflow;
+} exp4_rx_path_profile_stats_t;
+
+typedef struct {
+    uint32_t event_assert_cycles;
+    uint32_t poll_detect_cycles;
+    uint32_t rdb_status_cycles;
+    uint32_t next_rx_cycles;
+    uint32_t metadata_spi_cycles;
+    uint32_t frame_length_decode_cycles;
+    uint32_t timestamp_decode_cycles;
+    uint32_t header_copy_cycles;
+    uint32_t status_clear_cycles;
+    uint32_t rdb_status_clear_cycles;
+    uint32_t db_toggle_cycles;
+    uint32_t assert_to_toggle_cycles;
+    bool event_assert_valid;
+} exp4_rx_path_sample_t;
+
+static exp4_rx_path_profile_stats_t
+    exp4_rx_path_profile_stats[EXP4_RX_PATH_PHASE_COUNT];
+static exp4_rx_path_sample_t exp4_rx_path_sample;
+static uint32_t exp4_rx_path_missing_irq_timestamps = 0U;
+static uint32_t exp4_rx_path_good_rearm_commands = 0U;
+#endif
 
 /* Wait-budget samples are collected in RAM and sorted only after the run.
  * uint16_t is sufficient for the 10 ms superframe and keeps four 1000-sample
@@ -1911,6 +1968,147 @@ static uint32_t exp4_cycles_to_us_ceil(uint32_t cycles)
     return (cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
            (CPU_FREQ_HZ / 1000000UL);
 }
+
+#if BRRS_OPT_RX_PATH_PROFILE
+static void exp4_rx_path_profile_record(exp4_rx_path_phase_t phase,
+                                        uint32_t cycles)
+{
+    exp4_rx_path_profile_stats_t *stats =
+        &exp4_rx_path_profile_stats[phase];
+    uint32_t latency_us = exp4_cycles_to_us_ceil(cycles);
+    uint32_t bin = latency_us;
+
+    update_node_latency(&stats->summary, latency_us);
+    if (bin >= EXP4_RX_PATH_HIST_BINS) {
+        bin = EXP4_RX_PATH_HIST_BINS - 1U;
+        stats->histogram_overflow++;
+    }
+    stats->histogram[bin]++;
+}
+
+static uint32_t exp4_rx_path_profile_percentile(
+    const exp4_rx_path_profile_stats_t *stats,
+    uint32_t numerator, uint32_t denominator)
+{
+    uint32_t target;
+    uint32_t cumulative = 0U;
+    uint32_t bin;
+
+    if (stats->summary.count == 0U || denominator == 0U) {
+        return 0U;
+    }
+    target = (uint32_t)(((uint64_t)stats->summary.count * numerator +
+                         denominator - 1U) / denominator);
+    for (bin = 0U; bin < EXP4_RX_PATH_HIST_BINS; bin++) {
+        cumulative += stats->histogram[bin];
+        if (cumulative >= target) {
+            return bin;
+        }
+    }
+    return EXP4_RX_PATH_HIST_BINS - 1U;
+}
+
+static void exp4_rx_path_profile_begin(uint32_t event_assert_cycles,
+                                       uint32_t fint_detect_cycles,
+                                       bool event_assert_valid)
+{
+    exp4_rx_path_sample.event_assert_cycles = event_assert_cycles;
+    exp4_rx_path_sample.event_assert_valid = event_assert_valid;
+    exp4_rx_path_sample.next_rx_cycles = 0U;
+    if (event_assert_valid &&
+        (int32_t)(fint_detect_cycles - event_assert_cycles) >= 0) {
+        exp4_rx_path_sample.poll_detect_cycles =
+            fint_detect_cycles - event_assert_cycles;
+    } else {
+        exp4_rx_path_sample.poll_detect_cycles = 0U;
+        exp4_rx_path_sample.event_assert_valid = false;
+        exp4_rx_path_missing_irq_timestamps++;
+    }
+}
+
+static void exp4_rx_path_profile_commit(void)
+{
+    if (exp4_rx_path_sample.event_assert_valid) {
+        exp4_rx_path_profile_record(
+            EXP4_RX_PATH_POLL_ASSERT_TO_FINT_DETECT,
+            exp4_rx_path_sample.poll_detect_cycles);
+        exp4_rx_path_profile_record(
+            EXP4_RX_PATH_ASSERT_TO_TOGGLE_TOTAL,
+            exp4_rx_path_sample.assert_to_toggle_cycles);
+    }
+    exp4_rx_path_profile_record(EXP4_RX_PATH_RDB_STATUS_READ,
+                                exp4_rx_path_sample.rdb_status_cycles);
+    if (exp4_rx_path_sample.next_rx_cycles != 0U) {
+        exp4_rx_path_profile_record(EXP4_RX_PATH_NEXT_RX_FAST_COMMAND,
+                                    exp4_rx_path_sample.next_rx_cycles);
+    }
+    exp4_rx_path_profile_record(EXP4_RX_PATH_METADATA_SPI_COMBINED,
+                                exp4_rx_path_sample.metadata_spi_cycles);
+    exp4_rx_path_profile_record(EXP4_RX_PATH_FRAME_LENGTH_DECODE,
+                                exp4_rx_path_sample.frame_length_decode_cycles);
+    exp4_rx_path_profile_record(EXP4_RX_PATH_TIMESTAMP_DECODE,
+                                exp4_rx_path_sample.timestamp_decode_cycles);
+    exp4_rx_path_profile_record(EXP4_RX_PATH_HEADER_COPY_8B,
+                                exp4_rx_path_sample.header_copy_cycles);
+    exp4_rx_path_profile_record(EXP4_RX_PATH_STATUS_CLEAR,
+                                exp4_rx_path_sample.status_clear_cycles);
+    exp4_rx_path_profile_record(EXP4_RX_PATH_RDB_STATUS_CLEAR,
+                                exp4_rx_path_sample.rdb_status_clear_cycles);
+    exp4_rx_path_profile_record(EXP4_RX_PATH_CMD_DB_TOGGLE,
+                                exp4_rx_path_sample.db_toggle_cycles);
+}
+
+static bool exp4_rx_path_profile_pass(uint32_t good_events,
+                                      uint32_t total_cycles)
+{
+    uint8_t phase;
+
+    if (exp4_rx_path_missing_irq_timestamps != 0U ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_POLL_ASSERT_TO_FINT_DETECT].summary.count !=
+            good_events ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_SYS_STATUS_UNUSED].summary.count != 0U ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_RDB_STATUS_READ].summary.count != good_events ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_NEXT_RX_FAST_COMMAND].summary.count !=
+            exp4_rx_path_good_rearm_commands ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_METADATA_SPI_COMBINED].summary.count != good_events ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_FRAME_LENGTH_DECODE].summary.count != good_events ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_TIMESTAMP_DECODE].summary.count != good_events ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_HEADER_COPY_8B].summary.count != good_events ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_PAYLOAD_COPY_UNUSED].summary.count != 0U ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_STATUS_CLEAR].summary.count != good_events ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_RDB_STATUS_CLEAR].summary.count != good_events ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_CMD_DB_TOGGLE].summary.count != good_events ||
+        exp4_rx_path_profile_stats[
+            EXP4_RX_PATH_ASSERT_TO_TOGGLE_TOTAL].summary.count != good_events ||
+        exp4_irq_pending ||
+        exp4_irq_event_count != exp4_irq_dispatch_count ||
+        exp4_irq_duplicate_count != 0U ||
+        exp4_irq_spurious_count != 0U ||
+        exp4_irq_arm_count != total_cycles ||
+        exp4_irq_arm_failures != 0U ||
+        port_GetEXT_IRQStatus() != 0U) {
+        return false;
+    }
+    for (phase = 0U; phase < EXP4_RX_PATH_PHASE_COUNT; phase++) {
+        if (exp4_rx_path_profile_stats[phase].histogram_overflow != 0U) {
+            return false;
+        }
+    }
+    return true;
+}
+#endif
 
 #if BRRS_OPT_PHY_CONFIG_PROFILE
 static void exp4_log_phy_config_profile(void)
@@ -2644,10 +2842,16 @@ static void exp4_read_rx_metadata(uint8_t host_buffer,
 {
     uint8_t metadata[RX_FINFO_LEN + RX_TIME_RX_STAMP_LEN];
     uint16_t finfo16;
+#if BRRS_OPT_RX_PATH_PROFILE
+    uint32_t profile_start_cycles;
+#endif
 
     /* FINFO and RX_TIME are adjacent in each swinging set. Read them in one
      * SPI transaction so both values describe the same completed frame even
      * while the other double buffer is receiving the next slot. */
+#if BRRS_OPT_RX_PATH_PROFILE
+    profile_start_cycles = dwt_timer_get_cycles();
+#endif
     if ((host_buffer & 1U) == 0U) {
         exp4_spi_read_device(BUF0_RX_FINFO, 0U,
                              sizeof(metadata), metadata);
@@ -2655,13 +2859,27 @@ static void exp4_read_rx_metadata(uint8_t host_buffer,
         exp4_spi_read_device(INDIRECT_POINTER_B_ID, 0U,
                              sizeof(metadata), metadata);
     }
+#if BRRS_OPT_RX_PATH_PROFILE
+    exp4_rx_path_sample.metadata_spi_cycles =
+        dwt_timer_get_cycles() - profile_start_cycles;
+    profile_start_cycles = dwt_timer_get_cycles();
+#endif
 
     finfo16 = (uint16_t)metadata[0] | ((uint16_t)metadata[1] << 8);
     *frame_length = finfo16 & (uint16_t)RX_FINFO_STD_RXFLEN_MASK;
+#if BRRS_OPT_RX_PATH_PROFILE
+    exp4_rx_path_sample.frame_length_decode_cycles =
+        dwt_timer_get_cycles() - profile_start_cycles;
+    profile_start_cycles = dwt_timer_get_cycles();
+#endif
     *timestamp_high32 = ((uint32_t)metadata[8] << 24) |
                         ((uint32_t)metadata[7] << 16) |
                         ((uint32_t)metadata[6] << 8) |
                         (uint32_t)metadata[5];
+#if BRRS_OPT_RX_PATH_PROFILE
+    exp4_rx_path_sample.timestamp_decode_cycles =
+        dwt_timer_get_cycles() - profile_start_cycles;
+#endif
 }
 
 static void exp4_read_rx_buffer(uint8_t host_buffer, uint8_t *buffer,
@@ -2688,26 +2906,52 @@ static void exp4_clear_rx_status(uint32_t mask, latency_stats_t *stats)
     }
 }
 
-static void exp4_release_rx_buffer(void)
+static uint32_t exp4_release_rx_buffer(void)
 {
     uint32_t phase_start_cycles = dwt_timer_get_cycles();
     uint32_t phase_cycles;
     uint32_t phase_us;
+    uint32_t toggle_end_cycles;
     uint8_t clear_mask = (exp4_rx_host_buffer == 0U) ?
         DWT_RDB_STATUS_CLEAR_BUFF0_EVENTS :
         DWT_RDB_STATUS_CLEAR_BUFF1_EVENTS;
+#if BRRS_OPT_RX_PATH_PROFILE
+    uint32_t profile_start_cycles = dwt_timer_get_cycles();
+#endif
 
     /* This manual double-buffer lifecycle needs the processed buffer's
      * RDB_STATUS flags cleared explicitly before CMD_DB_TOGGLE. A toggle-only
      * trial left stale RXFCG/RXFR flags and failed the RDB checks. */
     exp4_spi_write_device(RDB_STATUS_ID, 0U, 1U, &clear_mask);
+#if BRRS_OPT_RX_PATH_PROFILE
+    exp4_rx_path_sample.rdb_status_clear_cycles =
+        dwt_timer_get_cycles() - profile_start_cycles;
+    profile_start_cycles = dwt_timer_get_cycles();
+#endif
     exp4_spi_write_device(BRRS_DW3000_FAST_CMD_DB_TOGGLE,
                           0U, 0U, NULL);
+    toggle_end_cycles = dwt_timer_get_cycles();
+#if BRRS_OPT_RX_PATH_PROFILE
+    exp4_rx_path_sample.db_toggle_cycles =
+        toggle_end_cycles - profile_start_cycles;
+    if (exp4_rx_path_sample.event_assert_valid) {
+        exp4_rx_path_sample.assert_to_toggle_cycles =
+            toggle_end_cycles - exp4_rx_path_sample.event_assert_cycles;
+    } else {
+        exp4_rx_path_sample.assert_to_toggle_cycles = 0U;
+    }
+#endif
     exp4_rx_host_buffer ^= 1U;
     phase_cycles = dwt_timer_get_cycles() - phase_start_cycles;
     phase_us = (phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
                (CPU_FREQ_HZ / 1000000UL);
     update_node_latency(&exp4_rx_buffer_free_stats, phase_us);
+#if BRRS_OPT_RX_PATH_PROFILE
+    /* Aggregate only after the toggle endpoint has been captured so the
+     * profiling bookkeeping is excluded from every measured phase and total. */
+    exp4_rx_path_profile_commit();
+#endif
+    return toggle_end_cycles;
 }
 
 static bool exp4_has_later_slot(void)
@@ -2718,8 +2962,12 @@ static bool exp4_has_later_slot(void)
                current_beacon_config.slot_count;
 }
 
-static bool exp4_rearm_after_event(uint32_t event_start_cycles)
+static bool exp4_rearm_after_event(uint32_t event_start_cycles,
+                                   bool profile_good_path)
 {
+#if !BRRS_OPT_RX_PATH_PROFILE
+    (void)profile_good_path;
+#endif
     if (exp4_has_later_slot()) {
         uint8_t next_slot = (current_rx_slot == 0xFF) ?
                             0xFF : (uint8_t)(current_rx_slot + 1U);
@@ -2736,6 +2984,12 @@ static bool exp4_rearm_after_event(uint32_t event_start_cycles)
         exp4_spi_write_device(BRRS_DW3000_FAST_CMD_RX,
                               0U, 0U, NULL);
         phase_cycles = dwt_timer_get_cycles() - phase_start_cycles;
+#if BRRS_OPT_RX_PATH_PROFILE
+        if (profile_good_path) {
+            exp4_rx_path_sample.next_rx_cycles = phase_cycles;
+            exp4_rx_path_good_rearm_commands++;
+        }
+#endif
         phase_us = (phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
                    (CPU_FREQ_HZ / 1000000UL);
         update_node_latency(&exp4_rearm_rx_enable_stats, phase_us);
@@ -2876,7 +3130,7 @@ static void exp4_close_data_burst(exp4_burst_close_reason_t reason)
         return;
     }
 
-#if BRRS_EXP4_IRQ_PENDING
+#if BRRS_EXP4_IRQ_PENDING || BRRS_OPT_RX_PATH_PROFILE
     /* Stop new GPIO handoffs before foreground performs the burst-close SPI
      * sequence and returns the radio to the SYNC PHY. */
     port_DisableEXT_IRQ();
@@ -3277,7 +3531,7 @@ int brrs_init(void)
 
         /* FINT_STAT is a masked aggregate: the corresponding SYS_ENABLE_LO
          * bits must be enabled for both polling and pending-event modes. */
-#if BRRS_EXP4_IRQ_PENDING
+#if BRRS_EXP4_IRQ_PENDING || BRRS_OPT_RX_PATH_PROFILE
         port_set_dwic_isr_oneshot(exp4_irq_pending_isr);
 #endif
         port_DisableEXT_IRQ();
@@ -3296,6 +3550,11 @@ int brrs_init(void)
 #if BRRS_EXP4_IRQ_PENDING
         snprintf(host_irq_line, sizeof(host_irq_line),
                  "EXP4_HOST_IRQ_CONFIG_CSV,mode=pending_event,spi_owner=foreground,enabled=%lu,arm=per_data_burst,status=%s",
+                 (unsigned long)port_GetEXT_IRQStatus(),
+                 (port_GetEXT_IRQStatus() == 0U) ? "PASS" : "FAIL");
+#elif BRRS_OPT_RX_PATH_PROFILE
+        snprintf(host_irq_line, sizeof(host_irq_line),
+                 "EXP4_HOST_IRQ_CONFIG_CSV,mode=polling_irq_timestamp,spi_owner=foreground,enabled=%lu,arm=per_data_burst,status=%s",
                  (unsigned long)port_GetEXT_IRQStatus(),
                  (port_GetEXT_IRQStatus() == 0U) ? "PASS" : "FAIL");
 #else
@@ -3357,7 +3616,7 @@ int brrs_init(void)
     {
         static char cfg_msg[560];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "EXP4_CONFIG_CSV,physical_sensors=%d,data_slots=%d,slot_repeats=%d,data_plen=%d,data_pac=%u,psdu_bytes=%d,app_payload_bytes=%d,sync_plen=%d,superframe_us=%d,sync_rmarker_offset_us=%d,sync_buffer_us=%d,sync_prep_us=%d,data_budget_us=%d,frame_airtime_us=%d,slot_us=%d,guard_us=%d,lead_us=%d,tail_us=%d,data_burst_deadline_us=%d,sync_prep_deadline_us=%d,burst_rearm_budget_us=%d,max_slots=%d,spi_mode=%s",
+                 "EXP4_CONFIG_CSV,physical_sensors=%d,data_slots=%d,slot_repeats=%d,data_plen=%d,data_pac=%u,psdu_bytes=%d,app_payload_bytes=%d,sync_plen=%d,superframe_us=%d,sync_rmarker_offset_us=%d,sync_buffer_us=%d,sync_prep_us=%d,data_budget_us=%d,frame_airtime_us=%d,slot_us=%d,guard_us=%d,lead_us=%d,tail_us=%d,data_burst_deadline_us=%d,sync_prep_deadline_us=%d,burst_rearm_budget_us=%d,max_slots=%d,spi_mode=%s,rx_path_profile=%s",
                  brrs_active_node_count(brrs_configured_sensor_bitmap()),
                  BRRS_EXP4_DATA_SLOT_COUNT, BRRS_EXP4_SLOT_REPEATS,
                  PREAMBLE_SYMBOLS, (unsigned)DATA_PAC_SYMBOLS, PSDU_BYTES,
@@ -3373,14 +3632,18 @@ int brrs_init(void)
                  SLOT_GUARD_US,
                  EXP4_MAX_DATA_SLOTS,
                  BRRS_EXP4_SPI_PERSISTENT ?
-                     "persistent_data_burst" : "legacy_per_transaction");
+                     "persistent_data_burst" : "legacy_per_transaction",
+                 BRRS_OPT_RX_PATH_PROFILE ? "enabled" : "disabled");
         final_log_info(cfg_msg);
 #if BRRS_EXP4_IRQ_PENDING
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=45,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_rxfcg_pending,event_mask=rxfcg_or_error_validated,irq_good_class=pending_and_fint_rxok,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=46,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_rxfcg_pending,event_mask=rxfcg_or_error_validated,irq_good_class=pending_and_fint_rxok,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+#elif BRRS_OPT_RX_PATH_PROFILE
+        test_run_info((unsigned char *)
+            "EXP4_FIRMWARE_REV,rev=46,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling_with_gpio_timestamp,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=timestamp_only_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=enabled_nonintrusive_raw_cycles,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #else
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=45,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=46,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #endif
     }
 #endif
@@ -3458,6 +3721,15 @@ int brrs_init(void)
     exp4_first_rx_delayed_arm_stats.min_us = 0xFFFFFFFF;
     exp4_sync_prep_detect_late_stats.min_us = 0xFFFFFFFF;
     exp4_sync_prep_burst_close_stats.min_us = 0xFFFFFFFF;
+#if BRRS_OPT_RX_PATH_PROFILE
+    {
+        uint8_t phase;
+
+        for (phase = 0U; phase < EXP4_RX_PATH_PHASE_COUNT; phase++) {
+            exp4_rx_path_profile_stats[phase].summary.min_us = 0xFFFFFFFF;
+        }
+    }
+#endif
 #endif
 
     int period_count = 0;
@@ -3706,6 +3978,10 @@ int brrs_init(void)
                          && exp4_irq_arm_count == total_cycles
                          && exp4_irq_arm_failures == 0U
                          && port_GetEXT_IRQStatus() == 0U
+#endif
+#if BRRS_OPT_RX_PATH_PROFILE
+                         && exp4_rx_path_profile_pass(exp4_rx_good_events,
+                                                      total_cycles)
 #endif
                          );
                     bool timing_pass = slot_timing_counts_match();
@@ -4011,6 +4287,79 @@ int brrs_init(void)
                               exp4_irq_arm_failures == 0U &&
                               port_GetEXT_IRQStatus() == 0U) ? "PASS" : "FAIL");
                     final_log_info(s);
+#endif
+
+#if BRRS_OPT_RX_PATH_PROFILE
+                    {
+                        static const char *profile_phase_names[] = {
+                            "poll_irq_assert_to_fint_detect",
+                            "sys_status_read_not_on_good_path",
+                            "rdb_status_read",
+                            "next_rx_fast_command",
+                            "rx_metadata_spi_combined",
+                            "frame_length_decode",
+                            "rx_timestamp_decode",
+                            "header_copy_8b",
+                            "payload_copy_not_on_good_path",
+                            "status_clear",
+                            "rdb_status_clear",
+                            "cmd_db_toggle",
+                            "irq_assert_to_db_toggle_total"
+                        };
+                        bool profile_pass = exp4_rx_path_profile_pass(
+                            exp4_rx_good_events, total_cycles);
+                        uint8_t phase;
+
+                        snprintf(s, sizeof(s),
+                                 "EXP4_RX_PATH_PROFILE_IRQ_CSV,mode=timestamp_only_polling,events=%lu,dispatches=%lu,pending=%u,duplicates=%lu,spurious=%lu,burst_arms=%lu,arm_failures=%lu,enabled=%lu,status=%s",
+                                 (unsigned long)exp4_irq_event_count,
+                                 (unsigned long)exp4_irq_dispatch_count,
+                                 exp4_irq_pending ? 1U : 0U,
+                                 (unsigned long)exp4_irq_duplicate_count,
+                                 (unsigned long)exp4_irq_spurious_count,
+                                 (unsigned long)exp4_irq_arm_count,
+                                 (unsigned long)exp4_irq_arm_failures,
+                                 (unsigned long)port_GetEXT_IRQStatus(),
+                                 profile_pass ? "PASS" : "FAIL");
+                        final_log_info(s);
+
+                        for (phase = 0U;
+                             phase < EXP4_RX_PATH_PHASE_COUNT; phase++) {
+                            exp4_rx_path_profile_stats_t *stats =
+                                &exp4_rx_path_profile_stats[phase];
+                            uint64_t avg_x1000 = stats->summary.count ?
+                                (stats->summary.sum_us * 1000ULL /
+                                 stats->summary.count) : 0U;
+
+                            snprintf(s, sizeof(s),
+                                     "EXP4_RX_PATH_PROFILE_CSV,phase=%s,count=%lu,min_us=%lu,max_us=%lu,avg_x1000_us=%llu,p99_us=%lu,hist_overflow=%lu",
+                                     profile_phase_names[phase],
+                                     (unsigned long)stats->summary.count,
+                                     (unsigned long)(stats->summary.count ?
+                                         stats->summary.min_us : 0U),
+                                     (unsigned long)stats->summary.max_us,
+                                     (unsigned long long)avg_x1000,
+                                     (unsigned long)
+                                         exp4_rx_path_profile_percentile(
+                                             stats, 99U, 100U),
+                                     (unsigned long)stats->histogram_overflow);
+                            final_log_info(s);
+                        }
+
+                        snprintf(s, sizeof(s),
+                                 "EXP4_RX_PATH_PROFILE_SUMMARY_CSV,enabled=1,good_events=%lu,good_rearm_commands=%lu,timestamp_samples=%lu,missing_irq_timestamps=%lu,sys_status_good_reads=0,metadata_mode=single_finfo_rx_time_burst,header_bytes=8,payload_bytes_copied=0,status=%s",
+                                 (unsigned long)exp4_rx_good_events,
+                                 (unsigned long)
+                                     exp4_rx_path_good_rearm_commands,
+                                 (unsigned long)
+                                     exp4_rx_path_profile_stats[
+                                         EXP4_RX_PATH_ASSERT_TO_TOGGLE_TOTAL]
+                                         .summary.count,
+                                 (unsigned long)
+                                     exp4_rx_path_missing_irq_timestamps,
+                                 profile_pass ? "PASS" : "FAIL");
+                        final_log_info(s);
+                    }
 #endif
 
                     {
@@ -4865,7 +5214,7 @@ int brrs_init(void)
 #endif
                     if (spi_burst_ready && schedule_rx_slot(0)) {
                         exp4_data_burst_active = true;
-#if BRRS_EXP4_IRQ_PENDING
+#if BRRS_EXP4_IRQ_PENDING || BRRS_OPT_RX_PATH_PROFILE
                         exp4_irq_arm_burst();
 #endif
                     } else {
@@ -4914,6 +5263,11 @@ int brrs_init(void)
 #if BRRS_EXP4_IRQ_PENDING
             bool exp4_event_detected = false;
 #endif
+#if BRRS_OPT_RX_PATH_PROFILE
+            uint32_t exp4_profile_irq_event_cycles = 0U;
+            uint32_t exp4_profile_fint_detect_cycles = 0U;
+            bool exp4_profile_irq_event_valid = false;
+#endif
 
             /* FINT_STAT is the driver's fast masked aggregate event source.
              * Its RX masks were verified at boot. Synthetic status bits only
@@ -4938,6 +5292,13 @@ int brrs_init(void)
                 dwt_timer_get_cycles() - exp4_status_poll_start_cycles;
             exp4_status_poll_us = exp4_cycles_to_us_ceil(
                 exp4_status_poll_cycles);
+#if BRRS_OPT_RX_PATH_PROFILE
+            exp4_profile_fint_detect_cycles = dwt_timer_get_cycles();
+            if (exp4_fint_status != 0U) {
+                exp4_profile_irq_event_valid = exp4_irq_take_event(
+                    &exp4_profile_irq_event_cycles);
+            }
+#endif
 #endif
             if ((exp4_fint_status &
                  (FINT_STAT_RXERR_BIT_MASK |
@@ -4983,6 +5344,13 @@ int brrs_init(void)
                 uint8_t exp4_rdb_current_good_mask;
                 uint8_t exp4_rdb_current_ready_mask;
                 uint8_t completed_host_buffer = exp4_rx_host_buffer;
+#if BRRS_OPT_RX_PATH_PROFILE
+                uint32_t exp4_buffer_free_end_cycles;
+
+                exp4_rx_path_profile_begin(exp4_profile_irq_event_cycles,
+                                           exp4_profile_fint_detect_cycles,
+                                           exp4_profile_irq_event_valid);
+#endif
 
 #if BRRS_OPT_PHY_FAST_SWITCH
                 if (completed_rx_slot == 0U) {
@@ -5013,6 +5381,9 @@ int brrs_init(void)
                                      &exp4_rdb_status);
                 exp4_phase_cycles =
                     dwt_timer_get_cycles() - exp4_phase_start_cycles;
+#if BRRS_OPT_RX_PATH_PROFILE
+                exp4_rx_path_sample.rdb_status_cycles = exp4_phase_cycles;
+#endif
                 exp4_phase_us =
                     (exp4_phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
                     (CPU_FREQ_HZ / 1000000UL);
@@ -5189,7 +5560,7 @@ int brrs_init(void)
                         continue;
                     }
                 }
-                exp4_rearm_after_event(exp4_event_start_cycles);
+                exp4_rearm_after_event(exp4_event_start_cycles, true);
 
                 /* Cache adjacent FINFO and RX_TIME in one transaction only
                  * after RXFCG and CIADONE are both present for the selected
@@ -5213,9 +5584,16 @@ int brrs_init(void)
                 exp4_rdb_good_events++;
                 exp4_rdb_dispatches++;
                 exp4_rx_good_events++;
+#if BRRS_OPT_RX_PATH_PROFILE
+                exp4_phase_start_cycles = dwt_timer_get_cycles();
+#endif
                 exp4_clear_rx_status(SYS_STATUS_ALL_RX_GOOD,
                                      exp4_rearm_needed ?
                                          &exp4_rearm_status_clear_post_stats : NULL);
+#if BRRS_OPT_RX_PATH_PROFILE
+                exp4_rx_path_sample.status_clear_cycles =
+                    dwt_timer_get_cycles() - exp4_phase_start_cycles;
+#endif
                 update_node_latency(&exp4_event_to_status_clear_stats,
                     exp4_cycles_to_us_ceil(dwt_timer_get_cycles() -
                                             exp4_hot_path_start_cycles));
@@ -5236,6 +5614,9 @@ int brrs_init(void)
                 }
                 exp4_phase_cycles =
                     dwt_timer_get_cycles() - exp4_phase_start_cycles;
+#if BRRS_OPT_RX_PATH_PROFILE
+                exp4_rx_path_sample.header_copy_cycles = exp4_phase_cycles;
+#endif
                 exp4_phase_us =
                     (exp4_phase_cycles + (CPU_FREQ_HZ / 1000000UL) - 1UL) /
                     (CPU_FREQ_HZ / 1000000UL);
@@ -5249,9 +5630,15 @@ int brrs_init(void)
 
                 /* All buffer-specific values are cached and global RX status
                  * is clear. Return this buffer and advance the host pointer. */
-                exp4_release_rx_buffer();
+#if BRRS_OPT_RX_PATH_PROFILE
+                exp4_buffer_free_end_cycles = exp4_release_rx_buffer();
+                exp4_record_hot_path(exp4_cycles_to_us_ceil(
+                    exp4_buffer_free_end_cycles - exp4_hot_path_start_cycles));
+#else
+                (void)exp4_release_rx_buffer();
                 exp4_record_hot_path(exp4_cycles_to_us_ceil(
                     dwt_timer_get_cycles() - exp4_hot_path_start_cycles));
+#endif
                 exp4_record->rx_ts_high32 = rx_ts_high32;
                 exp4_record->rx_open_high32 = rx_open_high32;
                 exp4_record->frame_length = rx_frame_len;
@@ -5464,7 +5851,7 @@ int brrs_init(void)
                  * clear the completed event before returning to the poll
                  * loop. This keeps the recovery path inside the same guard
                  * budget without allowing a stale FINT event to escape. */
-                exp4_rearm_after_event(exp4_event_start_cycles);
+                exp4_rearm_after_event(exp4_event_start_cycles, false);
                 failed_rx_slot = exp4_slot_from_event_time();
                 status_reg = exp4_read_error_detail(exp4_rearm_needed ?
                     &exp4_error_detail_post_rearm_stats : NULL);
@@ -5517,7 +5904,7 @@ int brrs_init(void)
                     update_node_latency(&exp4_status_poll_stats,
                                         exp4_status_poll_us);
                 }
-                exp4_rearm_after_event(exp4_event_start_cycles);
+                exp4_rearm_after_event(exp4_event_start_cycles, false);
                 failed_rx_slot = exp4_slot_from_event_time();
                 status_reg = exp4_read_error_detail(exp4_rearm_needed ?
                     &exp4_error_detail_post_rearm_stats : NULL);

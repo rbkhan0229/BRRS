@@ -113,7 +113,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
                 expected_pac, expected_sync_buffer, expected_sync_prep,
                 max_per_percent, sequence=None, spi_opt=False,
                 irq_pending=False, expected_cycles=1000,
-                phy_fast=False, phy_fast_skip_pgf=False):
+                phy_fast=False, phy_fast_skip_pgf=False,
+                rx_path_profile=False):
     slot_count = len(sequence) if sequence is not None else sensors
     expected = expected_cycles * slot_count
 
@@ -142,6 +143,11 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     expected_spi_mode = ("persistent_data_burst" if spi_opt else
                          "legacy_per_transaction")
     require(config, "spi_mode", expected_spi_mode)
+    actual_rx_path_profile = config.get("rx_path_profile", "disabled")
+    expected_rx_path_profile = "enabled" if rx_path_profile else "disabled"
+    if actual_rx_path_profile != expected_rx_path_profile:
+        fail(f"rx_path_profile={actual_rx_path_profile!r}, expected "
+             f"{expected_rx_path_profile!r}")
 
     verify_revision(lines, "EXP4_FIRMWARE_REV,")
     verify_phy_fast_self_test(
@@ -163,7 +169,10 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require_status_line(lines, "EXP4_DOUBLE_BUFFER_CONFIG_CSV,")
     require_status_line(lines, "EXP4_EVENT_MASK_CONFIG_CSV,")
     host_irq = require_status_line(lines, "EXP4_HOST_IRQ_CONFIG_CSV,")
-    require(host_irq, "mode", "pending_event" if irq_pending else "polling")
+    expected_host_irq_mode = ("pending_event" if irq_pending else
+                              "polling_irq_timestamp" if rx_path_profile else
+                              "polling")
+    require(host_irq, "mode", expected_host_irq_mode)
     require(host_irq, "spi_owner", "foreground")
     require(host_irq, "enabled", 0)
 
@@ -284,6 +293,71 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         require(double_buffer, key, 0)
     if good_events != rx:
         fail(f"double-buffer good events {good_events} != accepted RX {rx}")
+
+    profile_rows = [key_values(line) for line in lines
+                    if line.startswith("EXP4_RX_PATH_PROFILE_CSV,")]
+    profile_irq_rows = [key_values(line) for line in lines
+                        if line.startswith("EXP4_RX_PATH_PROFILE_IRQ_CSV,")]
+    profile_summary_rows = [key_values(line) for line in lines
+                            if line.startswith(
+                                "EXP4_RX_PATH_PROFILE_SUMMARY_CSV,")]
+    if rx_path_profile:
+        if len(profile_irq_rows) != 1 or len(profile_summary_rows) != 1:
+            fail("RX path profile IRQ/summary row count is not one")
+        profile_summary = profile_summary_rows[0]
+        good_rearm_commands = integer(
+            profile_summary, "good_rearm_commands")
+        if good_rearm_commands > good_events:
+            fail("RX profile good-path rearm count exceeds good events")
+        if good_rearm_commands > integer(rearm, "rx_enable_count"):
+            fail("RX profile good-path rearm count exceeds all rearm commands")
+        expected_profile_counts = {
+            "poll_irq_assert_to_fint_detect": good_events,
+            "sys_status_read_not_on_good_path": 0,
+            "rdb_status_read": good_events,
+            "next_rx_fast_command": good_rearm_commands,
+            "rx_metadata_spi_combined": good_events,
+            "frame_length_decode": good_events,
+            "rx_timestamp_decode": good_events,
+            "header_copy_8b": good_events,
+            "payload_copy_not_on_good_path": 0,
+            "status_clear": good_events,
+            "rdb_status_clear": good_events,
+            "cmd_db_toggle": good_events,
+            "irq_assert_to_db_toggle_total": good_events,
+        }
+        if {row.get("phase") for row in profile_rows} != set(
+                expected_profile_counts):
+            fail("RX path profile phase set is incomplete")
+        for row in profile_rows:
+            require(row, "count", expected_profile_counts[row["phase"]])
+            require(row, "hist_overflow", 0)
+            if integer(row, "p99_us") > integer(row, "max_us"):
+                fail(f"RX path phase p99 exceeds max: {row['phase']}")
+        profile_irq = profile_irq_rows[0]
+        require(profile_irq, "mode", "timestamp_only_polling")
+        require(profile_irq, "pending", 0)
+        require(profile_irq, "duplicates", 0)
+        require(profile_irq, "spurious", 0)
+        require(profile_irq, "burst_arms", expected_cycles)
+        require(profile_irq, "arm_failures", 0)
+        require(profile_irq, "enabled", 0)
+        require(profile_irq, "status", "PASS")
+        if integer(profile_irq, "events") != integer(
+                profile_irq, "dispatches"):
+            fail("RX profile IRQ event and timestamp dispatch counts differ")
+        require(profile_summary, "enabled", 1)
+        require(profile_summary, "good_events", good_events)
+        require(profile_summary, "timestamp_samples", good_events)
+        require(profile_summary, "missing_irq_timestamps", 0)
+        require(profile_summary, "sys_status_good_reads", 0)
+        require(profile_summary, "metadata_mode",
+                "single_finfo_rx_time_burst")
+        require(profile_summary, "header_bytes", 8)
+        require(profile_summary, "payload_bytes_copied", 0)
+        require(profile_summary, "status", "PASS")
+    elif profile_rows or profile_irq_rows or profile_summary_rows:
+        fail("non-profile run unexpectedly emitted RX path profile records")
 
     spi = key_values(last_line(lines, "EXP4_SPI_CSV,"))
     require(spi, "mode", expected_spi_mode)
@@ -573,6 +647,8 @@ def main():
                         help="Expect the delta PHY switch and its self-test.")
     parser.add_argument("--phy-fast-skip-pgf", action="store_true",
                         help="Expect the no-PGF delta PHY switch variant.")
+    parser.add_argument("--rx-path-profile", action="store_true",
+                        help="Expect polling RX-path phase profiling.")
     args = parser.parse_args()
 
     if args.role == "sensor" and args.node is None:
@@ -591,6 +667,8 @@ def main():
         parser.error("--sequence must be 1-32 digits, each 2-8")
     if args.phy_fast_skip_pgf and not args.phy_fast_switch:
         parser.error("--phy-fast-skip-pgf requires --phy-fast-switch")
+    if args.rx_path_profile and args.irq:
+        parser.error("--rx-path-profile cannot be combined with --irq")
 
     try:
         lines = args.log.read_text(errors="replace").splitlines()
@@ -601,7 +679,8 @@ def main():
                                  args.max_per_percent, args.sequence,
                                  args.spi_opt, args.irq, args.cycles,
                                  args.phy_fast_switch,
-                                 args.phy_fast_skip_pgf)
+                                 args.phy_fast_skip_pgf,
+                                 args.rx_path_profile)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard, args.sync_buffer,
