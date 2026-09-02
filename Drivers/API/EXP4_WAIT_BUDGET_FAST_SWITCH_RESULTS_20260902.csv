@@ -1,0 +1,5 @@
+candidate,margin_percent,sync_buffer_us,sync_prep_us,data_budget_us,timing_slots_g200,runs,expected_rx,valid_rx,per_percent,wilson95_low_percent,wilson95_high_percent,first_slot_max_us,first_slot_p99_us,first_slot_p99_budget_percent,min_first_arm_slack_us,sync_prep_max_us,sync_prep_p99_us,sync_prep_p99_budget_percent,min_sync_remaining_lead_us,system_faults,firmware_collection,protocol_result,failure_reason
+p30,30,1845,2169,5986,20,3,9000,8943,0.633333,0.489188,0.819603,1376,1352,73.279,411,1381,1379,63.578,786,0,PASS,PASS,
+p20,20,1703,2002,6295,21,10,30000,29798,0.673333,0.586898,0.772399,1379,1353,79.448,266,1395,1384,69.131,605,0,PASS,PASS,
+p10,10,1561,1835,6604,22,3,9000,8956,0.488889,0.364402,0.655623,1376,1354,86.739,127,1390,1387,75.586,444,0,PASS,FAIL,first-slot p99 exceeds 80% of sync-buffer budget
+p0,0,1419,1668,6913,23,1,3000,2984,0.533333,0.328558,0.864630,1376,1340,94.433,0,1386,1384,82.974,281,0,FAIL,FAIL,first RX-open slack reached zero and firmware schedule/collection failed; stopped fail-closed
