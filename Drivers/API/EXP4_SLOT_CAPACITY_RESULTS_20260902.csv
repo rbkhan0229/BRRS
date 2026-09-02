@@ -1,0 +1,5 @@
+case,status,data_budget_us,guard_us,slot_interval_us,timing_max_slots,protocol_max_slots,effective_max_slots,owner_bytes,beacon_psdu_bytes,rs_blocks,sync_frame_us,recommendation
+selected_g200,PASS,6295,200,297,21,32,21,16,39,1,337,keep_protocol_max_32
+rejected_g100,FAIL,6295,100,197,32,32,32,16,39,1,337,no_capacity_claim
+hypothetical_g75,NOT_RUN,6295,75,172,36,32,32,18,41,1,339,increase_to_36_only_after_guard_validation
+hypothetical_g50,NOT_RUN,6295,50,147,43,32,32,22,45,2,350,avoid_until_end_to_end_validation
