@@ -4191,17 +4191,27 @@ int brrs_init(void)
                     exp4_log_phy_config_profile();
 #endif
 #if BRRS_OPT_PHY_FAST_SWITCH
+                    uint32_t exp4_phy_fast_first_rx_observed =
+                        exp4_phy_fast_first_rx_good +
+                        exp4_phy_fast_first_rx_no_preamble +
+                        exp4_phy_fast_first_rx_sfd_fail +
+                        exp4_phy_fast_first_rx_post_sfd_error;
+                    uint32_t exp4_phy_fast_first_rx_silent =
+                        total_cycles > exp4_phy_fast_first_rx_observed ?
+                            total_cycles - exp4_phy_fast_first_rx_observed : 0U;
+                    uint32_t exp4_phy_fast_first_rx_no_preamble_total =
+                        exp4_phy_fast_first_rx_no_preamble +
+                        exp4_phy_fast_first_rx_silent;
+
                     snprintf(s, sizeof(s),
                              "EXP4_PHY_FAST_FIRST_RX_CSV,role=coordinator,target=data,events=%lu,good=%lu,no_preamble=%lu,sfd_fail=%lu,post_sfd_error=%lu,status=%s",
-                             (unsigned long)(exp4_phy_fast_first_rx_good +
-                                 exp4_phy_fast_first_rx_no_preamble +
-                                 exp4_phy_fast_first_rx_sfd_fail +
-                                 exp4_phy_fast_first_rx_post_sfd_error),
+                             (unsigned long)total_cycles,
                              (unsigned long)exp4_phy_fast_first_rx_good,
-                             (unsigned long)exp4_phy_fast_first_rx_no_preamble,
+                             (unsigned long)
+                                 exp4_phy_fast_first_rx_no_preamble_total,
                              (unsigned long)exp4_phy_fast_first_rx_sfd_fail,
                              (unsigned long)exp4_phy_fast_first_rx_post_sfd_error,
-                             (exp4_phy_fast_first_rx_no_preamble == 0U &&
+                             (exp4_phy_fast_first_rx_no_preamble_total == 0U &&
                               exp4_phy_fast_first_rx_sfd_fail == 0U &&
                               exp4_phy_fast_first_rx_post_sfd_error == 0U) ?
                                  "PASS" : "LOSS");
