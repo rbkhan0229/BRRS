@@ -72,9 +72,9 @@ def expected_owners(sensors, sequence=None):
 def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
                 expected_pac, expected_sync_buffer, expected_sync_prep,
                 max_per_percent, sequence=None, spi_opt=False,
-                irq_pending=False):
+                irq_pending=False, expected_cycles=1000):
     slot_count = len(sequence) if sequence is not None else sensors
-    expected = 1000 * slot_count
+    expected = expected_cycles * slot_count
 
     config = key_values(last_line(lines, "EXP4_CONFIG_CSV,"))
     require(config, "physical_sensors", sensors)
@@ -129,7 +129,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(done, "physical_sensors", sensors)
     require(done, "data_slots", slot_count)
     require(done, "slot_repeats", 1)
-    require(done, "superframes", 1000)
+    require(done, "superframes", expected_cycles)
     require(done, "expected", expected)
     require(done, "collection", "PASS")
     require(done, "status", "PASS")
@@ -149,7 +149,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(status, "link", expected_link)
 
     timing = key_values(last_line(lines, "EXP4_TIMING_CSV,"))
-    require(timing, "period_count", 1000)
+    require(timing, "period_count", expected_cycles)
     require(timing, "sync_delayed_late", 0)
     require(timing, "tx_wait_timeout", 0)
     require(timing, "end_tx", 3)
@@ -158,7 +158,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         fail(f"average superframe period {period_avg_x1000 / 1000:.3f} us")
 
     prep = key_values(last_line(lines, "EXP4_SYNC_PREP_CSV,"))
-    require(prep, "count", 999)
+    require(prep, "count", expected_cycles - 1)
     require(prep, "delayed_late", 0)
     prep_budget = integer(prep, "budget_us")
     if prep_budget != expected_sync_prep:
@@ -169,7 +169,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
 
     first_arm = key_values(last_line(lines, "EXP4_FIRST_RX_ARM_CSV,"))
     require(first_arm, "budget_us", expected_sync_buffer)
-    require(first_arm, "count", 1000)
+    require(first_arm, "count", expected_cycles)
     require(first_arm, "sample_overflow", 0)
     require(first_arm, "delayed_late", 0)
     if integer(first_arm, "rx_open_slack_min_us") <= 0:
@@ -177,7 +177,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
 
     prep_e2e = key_values(last_line(lines, "EXP4_SYNC_PREP_E2E_CSV,"))
     require(prep_e2e, "budget_us", expected_sync_prep)
-    require(prep_e2e, "count", 999)
+    require(prep_e2e, "count", expected_cycles - 1)
     require(prep_e2e, "sample_overflow", 0)
     require(prep_e2e, "delayed_late", 0)
     if integer(prep_e2e, "remaining_lead_min_us") <= 0:
@@ -186,10 +186,10 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     wait_phases = [key_values(line) for line in lines
                    if line.startswith("EXP4_WAIT_PHASE_CSV,")]
     expected_wait_phases = {
-        "coordinator_data_phy_config": 1000,
-        "coordinator_delayed_rx_arm_call": 1000,
-        "sync_prep_deadline_detect_lateness": 999,
-        "sync_prep_burst_close": 999,
+        "coordinator_data_phy_config": expected_cycles,
+        "coordinator_delayed_rx_arm_call": expected_cycles,
+        "sync_prep_deadline_detect_lateness": expected_cycles - 1,
+        "sync_prep_burst_close": expected_cycles - 1,
     }
     if {row.get("phase") for row in wait_phases} != set(expected_wait_phases):
         fail("coordinator wait-budget phase set is incomplete")
@@ -198,9 +198,10 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
 
     burst = key_values(last_line(lines, "EXP4_BURST_CSV,"))
     require(burst, "forced_prep_close", 0)
-    require(burst, "total", 1000)
-    if integer(burst, "early_close") + integer(burst, "deadline_close") != 1000:
-        fail("burst close counts do not sum to 1000")
+    require(burst, "total", expected_cycles)
+    if (integer(burst, "early_close") + integer(burst, "deadline_close") !=
+            expected_cycles):
+        fail(f"burst close counts do not sum to {expected_cycles}")
 
     rearm = key_values(last_line(lines, "EXP4_REARM_CSV,"))
     require(rearm, "event_source",
@@ -220,7 +221,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         require(irq, "pending", 0)
         require(irq, "duplicates", 0)
         require(irq, "spurious", 0)
-        require(irq, "burst_arms", 1000)
+        require(irq, "burst_arms", expected_cycles)
         require(irq, "arm_failures", 0)
         require(irq, "enabled", 0)
         require(irq, "status", "PASS")
@@ -251,8 +252,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(spi, "recovery", 0)
     require(spi, "status", "PASS")
     if spi_opt:
-        require(spi, "begin", 1000)
-        require(spi, "end", 1000)
+        require(spi, "begin", expected_cycles)
+        require(spi, "end", expected_cycles)
         if integer(spi, "direct_xfers") <= 0:
             fail("optimized SPI run used no direct transfers")
     else:
@@ -298,7 +299,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
                                FRAME_AIRTIME_US[preamble] + expected_guard,
                                expected_guard]:
         fail("summary PSDU/payload/slot/guard mismatch")
-    if summary_numbers[9] != 1000 or summary_numbers[10] != expected:
+    if (summary_numbers[9] != expected_cycles or
+            summary_numbers[10] != expected):
         fail("summary superframe/expected count mismatch")
     if summary_numbers[11] != rx:
         fail("summary RX count mismatch")
@@ -324,7 +326,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
             fail(f"duplicate node row: {node}")
         seen_nodes.add(node)
         node_slots = sequence.count(node[1:]) if sequence is not None else 1
-        node_slot_expected = 1000 * node_slots
+        node_slot_expected = expected_cycles * node_slots
         if int(fields[2]) != preamble or int(fields[3]) != node_slot_expected:
             fail(f"unexpected preamble/expected count for {node}")
         received, missed = int(fields[4]), int(fields[5])
@@ -354,7 +356,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
 
     missed = expected - rx
     return (
-        f"collection=PASS; superframes=1000; rx={rx}/{expected}; "
+        f"collection=PASS; superframes={expected_cycles}; rx={rx}/{expected}; "
         f"PER={per_percent:.3f}%; link={expected_link}; "
         f"PER_limit={max_per_percent:.3f}%; "
         f"period={period_avg_x1000 / 1000:.3f}us; "
@@ -365,7 +367,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
 
 def verify_sensor(lines, preamble, sensors, node, expected_guard,
                   expected_sync_buffer, expected_sync_prep,
-                  sequence=None):
+                  sequence=None, expected_cycles=1000):
     node_slots = sequence.count(str(node)) if sequence is not None else 1
     verify_revision(lines, "EXP4_TX_FIRMWARE_REV,")
 
@@ -391,20 +393,21 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard,
 
     if result_node != node or result_plen != preamble:
         fail("sensor node or preamble mismatch")
-    if not 0 < beacons <= 1000 or beacon_missed != 1000 - beacons:
+    if (not 0 < beacons <= expected_cycles or
+            beacon_missed != expected_cycles - beacons):
         fail("invalid beacon counts")
     if attempts != success or attempts != beacons * node_slots:
         fail("attempt/success count does not match received beacons * owned slots")
     if delayed_late != 0 or end != 1 or schedule != "PASS":
         fail("sensor schedule, delayed-TX, or END validation failed")
-    expected_beacon_status = "PASS" if beacons == 1000 else "LOSS"
+    expected_beacon_status = "PASS" if beacons == expected_cycles else "LOSS"
     if beacon_status != expected_beacon_status:
         fail("beacon status does not match beacon count")
 
     done = key_values(last_line(lines, "EXP4_TX_DONE,"))
     require(done, "plen", preamble)
     beacon_pair = done.get("beacons", "").split("/", 1)
-    if beacon_pair != [str(beacons), "1000"]:
+    if beacon_pair != [str(beacons), str(expected_cycles)]:
         fail("EXP4_TX_DONE beacon counts mismatch")
     require(done, "attempts", attempts)
     require(done, "success", success)
@@ -473,11 +476,12 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard,
         require(row, "node", f"N{node}")
         require(row, "count", beacons)
 
-    beacon_loss = 1000 - beacons
+    beacon_loss = expected_cycles - beacons
     return (
         f"collection=PASS; node=N{node}; tx={success}/{beacons * node_slots} "
         f"({node_slots} slot{'s' if node_slots != 1 else ''}/superframe); "
-        f"beacon_loss={beacon_loss}/1000; beacon={expected_beacon_status}; "
+        f"beacon_loss={beacon_loss}/{expected_cycles}; "
+        f"beacon={expected_beacon_status}; "
         f"schedule=PASS; plen={preamble}"
     )
 
@@ -512,6 +516,9 @@ def main():
                         help="Expect persistent SPIM during DATA bursts.")
     parser.add_argument("--irq", action="store_true",
                         help="Expect GPIO IRQ pending-event dispatch.")
+    parser.add_argument("--cycles", type=int, default=1000,
+                        choices=range(1, 10001),
+                        help="Expected superframe count (default: 1000).")
     args = parser.parse_args()
 
     if args.role == "sensor" and args.node is None:
@@ -536,11 +543,11 @@ def main():
                                  args.guard, args.lead, args.pac,
                                  args.sync_buffer, args.sync_prep,
                                  args.max_per_percent, args.sequence,
-                                 args.spi_opt, args.irq)
+                                 args.spi_opt, args.irq, args.cycles)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard, args.sync_buffer,
-                                   args.sync_prep, args.sequence)
+                                   args.sync_prep, args.sequence, args.cycles)
     except (OSError, ValueError, VerificationError) as exc:
         print(f"[verify] FAIL: {exc}", file=sys.stderr)
         return 3

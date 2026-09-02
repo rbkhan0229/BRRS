@@ -387,6 +387,7 @@ VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     "${VERIFY_ARGS[@]}" --preamble "${PREAMBLE}" \
     --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" \
     --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}" \
+    --cycles "${TARGET_CYCLES}" \
     --max-per-percent "${MAX_PER_PERCENT}" \
     ${VERIFY_SEQ_ARGS[@]+"${VERIFY_SEQ_ARGS[@]}"} \
     ${VERIFY_SPI_ARGS[@]+"${VERIFY_SPI_ARGS[@]}"} \
