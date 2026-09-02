@@ -9,7 +9,24 @@ from collections import defaultdict
 from pathlib import Path
 
 
-COLUMNS = (
+SENSOR_PHASES = (
+    "sync_event_detect_to_frame_read",
+    "sync_event_detect_to_beacon_ready",
+    "sensor_data_phy_config",
+    "sensor_tx_buffer_write",
+    "sensor_delayed_tx_arm_call",
+)
+
+COORDINATOR_PHASES = (
+    "coordinator_data_phy_config",
+    "coordinator_delayed_rx_arm_call",
+    "sync_prep_deadline_detect_lateness",
+    "sync_prep_burst_close",
+)
+
+PHASE_METRICS = ("count", "min_us", "max_us", "avg_us")
+
+BASE_COLUMNS = (
     "experiment", "git_sha", "source_log", "sync_buffer_us",
     "sync_prep_us", "data_budget_us", "event_mode", "spi_config",
     "preamble_symbols", "pac", "topology", "slot_sequence", "guard_us",
@@ -27,6 +44,20 @@ COLUMNS = (
     "failure_reason",
 )
 
+COLUMNS = (
+    BASE_COLUMNS[:-2]
+    + tuple(
+        f"{phase}_{metric}"
+        for phase in SENSOR_PHASES + COORDINATOR_PHASES
+        for metric in PHASE_METRICS
+    )
+    + (
+        "sensor_data_phy_config_max_share_percent",
+        "coordinator_data_phy_config_max_share_percent",
+    )
+    + BASE_COLUMNS[-2:]
+)
+
 
 def key_values(line):
     result = {}
@@ -40,6 +71,34 @@ def key_values(line):
 def last_record(lines, prefix):
     matches = [key_values(line) for line in lines if line.startswith(prefix)]
     return matches[-1] if matches else {}
+
+
+def phase_records(lines, prefix):
+    result = {}
+    for line in lines:
+        if line.startswith(prefix):
+            record = key_values(line)
+            phase = record.get("phase")
+            if phase:
+                result[phase] = record
+    return result
+
+
+def aggregate_phase(records):
+    records = [record for record in records if integer(record, "count") > 0]
+    count = sum(integer(record, "count") for record in records)
+    if not count:
+        return {"count": 0, "min_us": 0, "max_us": 0, "avg_us": 0.0}
+    weighted_avg_x1000 = sum(
+        integer(record, "avg_x1000_us") * integer(record, "count")
+        for record in records
+    )
+    return {
+        "count": count,
+        "min_us": min(integer(record, "min_us") for record in records),
+        "max_us": max(integer(record, "max_us") for record in records),
+        "avg_us": round(weighted_avg_x1000 / count / 1000.0, 3),
+    }
 
 
 def integer(record, key, default=0):
@@ -115,6 +174,7 @@ def parse_run(path, fallback_sha):
     double_buffer = last_record(lines, "EXP4_DOUBLE_BUFFER_CSV,")
     spi = last_record(lines, "EXP4_SPI_CSV,")
     host_irq = last_record(lines, "EXP4_HOST_IRQ_CONFIG_CSV,")
+    coordinator_phase_records = phase_records(lines, "EXP4_WAIT_PHASE_CSV,")
     superframes, success_count, _ = parse_superframes(lines)
 
     sensor_count = integer(config, "physical_sensors", integer(done, "physical_sensors"))
@@ -128,15 +188,35 @@ def parse_run(path, fallback_sha):
 
     sensor_first = []
     sensor_delayed_late = 0
-    for _, _, arm, _, _ in sensors:
+    sensor_phase_records = {phase: [] for phase in SENSOR_PHASES}
+    for _, sensor_lines, arm, _, _ in sensors:
         if arm:
             sensor_first.append(arm)
             sensor_delayed_late += integer(arm, "delayed_late")
+        records = phase_records(sensor_lines, "EXP4_TX_WAIT_PHASE_CSV,")
+        for phase in SENSOR_PHASES:
+            if phase in records:
+                sensor_phase_records[phase].append(records[phase])
     first_owner = min(
         sensor_first,
         key=lambda row: integer(row, "first_owned_slot_us", 1 << 30),
         default={},
     )
+    sensor_first_arm_max = max(
+        (integer(record, "max_us") for record in sensor_first), default=0
+    )
+    coordinator_first_arm_max = integer(first_rx, "max_us")
+    sensor_phase_stats = {
+        phase: aggregate_phase(sensor_phase_records[phase])
+        for phase in SENSOR_PHASES
+    }
+    coordinator_phase_stats = {
+        phase: aggregate_phase(
+            [coordinator_phase_records[phase]]
+            if phase in coordinator_phase_records else []
+        )
+        for phase in COORDINATOR_PHASES
+    }
 
     first_means = [x1000(first_rx, "avg_x1000_us")]
     first_maxes = [integer(first_rx, "max_us")]
@@ -231,6 +311,20 @@ def parse_run(path, fallback_sha):
         "result": result,
         "failure_reason": failure,
     }
+    for phase, stats in sensor_phase_stats.items():
+        for metric in PHASE_METRICS:
+            row[f"{phase}_{metric}"] = stats[metric]
+    for phase, stats in coordinator_phase_stats.items():
+        for metric in PHASE_METRICS:
+            row[f"{phase}_{metric}"] = stats[metric]
+    row["sensor_data_phy_config_max_share_percent"] = round(
+        100.0 * sensor_phase_stats["sensor_data_phy_config"]["max_us"] /
+        sensor_first_arm_max, 3
+    ) if sensor_first_arm_max else 0.0
+    row["coordinator_data_phy_config_max_share_percent"] = round(
+        100.0 * coordinator_phase_stats["coordinator_data_phy_config"]["max_us"] /
+        coordinator_first_arm_max, 3
+    ) if coordinator_first_arm_max else 0.0
     return row
 
 
@@ -328,6 +422,14 @@ def write_markdown(rows, path):
         f"{representative['hot_path_p95_us']}/"
         f"{representative['hot_path_p99_us']} us; required guard "
         f"{representative['required_guard_us']} us.",
+        f"- sensor DATA PHY configuration aggregate max: "
+        f"{representative['sensor_data_phy_config_max_us']} us "
+        f"({representative['sensor_data_phy_config_max_share_percent']:.1f}% "
+        f"of the worst sensor first-slot arm time);",
+        f"- coordinator DATA PHY configuration max: "
+        f"{representative['coordinator_data_phy_config_max_us']} us "
+        f"({representative['coordinator_data_phy_config_max_share_percent']:.1f}% "
+        f"of the coordinator first-slot arm time).",
         "",
         "## Selected hardware runs",
         "",
@@ -393,7 +495,9 @@ def write_markdown(rows, path):
         "",
         "The companion CSV contains one row per selected run, including source "
         "log, git SHA, percentile metrics, all fault counters, and the explicit "
-        "PASS/FAIL reason.",
+        "PASS/FAIL reason. It now also includes the five sensor and four "
+        "coordinator wait-phase aggregates. `EXP4_WAIT_PHASE_RESULTS_20260902` "
+        "provides the complete preserved-log inventory.",
     ])
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

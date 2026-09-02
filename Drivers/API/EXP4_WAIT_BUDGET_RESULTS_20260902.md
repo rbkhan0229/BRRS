@@ -27,6 +27,8 @@ A representative 2000/2000 us S3 run measured:
 - worst-side first-slot arm mean/max/p95/p99: 1575.113/1603/1597/1599 us; minimum arm slack 339 us;
 - scheduled CONFIG_SWITCH to next-SYNC arm mean/max/p95/p99: 1581.684/1610/1602/1605 us; minimum remaining lead 388 us;
 - event-to-buffer-free hot path mean/max/p95/p99: 190.773/201/200/200 us; required guard 88 us.
+- sensor DATA PHY configuration aggregate max: 991 us (61.9% of the worst sensor first-slot arm time);
+- coordinator DATA PHY configuration max: 1028 us (64.1% of the coordinator first-slot arm time).
 
 ## Selected hardware runs
 
@@ -71,4 +73,4 @@ The default 3000/2500 us DATA budget is 4500 us (15 calculated slots). The recom
 - Results are from the present local 0 m bench. Cross-laptop and board-role portability still require a separate repeated campaign with the same firmware hashes.
 - G100 passed one run but has only 12 us over the measured 88 us requirement. G150 remains the conservative guard recommendation until G100 is repeated under worst-case load and board rotation.
 
-The companion CSV contains one row per selected run, including source log, git SHA, percentile metrics, all fault counters, and the explicit PASS/FAIL reason.
+The companion CSV contains one row per selected run, including source log, git SHA, percentile metrics, all fault counters, and the explicit PASS/FAIL reason. It now also includes the five sensor and four coordinator wait-phase aggregates. `EXP4_WAIT_PHASE_RESULTS_20260902` provides the complete preserved-log inventory.
