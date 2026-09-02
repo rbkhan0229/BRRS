@@ -16,6 +16,7 @@
 #include "deca_interface.h"
 #include "deca_version.h"
 #include "deca_private.h"
+#include "brrs_phy_fast_switch.h"
 
 // Common to all Decawave chips ID address
 #define DW3XXX_DEVICE_ID (0x0)
@@ -506,6 +507,24 @@ int32_t dwt_configure(dwt_config_t *config)
 {
     return dw->dwt_driver->dwt_ops->configure(dw, config);
 }
+
+#if BRRS_OPT_PHY_FAST_SWITCH
+int32_t brrs_phy_fast_switch(dwt_config_t *config, uint8_t run_pgf)
+{
+    brrs_phy_fast_switch_request_t request = { config, run_pgf };
+    return dw->dwt_driver->dwt_ops->ioctl(
+        dw, DWT_BRRS_PHY_FAST_SWITCH, 0, &request);
+}
+
+int32_t brrs_phy_fast_snapshot(brrs_phy_fast_snapshot_t *snapshot)
+{
+    if (snapshot == NULL) {
+        return DWT_ERROR;
+    }
+    return dw->dwt_driver->dwt_ops->ioctl(
+        dw, DWT_BRRS_PHY_FAST_SNAPSHOT, 0, snapshot);
+}
+#endif
 
 /*! ------------------------------------------------------------------------------------------------------------------
  * @brief This function provides the API for the configuration of the TX power

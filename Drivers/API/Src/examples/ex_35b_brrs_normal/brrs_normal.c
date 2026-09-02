@@ -65,6 +65,7 @@
 #include <shared_functions.h>
 #include "../brrs_beacon_protocol.h"
 #include "brrs_phy_config_profile.h"
+#include "brrs_phy_fast_switch.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -432,6 +433,48 @@ static dwt_config_t config_sync = {
     DWT_STS_MODE_OFF, DWT_STS_LEN_64, DWT_PDOA_M0
 };
 
+#if BRRS_EXPERIMENT == 4
+static int32_t brrs_exp4_phy_switch(dwt_config_t *config)
+{
+#if BRRS_OPT_PHY_FAST_SWITCH
+    return brrs_phy_fast_switch(
+        config, BRRS_OPT_PHY_FAST_SWITCH_SKIP_PGF ? 0U : 1U);
+#else
+    return dwt_configure(config);
+#endif
+}
+
+static bool brrs_exp4_phy_fast_boot_test(void)
+{
+#if BRRS_OPT_PHY_FAST_SWITCH
+    brrs_phy_fast_self_test_t result;
+    int32_t status = brrs_phy_fast_self_test(
+        &config_sync, &config_data,
+        BRRS_OPT_PHY_FAST_SWITCH_SKIP_PGF ? 0U : 1U,
+        &result);
+    static char line[192];
+
+    snprintf(line, sizeof(line),
+             "EXP4_PHY_FAST_SELFTEST_CSV,role=sensor,node=N%u,enabled=1,skip_pgf=%u,stage=%u,data_mismatch=0x%02lX,sync_mismatch=0x%02lX,status=%s",
+             MY_NODE_SEQ,
+             BRRS_OPT_PHY_FAST_SWITCH_SKIP_PGF ? 1U : 0U,
+             (unsigned int)result.failed_stage,
+             (unsigned long)result.data_mismatch,
+             (unsigned long)result.sync_mismatch,
+             status == DWT_SUCCESS ? "PASS" : "FAIL");
+    test_run_info((unsigned char *)line);
+    return status == DWT_SUCCESS;
+#else
+    static char line[176];
+    snprintf(line, sizeof(line),
+             "EXP4_PHY_FAST_SELFTEST_CSV,role=sensor,node=N%u,enabled=0,skip_pgf=0,stage=0,data_mismatch=0x00,sync_mismatch=0x00,status=SKIP",
+             MY_NODE_SEQ);
+    test_run_info((unsigned char *)line);
+    return true;
+#endif
+}
+#endif
+
 #define NODE_INIT '1'
 #define NODE_ALL  'B'
 
@@ -490,6 +533,12 @@ static uint32_t exp4_last_sync_seq = 0;
 static bool exp4_end_received = false;
 static uint32_t exp4_sync_rx_scheduled = 0;
 static uint32_t exp4_sync_rx_delayed_late = 0;
+#if BRRS_OPT_PHY_FAST_SWITCH
+static bool exp4_phy_fast_first_rx_pending = false;
+static uint32_t exp4_phy_fast_first_rx_good = 0U;
+static uint32_t exp4_phy_fast_first_rx_no_preamble = 0U;
+static uint32_t exp4_phy_fast_first_rx_error = 0U;
+#endif
 typedef struct {
     int64_t min_ns;
     int64_t max_ns;
@@ -1198,6 +1247,13 @@ int brrs_normal(void)
         while (1) { };
     }
 
+#if BRRS_EXPERIMENT == 4
+    if (!brrs_exp4_phy_fast_boot_test()) {
+        test_run_info((unsigned char *)"EXP4 PHY FAST SELFTEST FAILED");
+        while (1) { };
+    }
+#endif
+
 #if BRRS_EXPERIMENT == 3
     /* EXTTXE requires the external-PA GPIO mode and coarse TX sequencing.
      * GPIO4 EXTPA is also selected by this API but is not connected to a PA
@@ -1514,6 +1570,21 @@ int brrs_normal(void)
 #if BRRS_OPT_PHY_CONFIG_PROFILE
                     exp4_log_phy_config_profile();
 #endif
+#if BRRS_OPT_PHY_FAST_SWITCH
+                    snprintf(s, sizeof(s),
+                             "EXP4_PHY_FAST_FIRST_RX_CSV,role=sensor,node=N%u,target=sync,events=%lu,good=%lu,no_preamble=%lu,error=%lu,status=%s",
+                             MY_NODE_SEQ,
+                             (unsigned long)(exp4_phy_fast_first_rx_good +
+                                 exp4_phy_fast_first_rx_no_preamble +
+                                 exp4_phy_fast_first_rx_error),
+                             (unsigned long)exp4_phy_fast_first_rx_good,
+                             (unsigned long)exp4_phy_fast_first_rx_no_preamble,
+                             (unsigned long)exp4_phy_fast_first_rx_error,
+                             (exp4_phy_fast_first_rx_no_preamble == 0U &&
+                              exp4_phy_fast_first_rx_error == 0U) ?
+                                 "PASS" : "LOSS");
+                    final_log_info(s);
+#endif
                     snprintf(s, sizeof(s),
                              "EXP4_TX_SYNC_RX_CSV,scheduled=%lu,delayed_late=%lu,early_us=%d,window_us=%d",
                              (unsigned long)exp4_sync_rx_scheduled,
@@ -1675,6 +1746,12 @@ int brrs_normal(void)
             uint32_t status_reg = dwt_readsysstatuslo();
 
             if (status_reg & DWT_INT_RXFCG_BIT_MASK) {
+#if BRRS_EXPERIMENT == 4 && BRRS_OPT_PHY_FAST_SWITCH
+                if (exp4_phy_fast_first_rx_pending) {
+                    exp4_phy_fast_first_rx_good++;
+                    exp4_phy_fast_first_rx_pending = false;
+                }
+#endif
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_sync_event_start_cycles = dwt_timer_get_cycles();
                 uint32_t exp4_frame_read_done_cycles;
@@ -1902,7 +1979,7 @@ int brrs_normal(void)
                     dwt_forcetrxoff();
                     dwt_writesysstatuslo(0xFFFFFFFF);
 
-                    if (dwt_configure(&config_data) == DWT_SUCCESS) {
+                    if (brrs_exp4_phy_switch(&config_data) == DWT_SUCCESS) {
                         config_is_sync = false;
 #if BRRS_EXPERIMENT == 4
                         exp4_latency_record(&exp4_data_config_stats,
@@ -1925,7 +2002,7 @@ int brrs_normal(void)
                         test_run_info((unsigned char *)config_error_line);
 
                         dwt_forcetrxoff();
-                        if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+                        if (brrs_exp4_phy_switch(&config_sync) == DWT_SUCCESS) {
                             config_is_sync = true;
                         }
                         dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
@@ -2059,8 +2136,11 @@ int brrs_normal(void)
                     if (current_cycle >= TARGET_CYCLES) {
                         int end_rx_result = DWT_ERROR;
 
-                        if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+                        if (brrs_exp4_phy_switch(&config_sync) == DWT_SUCCESS) {
                             config_is_sync = true;
+#if BRRS_OPT_PHY_FAST_SWITCH
+                            exp4_phy_fast_first_rx_pending = true;
+#endif
                             dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
                             end_rx_result = dwt_rxenable(DWT_START_RX_IMMEDIATE);
                         } else {
@@ -2075,8 +2155,11 @@ int brrs_normal(void)
                                      end_rx_result == DWT_SUCCESS ? "PASS" : "FAIL");
                             test_run_info((unsigned char *)end_rx_line);
                         }
-                    } else if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+                    } else if (brrs_exp4_phy_switch(&config_sync) == DWT_SUCCESS) {
                         config_is_sync = true;
+#if BRRS_OPT_PHY_FAST_SWITCH
+                        exp4_phy_fast_first_rx_pending = true;
+#endif
                         exp4_schedule_next_sync_rx();
                     } else {
                         exp4_sync_rx_delayed_late++;
@@ -2136,6 +2219,12 @@ int brrs_normal(void)
 
             /* RX timeout */
             else if (status_reg & SYS_STATUS_ALL_RX_TO) {
+#if BRRS_EXPERIMENT == 4 && BRRS_OPT_PHY_FAST_SWITCH
+                if (exp4_phy_fast_first_rx_pending) {
+                    exp4_phy_fast_first_rx_no_preamble++;
+                    exp4_phy_fast_first_rx_pending = false;
+                }
+#endif
                 dwt_writesysstatuslo(SYS_STATUS_ALL_RX_TO);
                 dwt_forcetrxoff();
                 dwt_writesysstatuslo(0xFFFFFFFF);
@@ -2149,6 +2238,12 @@ int brrs_normal(void)
 
             /* RX errors */
             else if (status_reg & SYS_STATUS_ALL_RX_ERR) {
+#if BRRS_EXPERIMENT == 4 && BRRS_OPT_PHY_FAST_SWITCH
+                if (exp4_phy_fast_first_rx_pending) {
+                    exp4_phy_fast_first_rx_error++;
+                    exp4_phy_fast_first_rx_pending = false;
+                }
+#endif
                 total_rx_errors++;
                 dwt_writesysstatuslo(SYS_STATUS_ALL_RX_ERR);
                 dwt_forcetrxoff();

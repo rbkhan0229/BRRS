@@ -69,10 +69,51 @@ def expected_owners(sensors, sequence=None):
     return "".join(str(node) for node in range(2, sensors + 2))
 
 
+def verify_phy_fast_self_test(lines, role, enabled, skip_pgf, node=None):
+    if not enabled:
+        return
+    values = key_values(last_line(lines, "EXP4_PHY_FAST_SELFTEST_CSV,"))
+    require(values, "role", role)
+    if node is not None:
+        require(values, "node", f"N{node}")
+    require(values, "enabled", 1)
+    require(values, "skip_pgf", 1 if skip_pgf else 0)
+    require(values, "stage", 0)
+    require(values, "data_mismatch", "0x00")
+    require(values, "sync_mismatch", "0x00")
+    require(values, "status", "PASS")
+
+
+def verify_phy_fast_first_rx(lines, role, enabled, expected_events, node=None):
+    if not enabled:
+        return
+    values = key_values(last_line(lines, "EXP4_PHY_FAST_FIRST_RX_CSV,"))
+    require(values, "role", role)
+    if node is not None:
+        require(values, "node", f"N{node}")
+    events = integer(values, "events")
+    good = integer(values, "good")
+    no_preamble = integer(values, "no_preamble")
+    if role == "coordinator":
+        require(values, "target", "data")
+        failures = (integer(values, "sfd_fail") +
+                    integer(values, "post_sfd_error"))
+    else:
+        require(values, "target", "sync")
+        failures = integer(values, "error")
+    if events != expected_events:
+        fail(f"fast-switch first-RX events {events}, expected {expected_events}")
+    if good + no_preamble + failures != events:
+        fail("fast-switch first-RX outcome counts do not sum to events")
+    expected_status = "PASS" if good == events else "LOSS"
+    require(values, "status", expected_status)
+
+
 def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
                 expected_pac, expected_sync_buffer, expected_sync_prep,
                 max_per_percent, sequence=None, spi_opt=False,
-                irq_pending=False, expected_cycles=1000):
+                irq_pending=False, expected_cycles=1000,
+                phy_fast=False, phy_fast_skip_pgf=False):
     slot_count = len(sequence) if sequence is not None else sensors
     expected = expected_cycles * slot_count
 
@@ -103,6 +144,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(config, "spi_mode", expected_spi_mode)
 
     verify_revision(lines, "EXP4_FIRMWARE_REV,")
+    verify_phy_fast_self_test(
+        lines, "coordinator", phy_fast, phy_fast_skip_pgf)
 
     beacon = key_values(last_line(lines, "BRRS_BEACON_CONFIG_CSV,"))
     require(beacon, "m", preamble)
@@ -141,6 +184,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     per_percent = 100.0 * (expected - rx) / expected
     if per_percent > max_per_percent:
         fail(f"PER {per_percent:.3f}% > limit {max_per_percent:.3f}%")
+    verify_phy_fast_first_rx(
+        lines, "coordinator", phy_fast, expected_cycles)
 
     status = key_values(last_line(lines, "EXP4_STATUS_CSV,"))
     require(status, "schedule", "PASS")
@@ -367,9 +412,12 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
 
 def verify_sensor(lines, preamble, sensors, node, expected_guard,
                   expected_sync_buffer, expected_sync_prep,
-                  sequence=None, expected_cycles=1000):
+                  sequence=None, expected_cycles=1000,
+                  phy_fast=False, phy_fast_skip_pgf=False):
     node_slots = sequence.count(str(node)) if sequence is not None else 1
     verify_revision(lines, "EXP4_TX_FIRMWARE_REV,")
+    verify_phy_fast_self_test(
+        lines, "sensor", phy_fast, phy_fast_skip_pgf, node)
 
     boot = key_values(last_line(lines, "EXP4_TX_BOOT_CSV,"))
     require(boot, "superframe_us", 10000)
@@ -403,6 +451,8 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard,
     expected_beacon_status = "PASS" if beacons == expected_cycles else "LOSS"
     if beacon_status != expected_beacon_status:
         fail("beacon status does not match beacon count")
+    verify_phy_fast_first_rx(
+        lines, "sensor", phy_fast, beacons, node)
 
     done = key_values(last_line(lines, "EXP4_TX_DONE,"))
     require(done, "plen", preamble)
@@ -519,6 +569,10 @@ def main():
     parser.add_argument("--cycles", type=int, default=1000,
                         choices=range(1, 10001),
                         help="Expected superframe count (default: 1000).")
+    parser.add_argument("--phy-fast-switch", action="store_true",
+                        help="Expect the delta PHY switch and its self-test.")
+    parser.add_argument("--phy-fast-skip-pgf", action="store_true",
+                        help="Expect the no-PGF delta PHY switch variant.")
     args = parser.parse_args()
 
     if args.role == "sensor" and args.node is None:
@@ -535,6 +589,8 @@ def main():
             1 <= len(args.sequence) <= 32 and
             all(c in "2345678" for c in args.sequence)):
         parser.error("--sequence must be 1-32 digits, each 2-8")
+    if args.phy_fast_skip_pgf and not args.phy_fast_switch:
+        parser.error("--phy-fast-skip-pgf requires --phy-fast-switch")
 
     try:
         lines = args.log.read_text(errors="replace").splitlines()
@@ -543,11 +599,15 @@ def main():
                                  args.guard, args.lead, args.pac,
                                  args.sync_buffer, args.sync_prep,
                                  args.max_per_percent, args.sequence,
-                                 args.spi_opt, args.irq, args.cycles)
+                                 args.spi_opt, args.irq, args.cycles,
+                                 args.phy_fast_switch,
+                                 args.phy_fast_skip_pgf)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard, args.sync_buffer,
-                                   args.sync_prep, args.sequence, args.cycles)
+                                   args.sync_prep, args.sequence, args.cycles,
+                                   args.phy_fast_switch,
+                                   args.phy_fast_skip_pgf)
     except (OSError, ValueError, VerificationError) as exc:
         print(f"[verify] FAIL: {exc}", file=sys.stderr)
         return 3

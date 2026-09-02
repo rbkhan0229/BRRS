@@ -25,6 +25,8 @@ Options:
   --spi-opt                 Use the matching persistent-SPIM image set.
   --irq                     Use the matching GPIO IRQ pending-event image set.
   --phy-profile             Use dwt_configure internal profiling images.
+  --phy-fast-switch         Use the BRRS delta PHY switch path.
+  --phy-fast-skip-pgf       Skip delta-path PGF calibration (requires fast switch).
   --timeout <seconds>       Sensor capture timeout (default: 180).
   --probe-serials <csv>     Diagnostic override; default discovers every USB probe.
   --no-build                Reuse previously built node images.
@@ -63,6 +65,8 @@ FORCE=0
 SPI_OPT=0
 IRQ_PENDING=0
 PHY_PROFILE=0
+PHY_FAST_SWITCH=0
+PHY_FAST_SKIP_PGF=0
 TARGET_CYCLES=1000
 SYNC_BUFFER_US=3000
 SYNC_PREP_US=2500
@@ -108,6 +112,8 @@ while (( $# > 0 )); do
         --spi-opt) SPI_OPT=1; shift ;;
         --irq) IRQ_PENDING=1; shift ;;
         --phy-profile) PHY_PROFILE=1; shift ;;
+        --phy-fast-switch) PHY_FAST_SWITCH=1; shift ;;
+        --phy-fast-skip-pgf) PHY_FAST_SKIP_PGF=1; shift ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -161,6 +167,10 @@ fi
     || { echo "max PER percent must be numeric" >&2; exit 2; }
 awk -v value="${MAX_PER_PERCENT}" 'BEGIN { exit !(value >= 0 && value <= 100) }' \
     || { echo "max PER percent must be between 0 and 100" >&2; exit 2; }
+if (( PHY_FAST_SKIP_PGF && ! PHY_FAST_SWITCH )); then
+    echo "--phy-fast-skip-pgf requires --phy-fast-switch" >&2
+    exit 2
+fi
 [[ "${TIMEOUT}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "timeout must be a positive integer" >&2; exit 2; }
 
@@ -193,6 +203,12 @@ if (( IRQ_PENDING )); then
 fi
 if (( PHY_PROFILE )); then
     OUTDIR+="_phyprofile"
+fi
+if (( PHY_FAST_SWITCH )); then
+    OUTDIR+="_phyfast"
+fi
+if (( PHY_FAST_SKIP_PGF )); then
+    OUTDIR+="_skippgf"
 fi
 if (( TARGET_CYCLES != 1000 )); then
     OUTDIR+="_cycles${TARGET_CYCLES}"
@@ -242,6 +258,8 @@ if (( NO_BUILD == 0 )); then
     (( SPI_OPT == 0 )) || BUILD_ARGS+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || BUILD_ARGS+=(--irq)
     (( PHY_PROFILE == 0 )) || BUILD_ARGS+=(--phy-profile)
+    (( PHY_FAST_SWITCH == 0 )) || BUILD_ARGS+=(--phy-fast-switch)
+    (( PHY_FAST_SKIP_PGF == 0 )) || BUILD_ARGS+=(--phy-fast-skip-pgf)
     "${SCRIPT_DIR}/brrs_exp4_build.sh" "${BUILD_ARGS[@]}"
 fi
 
@@ -292,6 +310,8 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
     (( SPI_OPT == 0 )) || command+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || command+=(--irq)
     (( PHY_PROFILE == 0 )) || command+=(--phy-profile)
+    (( PHY_FAST_SWITCH == 0 )) || command+=(--phy-fast-switch)
+    (( PHY_FAST_SKIP_PGF == 0 )) || command+=(--phy-fast-skip-pgf)
     (( FORCE == 0 )) || command+=(--force)
     # J-Link OB probes on one USB host can intermittently lose a connection
     # when several flash operations run concurrently. Start each worker and

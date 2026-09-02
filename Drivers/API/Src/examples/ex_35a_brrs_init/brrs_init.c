@@ -99,6 +99,7 @@
 #include <shared_functions.h>
 #include "../brrs_beacon_protocol.h"
 #include "brrs_phy_config_profile.h"
+#include "brrs_phy_fast_switch.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -480,6 +481,49 @@ static dwt_config_t config_sync = {
     (SYNC_PREAMBLE_SYMBOLS + 1 + 8 - 8),
     DWT_STS_MODE_OFF, DWT_STS_LEN_64, DWT_PDOA_M0
 };
+
+#if BRRS_EXPERIMENT == 4
+static void cir_log_info(const char *line);
+
+static int32_t brrs_exp4_phy_switch(dwt_config_t *config)
+{
+#if BRRS_OPT_PHY_FAST_SWITCH
+    return brrs_phy_fast_switch(
+        config, BRRS_OPT_PHY_FAST_SWITCH_SKIP_PGF ? 0U : 1U);
+#else
+    return dwt_configure(config);
+#endif
+}
+
+static bool brrs_exp4_phy_fast_boot_test(void)
+{
+#if BRRS_OPT_PHY_FAST_SWITCH
+    brrs_phy_fast_self_test_t result;
+    int32_t status = brrs_phy_fast_self_test(
+        &config_sync, &config_data,
+        BRRS_OPT_PHY_FAST_SWITCH_SKIP_PGF ? 0U : 1U,
+        &result);
+    static char line[192];
+
+    snprintf(line, sizeof(line),
+             "EXP4_PHY_FAST_SELFTEST_CSV,role=coordinator,enabled=1,skip_pgf=%u,stage=%u,data_mismatch=0x%02lX,sync_mismatch=0x%02lX,status=%s",
+             BRRS_OPT_PHY_FAST_SWITCH_SKIP_PGF ? 1U : 0U,
+             (unsigned int)result.failed_stage,
+             (unsigned long)result.data_mismatch,
+             (unsigned long)result.sync_mismatch,
+             status == DWT_SUCCESS ? "PASS" : "FAIL");
+    test_run_info((unsigned char *)line);
+    cir_log_info(line);
+    return status == DWT_SUCCESS;
+#else
+    static const char line[] =
+        "EXP4_PHY_FAST_SELFTEST_CSV,role=coordinator,enabled=0,skip_pgf=0,stage=0,data_mismatch=0x00,sync_mismatch=0x00,status=SKIP";
+    test_run_info((unsigned char *)line);
+    cir_log_info(line);
+    return true;
+#endif
+}
+#endif
 
 /* ========== 노드 ID 정의 ========== */
 #define NODE_INIT '1'
@@ -1306,6 +1350,12 @@ static uint8_t exp4_rx_record_count = 0U;
 static uint32_t exp4_rx_record_overflows = 0U;
 static uint32_t exp4_deferred_batches = 0U;
 static uint32_t exp4_rearm_deadline_misses = 0U;
+#if BRRS_OPT_PHY_FAST_SWITCH
+static uint32_t exp4_phy_fast_first_rx_good = 0U;
+static uint32_t exp4_phy_fast_first_rx_no_preamble = 0U;
+static uint32_t exp4_phy_fast_first_rx_sfd_fail = 0U;
+static uint32_t exp4_phy_fast_first_rx_post_sfd_error = 0U;
+#endif
 #endif
 
 /* ========== 노드별 UWB 타이밍 및 진단 통계 ========== */
@@ -2900,7 +2950,7 @@ static bool exp4_transmit_control_frame(uint8_t msg_type,
 
     dwt_forcetrxoff();
     dwt_writesysstatuslo(0xFFFFFFFF);
-    if (dwt_configure(&config_sync) != DWT_SUCCESS) {
+    if (brrs_exp4_phy_switch(&config_sync) != DWT_SUCCESS) {
         exp4_sync_prep_context_valid = false;
         return false;
     }
@@ -3164,6 +3214,10 @@ int brrs_init(void)
         while (1) { };
     }
 #if BRRS_EXPERIMENT == 4
+    if (!brrs_exp4_phy_fast_boot_test()) {
+        test_run_info((unsigned char *)"EXP4 PHY FAST SELFTEST FAILED");
+        while (1) { };
+    }
     /* DW3000 supports only manual RX re-enable in double-buffer mode. */
     dwt_setdblrxbuffmode(DBL_BUF_STATE_EN, DBL_BUF_MODE_MAN);
     exp4_rx_host_buffer = 0U;
@@ -4136,6 +4190,23 @@ int brrs_init(void)
 #if BRRS_OPT_PHY_CONFIG_PROFILE
                     exp4_log_phy_config_profile();
 #endif
+#if BRRS_OPT_PHY_FAST_SWITCH
+                    snprintf(s, sizeof(s),
+                             "EXP4_PHY_FAST_FIRST_RX_CSV,role=coordinator,target=data,events=%lu,good=%lu,no_preamble=%lu,sfd_fail=%lu,post_sfd_error=%lu,status=%s",
+                             (unsigned long)(exp4_phy_fast_first_rx_good +
+                                 exp4_phy_fast_first_rx_no_preamble +
+                                 exp4_phy_fast_first_rx_sfd_fail +
+                                 exp4_phy_fast_first_rx_post_sfd_error),
+                             (unsigned long)exp4_phy_fast_first_rx_good,
+                             (unsigned long)exp4_phy_fast_first_rx_no_preamble,
+                             (unsigned long)exp4_phy_fast_first_rx_sfd_fail,
+                             (unsigned long)exp4_phy_fast_first_rx_post_sfd_error,
+                             (exp4_phy_fast_first_rx_no_preamble == 0U &&
+                              exp4_phy_fast_first_rx_sfd_fail == 0U &&
+                              exp4_phy_fast_first_rx_post_sfd_error == 0U) ?
+                                 "PASS" : "LOSS");
+                    final_log_info(s);
+#endif
                     snprintf(s, sizeof(s),
                              "EXP4_STATUS_CSV,schedule=%s,timing=%s,collection=%s,link=%s",
                              schedule_pass ? "PASS" : "FAIL",
@@ -4732,7 +4803,7 @@ int brrs_init(void)
 #endif
                 dwt_forcetrxoff();
                 dwt_writesysstatuslo(0xFFFFFFFF);
-                if (dwt_configure(&config_data) == DWT_SUCCESS) {
+                if (brrs_exp4_phy_switch(&config_data) == DWT_SUCCESS) {
                     config_is_sync = false;
 #if ENABLE_CIR
                     enable_cir_diagnostics();
@@ -4902,6 +4973,12 @@ int brrs_init(void)
                 uint8_t exp4_rdb_current_good_mask;
                 uint8_t exp4_rdb_current_ready_mask;
                 uint8_t completed_host_buffer = exp4_rx_host_buffer;
+
+#if BRRS_OPT_PHY_FAST_SWITCH
+                if (completed_rx_slot == 0U) {
+                    exp4_phy_fast_first_rx_good++;
+                }
+#endif
 
                 if (exp4_rearm_needed) {
                     update_node_latency(&exp4_status_poll_stats,
@@ -5400,6 +5477,11 @@ int brrs_init(void)
                 /* [DIAG] timeout 종류 구분 */
                 if (status_reg & DWT_INT_RXFTO_BIT_MASK) rx_to_frame++;
                 if (status_reg & DWT_INT_RXPTO_BIT_MASK) rx_to_preamble++;
+#if BRRS_EXPERIMENT == 4 && BRRS_OPT_PHY_FAST_SWITCH
+                if (failed_rx_slot == 0U) {
+                    exp4_phy_fast_first_rx_no_preamble++;
+                }
+#endif
 #if BRRS_EXPERIMENT == 4
                 exp4_advance_after_event(failed_rx_slot, false);
 #else
@@ -5474,6 +5556,15 @@ int brrs_init(void)
                 if (status_reg & DWT_INT_RXPHE_BIT_MASK) rx_err_phe++;
                 if (status_reg & DWT_INT_RXFCE_BIT_MASK) rx_err_fce++;
                 if (status_reg & DWT_INT_RXFSL_BIT_MASK) rx_err_fsl++;
+#if BRRS_EXPERIMENT == 4 && BRRS_OPT_PHY_FAST_SWITCH
+                if (failed_rx_slot == 0U) {
+                    if ((status_reg & DWT_INT_RXSTO_BIT_MASK) != 0U) {
+                        exp4_phy_fast_first_rx_sfd_fail++;
+                    } else {
+                        exp4_phy_fast_first_rx_post_sfd_error++;
+                    }
+                }
+#endif
 #if BRRS_EXPERIMENT == 4
                 if ((status_reg & (DWT_INT_RXSTO_BIT_MASK |
                                    DWT_INT_RXPHE_BIT_MASK |

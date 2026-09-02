@@ -17,6 +17,7 @@
 #include "deca_version.h"
 #include "deca_rsl.h"
 #include "brrs_phy_config_profile.h"
+#include "brrs_phy_fast_switch.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -98,6 +99,10 @@ struct dwt_local_data_s
     uint8_t sys_cfg_dis_fce_bit_flag;  // Cached value of the SYS_CFG_DIS_FCE_BIT in the SYS_CFG_ID register
     dwt_sts_lengths_e stsLength;       // Current STS length
     uint16_t preamble_len;             // Current preamble length
+#if BRRS_OPT_PHY_FAST_SWITCH
+    dwt_config_t brrs_last_config;      // Last complete or verified delta config
+    uint8_t brrs_last_config_valid;
+#endif
 };
 
 typedef struct dwt_local_data_s dwt_local_data_t;
@@ -383,6 +388,12 @@ static uint8_t ull_calcbandwidthadj(dwchip_t *dw, uint16_t target_count);
 static int32_t ull_run_pgfcal(dwchip_t *dw);
 static int32_t ull_pgf_cal(dwchip_t *dw, int32_t ldoen);
 static void ull_setplenfine(dwchip_t *dw, uint8_t preambleLength);
+#if BRRS_OPT_PHY_FAST_SWITCH
+static int32_t ull_brrs_phy_fast_switch(
+    dwchip_t *dw, const brrs_phy_fast_switch_request_t *request);
+static int32_t ull_brrs_phy_fast_snapshot(
+    dwchip_t *dw, brrs_phy_fast_snapshot_t *snapshot);
+#endif
 static uint16_t ull_getframelength(dwchip_t *dw, uint8_t *rng_bit);
 static int32_t ull_check_dev_id(dwchip_t *dw);
 static void ull_enable_rftx_blocks(dwchip_t *dw);
@@ -2114,8 +2125,158 @@ static int32_t ull_configure(dwchip_t *dw, dwt_config_t *config)
     }
 #endif
 
+#if BRRS_OPT_PHY_FAST_SWITCH
+    if (error == (int32_t)DWT_SUCCESS)
+    {
+        LOCAL_DATA(dw)->brrs_last_config = *config;
+        LOCAL_DATA(dw)->brrs_last_config_valid = 1U;
+    }
+#endif
+
     return error;
 } // end dwt_configure()
+
+#if BRRS_OPT_PHY_FAST_SWITCH
+static bool ull_brrs_phy_invariants_match(
+    const dwt_config_t *current, const dwt_config_t *next)
+{
+    bool current_prf64 = current->rxCode >= 9U && current->rxCode <= 24U &&
+                         current->txCode >= 9U && current->txCode <= 24U;
+    bool next_prf64 = next->rxCode >= 9U && next->rxCode <= 24U &&
+                      next->txCode >= 9U && next->txCode <= 24U;
+
+    return current->chan == next->chan &&
+           current->sfdType == next->sfdType &&
+           current->dataRate == next->dataRate &&
+           current->phrMode == next->phrMode &&
+           current->phrRate == next->phrRate &&
+           current->stsMode == next->stsMode &&
+           current->stsLength == next->stsLength &&
+           current->pdoaMode == next->pdoaMode &&
+           current_prf64 && next_prf64;
+}
+
+static int32_t ull_brrs_phy_fast_switch(
+    dwchip_t *dw, const brrs_phy_fast_switch_request_t *request)
+{
+    dwt_config_t *config;
+    uint16_t preamble_len;
+    uint16_t sfd_timeout;
+    uint32_t chan_ctrl;
+    int32_t error = (int32_t)DWT_SUCCESS;
+
+    if (request == NULL || request->config == NULL ||
+        LOCAL_DATA(dw)->brrs_last_config_valid == 0U)
+    {
+        return (int32_t)DWT_ERROR;
+    }
+    config = request->config;
+    if (dwt_read8bitoffsetreg(dw, SYS_STATE_LO_ID, 2U) != DW_SYS_STATE_IDLE ||
+        config->txPreambLength == DWT_PLEN_4096 ||
+        config->rxPAC > DWT_PAC4 ||
+        config->chan != LOCAL_DATA(dw)->channel ||
+        !ull_brrs_phy_invariants_match(
+            &LOCAL_DATA(dw)->brrs_last_config, config))
+    {
+        return (int32_t)DWT_ERROR;
+    }
+
+    preamble_len = (uint16_t)((config->txPreambLength + 1U) * 8U);
+    LOCAL_DATA(dw)->preamble_len = preamble_len;
+    LOCAL_DATA(dw)->sleep_mode &=
+        (uint16_t)~((uint16_t)DWT_ALT_OPS | (uint16_t)DWT_SEL_OPS3);
+    if (preamble_len >= 256U)
+    {
+        LOCAL_DATA(dw)->sleep_mode |=
+            (uint16_t)DWT_ALT_OPS | (uint16_t)DWT_SEL_OPS0;
+        dwt_modify16bitoffsetreg(
+            dw, OTP_CFG_ID, 0U,
+            (uint16_t)~OTP_CFG_OPS_ID_BIT_MASK,
+            (uint16_t)DWT_OPSET_LONG | (uint16_t)OTP_CFG_OPS_KICK_BIT_MASK);
+    }
+    else
+    {
+        LOCAL_DATA(dw)->sleep_mode |=
+            (uint16_t)DWT_ALT_OPS | (uint16_t)DWT_SEL_OPS2;
+        dwt_modify16bitoffsetreg(
+            dw, OTP_CFG_ID, 0U,
+            (uint16_t)~OTP_CFG_OPS_ID_BIT_MASK,
+            (uint16_t)DWT_OPSET_SHORT | (uint16_t)OTP_CFG_OPS_KICK_BIT_MASK);
+    }
+
+    dwt_modify8bitoffsetreg(
+        dw, DTUNE0_ID, 0U,
+        (uint8_t)~DTUNE0_PRE_PAC_SYM_BIT_MASK,
+        (uint8_t)config->rxPAC);
+
+    chan_ctrl = dwt_read32bitoffsetreg(dw, CHAN_CTRL_ID, 0U);
+    chan_ctrl &= ~(CHAN_CTRL_RX_PCODE_BIT_MASK |
+                   CHAN_CTRL_TX_PCODE_BIT_MASK |
+                   CHAN_CTRL_SFD_TYPE_BIT_MASK);
+    chan_ctrl |= CHAN_CTRL_RX_PCODE_BIT_MASK &
+                 ((uint32_t)config->rxCode <<
+                  CHAN_CTRL_RX_PCODE_BIT_OFFSET);
+    chan_ctrl |= CHAN_CTRL_TX_PCODE_BIT_MASK &
+                 ((uint32_t)config->txCode <<
+                  CHAN_CTRL_TX_PCODE_BIT_OFFSET);
+    chan_ctrl |= CHAN_CTRL_SFD_TYPE_BIT_MASK &
+                 ((uint32_t)config->sfdType <<
+                  CHAN_CTRL_SFD_TYPE_BIT_OFFSET);
+    dwt_write32bitoffsetreg(dw, CHAN_CTRL_ID, 0U, chan_ctrl);
+
+    ull_setplenfine(dw, (uint8_t)config->txPreambLength);
+    dwt_modify32bitoffsetreg(
+        dw, TX_FCTRL_ID, 0U,
+        ~(TX_FCTRL_TXBR_BIT_MASK | TX_FCTRL_TXPSR_BIT_MASK),
+        (uint32_t)config->dataRate << TX_FCTRL_TXBR_BIT_OFFSET);
+
+    sfd_timeout = config->sfdTO == 0U ? DWT_SFDTOC_DEF : config->sfdTO;
+    dwt_write16bitoffsetreg(dw, DTUNE0_ID, 2U, sfd_timeout);
+    dwt_modify32bitoffsetreg(
+        dw, DTUNE4_ID, 0U,
+        (uint32_t)~DTUNE4_RX_SFD_HLDOFF_BIT_MASK,
+        preamble_len > 64U ? RX_SFD_HLDOFF : RX_SFD_HLDOFF_DEF);
+
+    if (request->run_pgf != 0U)
+    {
+        error = ull_pgf_cal(dw, 1);
+    }
+    if (error == (int32_t)DWT_SUCCESS)
+    {
+        LOCAL_DATA(dw)->brrs_last_config = *config;
+    }
+    return error;
+}
+
+static int32_t ull_brrs_phy_fast_snapshot(
+    dwchip_t *dw, brrs_phy_fast_snapshot_t *snapshot)
+{
+    if (snapshot == NULL)
+    {
+        return (int32_t)DWT_ERROR;
+    }
+    snapshot->fine_plen =
+        dwt_read32bitoffsetreg(dw, TX_FCTRL_HI_ID, 0U) &
+        TX_FCTRL_HI_FINE_PLEN_BIT_MASK;
+    snapshot->tx_fctrl =
+        dwt_read32bitoffsetreg(dw, TX_FCTRL_ID, 0U) &
+        (TX_FCTRL_TXBR_BIT_MASK | TX_FCTRL_TXPSR_BIT_MASK);
+    snapshot->chan_ctrl =
+        dwt_read32bitoffsetreg(dw, CHAN_CTRL_ID, 0U) &
+        (CHAN_CTRL_RX_PCODE_BIT_MASK | CHAN_CTRL_TX_PCODE_BIT_MASK |
+         CHAN_CTRL_SFD_TYPE_BIT_MASK);
+    snapshot->dtune0 =
+        dwt_read32bitoffsetreg(dw, DTUNE0_ID, 0U) &
+        (DTUNE0_RX_SFD_TOC_BIT_MASK | DTUNE0_PRE_PAC_SYM_BIT_MASK);
+    snapshot->dtune4 =
+        dwt_read32bitoffsetreg(dw, DTUNE4_ID, 0U) &
+        DTUNE4_RX_SFD_HLDOFF_BIT_MASK;
+    snapshot->otp_cfg =
+        dwt_read32bitoffsetreg(dw, OTP_CFG_ID, 0U) &
+        OTP_CFG_OPS_ID_BIT_MASK;
+    return (int32_t)DWT_SUCCESS;
+}
+#endif
 
 /*! ------------------------------------------------------------------------------------------------------------------
  * @brief This function runs the PGF calibration. This is needed prior to reception.
@@ -8765,6 +8926,18 @@ static int32_t dwt_ioctl(dwchip_t *dw, dwt_ioctl_e fn, int32_t parm, void *ptr)
             ull_setplenfine(dw, *tmp);
         }
         break;
+
+#if BRRS_OPT_PHY_FAST_SWITCH
+    case DWT_BRRS_PHY_FAST_SWITCH:
+        ret = ull_brrs_phy_fast_switch(
+            dw, (const brrs_phy_fast_switch_request_t *)ptr);
+        break;
+
+    case DWT_BRRS_PHY_FAST_SNAPSHOT:
+        ret = ull_brrs_phy_fast_snapshot(
+            dw, (brrs_phy_fast_snapshot_t *)ptr);
+        break;
+#endif
 
     case DWT_RUNPGFCAL:
         ret = ull_run_pgfcal(dw);
