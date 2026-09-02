@@ -1,0 +1,6 @@
+guard_us,run,preamble_symbols,pac,sensors,superframes,expected_rx,actual_rx,per_percent,collection,required_guard_us,rearm_service_max_us,hot_path_max_us,hot_path_p99_us,rdb_host_mismatch,rdb_incomplete,rdb_resync,overrun,spi_errors,spim_transfers,spim_min_ticks,spim_max_ticks,spim_p99_ticks,spim_start_end_us,status
+200,1,256,8,3,1000,3000,3000,0.000,PASS,88,73,203,202,0,0,0,0,0,1000,19,19,19,1.1875,PASS
+150,1,256,8,3,1000,3000,2997,0.100,PASS,88,73,203,202,0,0,0,0,0,1000,19,19,19,1.1875,PASS
+200,2,32,8,3,1000,3000,2980,0.667,PASS,88,73,203,202,0,0,0,0,0,1000,19,19,19,1.1875,PASS
+150,1,32,8,3,1000,3000,2984,0.533,PASS,88,73,203,202,0,0,0,0,0,1000,19,19,19,1.1875,PASS
+100,1,32,8,3,1000,3000,2932,2.267,FAIL,89,74,203,202,1,0,1,1,0,1000,19,19,19,1.1875,FAIL
