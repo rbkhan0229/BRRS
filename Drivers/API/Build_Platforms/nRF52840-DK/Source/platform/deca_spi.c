@@ -409,7 +409,9 @@ int32_t port_dw_spim_start_end_profile(
     if (!BRRS_EXP4_SPI_DIRECT || spim != NRF_SPIM3 ||
         spi_burst_active || spi_cs_asserted ||
         pgSpiHandler->lock != DW_HAL_NODE_UNLOCKED ||
-        nrf_gpio_pin_read(current_cs_pin) == 0U ||
+        /* CS input is disconnected for this output pin, so GPIO.IN reads low
+         * even while the driven output is high. Validate the OUT latch. */
+        nrf_gpio_pin_out_read(current_cs_pin) == 0U ||
         (DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk) == 0U ||
         (NRF_PPI->CHEN & DW_SPIM_PROFILE_PPI_MASK) != 0U ||
         timer->INTENSET != 0U || timer->SHORTS != 0U ||
@@ -585,6 +587,7 @@ cleanup:
         spim->PSEL.MOSI != saved_spim_mosi ||
         spim->PSEL.MISO != saved_spim_miso ||
         spim->ENABLE != SPIM_ENABLE_ENABLE_Disabled ||
+        nrf_gpio_pin_out_read(current_cs_pin) == 0U ||
         (NRF_PPI->CHEN & DW_SPIM_PROFILE_PPI_MASK) != 0U)
     {
         profile->register_mismatch++;
