@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--cycles <n>] [--sequence <digits>] [--spi-opt] [--irq] [--phy-profile] [--rx-path-profile] [--spim-start-end-profile] [--phy-fast-switch] [--phy-fast-skip-pgf]"
+    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--cycles <n>] [--sequence <digits>] [--spi-opt] [--irq] [--phy-profile] [--rx-path-profile] [--spim-start-end-profile] [--rx-error-diag] [--phy-fast-switch] [--phy-fast-skip-pgf]"
     echo "Example: $0 32 2 200 N3 15"
     echo "Example (custom slot schedule): $0 64 2 200 all 15 --sequence 2323232323232"
     echo
@@ -23,6 +23,7 @@ IRQ_PENDING=0
 PHY_PROFILE=0
 RX_PATH_PROFILE=0
 SPIM_START_END_PROFILE=0
+RX_ERROR_DIAG=0
 PHY_FAST_SWITCH=0
 PHY_FAST_SKIP_PGF=0
 TARGET_CYCLES=1000
@@ -51,6 +52,7 @@ while (( $# > 0 )); do
         --phy-profile) PHY_PROFILE=1; shift ;;
         --rx-path-profile) RX_PATH_PROFILE=1; shift ;;
         --spim-start-end-profile) SPIM_START_END_PROFILE=1; shift ;;
+        --rx-error-diag) RX_ERROR_DIAG=1; shift ;;
         --phy-fast-switch) PHY_FAST_SWITCH=1; shift ;;
         --phy-fast-skip-pgf) PHY_FAST_SKIP_PGF=1; shift ;;
         *) ARGS+=("$1"); shift ;;
@@ -140,6 +142,10 @@ if (( SPIM_START_END_PROFILE && ! SPI_OPT )); then
     echo "ERROR: --spim-start-end-profile requires --spi-opt" >&2
     exit 2
 fi
+if (( RX_ERROR_DIAG && (IRQ_PENDING || PHY_PROFILE || RX_PATH_PROFILE || SPIM_START_END_PROFILE) )); then
+    echo "ERROR: --rx-error-diag cannot be combined with --irq or profiling options" >&2
+    exit 2
+fi
 
 if [[ "${requested_role}" == "init" || "${requested_role}" == "all" || "${requested_role}" == "tx" ]]; then
     :
@@ -185,6 +191,9 @@ if (( RX_PATH_PROFILE )); then
 fi
 if (( SPIM_START_END_PROFILE )); then
     dest_dir+="_spimhwprofile"
+fi
+if (( RX_ERROR_DIAG )); then
+    dest_dir+="_rxerrdiag"
 fi
 if (( PHY_FAST_SWITCH )); then
     dest_dir+="_phyfast"
@@ -243,6 +252,10 @@ build_image() {
         role_spim_start_end_profile=1
     fi
     extra_defs+=";BRRS_OPT_SPIM_START_END_PROFILE=${role_spim_start_end_profile}"
+    # Keep TX compiler definitions unchanged: diagnostics belong to INIT only.
+    if (( RX_ERROR_DIAG )) && [[ "${role}" == "init" ]]; then
+        extra_defs+=";BRRS_OPT_RX_ERROR_DIAG=1"
+    fi
 
     echo "Building ${base}..."
     "${embuild}" \
@@ -284,6 +297,7 @@ echo "RX event: $((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-pollin
 echo "PHY configure profiling: $((( PHY_PROFILE )) && echo enabled || echo disabled)"
 echo "RX path profiling: $((( RX_PATH_PROFILE )) && echo enabled || echo disabled)"
 echo "SPIM START-END profiling: $((( SPIM_START_END_PROFILE )) && echo enabled-on-init || echo disabled)"
+echo "RX error diagnostics: $((( RX_ERROR_DIAG )) && echo enabled-on-init || echo disabled)"
 echo "PHY fast switch: $((( PHY_FAST_SWITCH )) && echo enabled || echo disabled)"
 echo "PHY fast switch PGF: $((( PHY_FAST_SKIP_PGF )) && echo skipped || echo retained)"
 echo "Target cycles: ${TARGET_CYCLES}"

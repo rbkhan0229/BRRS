@@ -274,6 +274,18 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #ifndef BRRS_OPT_RX_PATH_PROFILE
 #define BRRS_OPT_RX_PATH_PROFILE 0
 #endif
+#ifndef BRRS_OPT_RX_ERROR_DIAG
+#define BRRS_OPT_RX_ERROR_DIAG 0
+#endif
+#if BRRS_OPT_RX_ERROR_DIAG != 0 && BRRS_OPT_RX_ERROR_DIAG != 1
+#error "BRRS_OPT_RX_ERROR_DIAG must be 0 or 1"
+#endif
+#if BRRS_OPT_RX_ERROR_DIAG && (BRRS_EXPERIMENT != 4 || BRRS_EXP4_IRQ_PENDING || BRRS_OPT_RX_PATH_PROFILE || BRRS_OPT_PHY_CONFIG_PROFILE || BRRS_OPT_SPIM_START_END_PROFILE)
+#error "RX error diagnostics require standalone Exp4 polling without other profiling"
+#endif
+#if BRRS_OPT_RX_ERROR_DIAG
+#include "brrs_rx_error_diag.h"
+#endif
 #if BRRS_EXP4_SPI_PERSISTENT != 0 && BRRS_EXP4_SPI_PERSISTENT != 1
 #error "BRRS_EXP4_SPI_PERSISTENT must be 0 or 1"
 #endif
@@ -605,7 +617,7 @@ static uint32_t rx_err_sfdto = 0;    /* RXSTO: preamble은 잡았으나 SFD 실�
 static uint32_t rx_err_phe = 0;      /* PHY header error */
 static uint32_t rx_err_fce = 0;      /* CRC error */
 static uint32_t rx_err_fsl = 0;      /* Reed-Solomon / sync loss */
-static uint32_t rx_err_fint_only = 0; /* aggregate RXERR; subtype cleared by fast rearm */
+static uint32_t rx_err_fint_only = 0; /* legacy four-bit fallback; NOT proof of status clearing */
 
 static const char* get_slot_description(uint8_t slot_idx);
 static uint8_t node_id_to_index(uint8_t node_id);
@@ -2762,6 +2774,7 @@ static uint32_t exp4_spi_read_u32(uint32_t reg_file_id)
            ((uint32_t)bytes[3] << 24U);
 }
 
+#if !BRRS_OPT_RX_ERROR_DIAG
 static uint32_t exp4_read_error_detail(latency_stats_t *stats)
 {
     uint32_t phase_start_cycles = dwt_timer_get_cycles();
@@ -2774,6 +2787,122 @@ static uint32_t exp4_read_error_detail(latency_stats_t *stats)
     }
     return status;
 }
+#endif
+
+#if BRRS_OPT_RX_ERROR_DIAG
+static brrs_rxerr_diag_t exp4_error_diag;
+
+static uint32_t exp4_error_diag_read_status(uint32_t *lo, uint16_t *hi)
+{
+    /* SYS_STATUS occupies six adjacent octets at 00:44..49 (UM p93).
+     * Reading is non-clearing. This is not an atomic RF-state snapshot.
+     * SPI transport failures still fail the common SPI integrity checks.
+     */
+    uint8_t bytes[6] = {0};
+    uint32_t start = dwt_timer_get_cycles();
+    exp4_spi_read_device(SYS_STATUS_ID, 0U, sizeof(bytes), bytes);
+    uint32_t cycles = dwt_timer_get_cycles() - start;
+    *lo = (uint32_t)bytes[0] | ((uint32_t)bytes[1] << 8U) |
+          ((uint32_t)bytes[2] << 16U) | ((uint32_t)bytes[3] << 24U);
+    *hi = (uint16_t)bytes[4] | ((uint16_t)bytes[5] << 8U);
+    return cycles;
+}
+
+static void exp4_error_diag_pre(brrs_rxerr_record_t *record,
+                                uint8_t fint, bool timeout)
+{
+    memset(record, 0, sizeof(*record));
+    record->sf = current_cycle;
+    record->logical_slot = current_rx_slot;
+    record->estimated_slot = 0xFFU;
+    record->host = exp4_rx_host_buffer;
+    record->poll_fint = fint; /* Original dispatch FINT, not another SPI read. */
+    record->timeout = timeout;
+    record->pre_cycles = exp4_error_diag_read_status(&record->pre_lo,
+                                                    &record->pre_hi);
+}
+
+static uint32_t exp4_error_diag_post(brrs_rxerr_record_t *record,
+                                    uint8_t estimated_slot,
+                                    latency_stats_t *stats)
+{
+    uint32_t start;
+    record->estimated_slot = estimated_slot;
+    record->post_cycles = exp4_error_diag_read_status(&record->post_lo,
+                                                     &record->post_hi);
+    if (stats != NULL) {
+        update_node_latency(stats, exp4_cycles_to_us_ceil(record->post_cycles));
+    }
+    start = dwt_timer_get_cycles();
+    exp4_spi_read_device(FINT_STAT_ID, 0U, 1U, &record->post_fint);
+    record->fint_cycles = dwt_timer_get_cycles() - start;
+    /* Only a bounded struct copy here. Classification/formatting is deferred.
+     * Keep the original post-read status for control/legacy counters so the
+     * diagnostic flag is not also a new RX recovery algorithm.
+     */
+    brrs_rxerr_enqueue(&exp4_error_diag, record);
+    return record->post_lo;
+}
+
+static void exp4_error_diag_print(void)
+{
+    static const char *const names[BRRS_RXERR_STATUS_BITS] = {
+        "IRQS", "CPLOCK", "SPICRCE", "AAT", "TXFRB", "TXPRS", "TXPHS", "TXFRS",
+        "RXPRD", "RXSFDD", "CIADONE", "RXPHD", "RXPHE", "RXFR", "RXFCG", "RXFCE",
+        "RXFSL", "RXFTO", "CIAERR", "VWARN", "RXOVRR", "RXPTO", "RES22", "SPIRDY",
+        "RCINIT", "PLL_HILO", "RXSTO", "HPDWARN", "CPERR", "ARFE", "RES30", "RES31",
+        "RES32", "RXPREJ", "RES34", "RES35", "VT_DET", "GPIOIRQ", "AES_DONE", "AES_ERR",
+        "CMD_ERR", "SPI_OVF", "SPI_UNF", "SPIERR", "CCA_FAIL", "RES45", "RES46", "RES47"
+    };
+    static const char *const phases[BRRS_RXERR_TIMINGS] = {
+        "pre_status", "post_status", "post_fint", "detect_to_rearm_return"
+    };
+    static char line[512];
+    const brrs_rxerr_diag_t *d = &exp4_error_diag;
+    bool valid = d->queue_overflow == 0U && d->queue_count == 0U &&
+                 d->processed == d->events && d->hw_faults == 0U &&
+                 d->events == total_rx_errors + total_rx_timeouts;
+    snprintf(line, sizeof(line),
+             "EXP4_RX_ERROR_DIAG_CSV,enabled=1,version=1,events=%lu,errors=%lu,timeouts=%lu,processed=%lu,rearmed=%lu,queue_overflow=%lu,sample_capacity=%u,samples=%lu,samples_omitted=%lu,pre_zero=%lu,post_zero=%lu,changed=%lu,hw_faults=%lu,status=%s",
+             (unsigned long)d->events, (unsigned long)d->errors,
+             (unsigned long)d->timeouts, (unsigned long)d->processed,
+             (unsigned long)d->rearmed, (unsigned long)d->queue_overflow,
+             BRRS_RXERR_SAMPLE_CAPACITY, (unsigned long)d->sample_count,
+             (unsigned long)d->samples_omitted, (unsigned long)d->pre_zero,
+             (unsigned long)d->post_zero, (unsigned long)d->changed,
+             (unsigned long)d->hw_faults, valid ? "PASS" : "FAIL");
+    final_log_info(line);
+    for (uint32_t bit = 0; bit < BRRS_RXERR_STATUS_BITS; bit++) {
+        snprintf(line, sizeof(line),
+                 "EXP4_RX_ERROR_BIT_CSV,bit=%lu,name=%s,pre_count=%lu,post_count=%lu",
+                 (unsigned long)bit, names[bit], (unsigned long)d->pre_bits[bit],
+                 (unsigned long)d->post_bits[bit]);
+        final_log_info(line);
+    }
+    for (uint32_t phase = 0; phase < BRRS_RXERR_TIMINGS; phase++) {
+        const brrs_rxerr_timing_t *t = &d->timing[phase];
+        uint64_t avg = t->count ? t->sum_us * 1000ULL / t->count : 0ULL;
+        snprintf(line, sizeof(line),
+                 "EXP4_RX_ERROR_TIMING_CSV,phase=%s,count=%lu,min_us=%lu,max_us=%lu,avg_x1000_us=%llu",
+                 phases[phase], (unsigned long)t->count, (unsigned long)t->min_us,
+                 (unsigned long)t->max_us, (unsigned long long)avg);
+        final_log_info(line);
+    }
+    for (uint32_t i = 0; i < d->sample_count; i++) {
+        const brrs_rxerr_record_t *r = &d->samples[i];
+        snprintf(line, sizeof(line),
+                 "EXP4_RX_ERROR_SAMPLE_CSV,index=%lu,event=%lu,kind=%s,sf=%lu,logical_slot=%u,estimated_slot=%u,host=%u,poll_fint=0x%02X,post_fint=0x%02X,pre_lo=0x%08lX,pre_hi=0x%04X,post_lo=0x%08lX,post_hi=0x%04X,rearmed=%u",
+                 (unsigned long)i, (unsigned long)r->event,
+                 r->timeout ? "timeout" : "error", (unsigned long)r->sf,
+                 (unsigned)r->logical_slot, (unsigned)r->estimated_slot,
+                 (unsigned)r->host, (unsigned)r->poll_fint, (unsigned)r->post_fint,
+                 (unsigned long)r->pre_lo, (unsigned)r->pre_hi,
+                 (unsigned long)r->post_lo, (unsigned)r->post_hi,
+                 (unsigned)r->rearmed);
+        final_log_info(line);
+    }
+}
+#endif
 
 static bool exp4_find_slot_by_rx_timestamp(uint32_t rx_ts_high32,
                                            uint8_t *slot_idx)
@@ -3156,6 +3285,9 @@ static void exp4_close_data_burst(exp4_burst_close_reason_t reason)
     exp4_data_burst_active = false;
     current_rx_slot = 0xFF;
     exp4_process_deferred_records();
+#if BRRS_OPT_RX_ERROR_DIAG
+    brrs_rxerr_process(&exp4_error_diag, CPU_FREQ_HZ / 1000000UL);
+#endif
 
     if (reason == EXP4_BURST_CLOSE_LAST_EVENT) {
         exp4_burst_early_close_count++;
@@ -3519,6 +3651,9 @@ int brrs_init(void)
 
 #if BRRS_EXPERIMENT == 4
     {
+#if BRRS_OPT_RX_ERROR_DIAG
+        final_log_info("EXP4_RX_ERROR_DIAG_CONFIG_CSV,enabled=1,version=1,status_bytes=6,queue_capacity=32,sample_capacity=64,scope=error_timeout_only,raw_scope=pre_post_48bit,legacy_counter_scope=post_rearm_four_bit,slot_identity=estimate_only,status=PASS");
+#endif
         const uint32_t exp4_event_mask =
             /* CIADONE may precede RXFCG, so it is not by itself evidence of a
              * complete CRC-valid frame. Wake on RXFCG and, in IRQ mode, let
@@ -3641,13 +3776,13 @@ int brrs_init(void)
         final_log_info(cfg_msg);
 #if BRRS_EXP4_IRQ_PENDING
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=47,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_rxfcg_pending,event_mask=rxfcg_or_error_validated,irq_good_class=pending_and_fint_rxok,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,spim_start_end_profile=feature_flagged_boot_only,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=48,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=gpio_irq_rxfcg_pending,event_mask=rxfcg_or_error_validated,irq_good_class=pending_and_fint_rxok,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=oneshot_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=legacy_four_bit_post_read,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,spim_start_end_profile=feature_flagged_boot_only,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #elif BRRS_OPT_RX_PATH_PROFILE
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=47,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling_with_gpio_timestamp,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=timestamp_only_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=enabled_nonintrusive_raw_cycles,spim_start_end_profile=feature_flagged_boot_only,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=48,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling_with_gpio_timestamp,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=timestamp_only_per_data_burst,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=legacy_four_bit_post_read,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=enabled_nonintrusive_raw_cycles,spim_start_end_profile=feature_flagged_boot_only,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #else
         test_run_info((unsigned char *)
-            "EXP4_FIRMWARE_REV,rev=47,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=fint_fallback_if_cleared,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,spim_start_end_profile=feature_flagged_boot_only,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
+            "EXP4_FIRMWARE_REV,rev=48,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=delayed_first_manual_double_buffer_burst,rearm=only_if_later_slot,event_source=fint_polling,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=legacy_four_bit_post_read,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=post_rearm_nearest_event_time,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,spim_start_end_profile=feature_flagged_boot_only,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per");
 #endif
     }
 #endif
@@ -3919,6 +4054,9 @@ int brrs_init(void)
                 snprintf(hdr, sizeof(hdr), "\n===== BRRS FINAL STATS (PLEN=%d, %d sym) =====",
                          DATA_PLEN, PREAMBLE_SYMBOLS);
                 final_log_info(hdr);
+#if BRRS_OPT_RX_ERROR_DIAG
+                exp4_error_diag_print();
+#endif
 
 #if BRRS_EXPERIMENT == 4
                 {
@@ -4038,6 +4176,13 @@ int brrs_init(void)
 #if BRRS_OPT_RX_PATH_PROFILE
                          && exp4_rx_path_profile_pass(exp4_rx_good_events,
                                                       total_cycles)
+#endif
+#if BRRS_OPT_RX_ERROR_DIAG
+                         && exp4_error_diag.queue_overflow == 0U
+                         && exp4_error_diag.queue_count == 0U
+                         && exp4_error_diag.processed == exp4_error_diag.events
+                         && exp4_error_diag.events == total_rx_errors + total_rx_timeouts
+                         && exp4_error_diag.hw_faults == 0U
 #endif
                          );
                     bool timing_pass = slot_timing_counts_match();
@@ -5218,7 +5363,13 @@ int brrs_init(void)
 #endif
                 dwt_forcetrxoff();
                 dwt_writesysstatuslo(0xFFFFFFFF);
+#if BRRS_EXPERIMENT == 4
                 if (brrs_exp4_phy_switch(&config_data) == DWT_SUCCESS) {
+#else
+                /* Exp4's optional fast-switch wrapper is not defined in the
+                 * single-link experiments. Retain their full configure path. */
+                if (dwt_configure(&config_data) == DWT_SUCCESS) {
+#endif
                     config_is_sync = false;
 #if ENABLE_CIR
                     enable_cir_diagnostics();
@@ -5907,10 +6058,22 @@ int brrs_init(void)
                  * clear the completed event before returning to the poll
                  * loop. This keeps the recovery path inside the same guard
                  * budget without allowing a stale FINT event to escape. */
+#if BRRS_OPT_RX_ERROR_DIAG
+                brrs_rxerr_record_t error_record;
+                exp4_error_diag_pre(&error_record, exp4_fint_status, true);
+                error_record.rearmed = exp4_rearm_after_event(exp4_event_start_cycles, false);
+                error_record.rearm_cycles = dwt_timer_get_cycles() - exp4_event_start_cycles;
+#else
                 exp4_rearm_after_event(exp4_event_start_cycles, false);
+#endif
                 failed_rx_slot = exp4_slot_from_event_time();
+#if BRRS_OPT_RX_ERROR_DIAG
+                status_reg = exp4_error_diag_post(&error_record, failed_rx_slot,
+                    exp4_rearm_needed ? &exp4_error_detail_post_rearm_stats : NULL);
+#else
                 status_reg = exp4_read_error_detail(exp4_rearm_needed ?
                     &exp4_error_detail_post_rearm_stats : NULL);
+#endif
                 exp4_clear_rx_status(SYS_STATUS_ALL_RX_TO |
                                      DWT_INT_CIADONE_BIT_MASK,
                                      exp4_rearm_needed ?
@@ -5960,10 +6123,22 @@ int brrs_init(void)
                     update_node_latency(&exp4_status_poll_stats,
                                         exp4_status_poll_us);
                 }
+#if BRRS_OPT_RX_ERROR_DIAG
+                brrs_rxerr_record_t error_record;
+                exp4_error_diag_pre(&error_record, exp4_fint_status, false);
+                error_record.rearmed = exp4_rearm_after_event(exp4_event_start_cycles, false);
+                error_record.rearm_cycles = dwt_timer_get_cycles() - exp4_event_start_cycles;
+#else
                 exp4_rearm_after_event(exp4_event_start_cycles, false);
+#endif
                 failed_rx_slot = exp4_slot_from_event_time();
+#if BRRS_OPT_RX_ERROR_DIAG
+                status_reg = exp4_error_diag_post(&error_record, failed_rx_slot,
+                    exp4_rearm_needed ? &exp4_error_detail_post_rearm_stats : NULL);
+#else
                 status_reg = exp4_read_error_detail(exp4_rearm_needed ?
                     &exp4_error_detail_post_rearm_stats : NULL);
+#endif
                 if ((status_reg & DWT_INT_RXOVRR_BIT_MASK) != 0U) {
                     exp4_rx_buffer_overruns++;
                     total_rx_errors++;

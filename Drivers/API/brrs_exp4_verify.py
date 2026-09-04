@@ -109,12 +109,141 @@ def verify_phy_fast_first_rx(lines, role, enabled, expected_events, node=None):
     require(values, "status", expected_status)
 
 
+def verify_rx_error_diag(lines, enabled, expected_cycles):
+    """Validate bounded diagnostic evidence, independently of RF-loss PASS.
+
+    Bit counts are all processed events, while samples intentionally contain
+    only the first sample_capacity events. An omitted sample is not a dropped
+    event. Sample slot fields are schedule estimates, not decoded source IDs.
+    """
+    prefixes = {
+        "config": "EXP4_RX_ERROR_DIAG_CONFIG_CSV,",
+        "summary": "EXP4_RX_ERROR_DIAG_CSV,",
+        "bits": "EXP4_RX_ERROR_BIT_CSV,",
+        "samples": "EXP4_RX_ERROR_SAMPLE_CSV,",
+        "timing": "EXP4_RX_ERROR_TIMING_CSV,",
+    }
+    records = {key: [key_values(line) for line in lines
+                     if line.startswith(prefix)]
+               for key, prefix in prefixes.items()}
+    if not enabled:
+        if any(records.values()):
+            fail("non-diagnostic run unexpectedly emitted RX error diagnostics")
+        return
+    if len(records["config"]) != 1 or len(records["summary"]) != 1:
+        fail("RX error diagnostic config/summary row count is not one")
+    config, summary = records["config"][0], records["summary"][0]
+    for row in (config, summary):
+        require(row, "enabled", 1)
+        require(row, "version", 1)
+        require(row, "sample_capacity", 64)
+        require(row, "status", "PASS")
+    require(config, "status_bytes", 6)
+    require(config, "queue_capacity", 32)
+    require(config, "scope", "error_timeout_only")
+    keys = ("events", "errors", "timeouts", "processed", "rearmed",
+            "queue_overflow", "samples", "samples_omitted", "pre_zero",
+            "post_zero", "changed", "hw_faults")
+    counts = {key: integer(summary, key) for key in keys}
+    if any(value < 0 for value in counts.values()):
+        fail("negative RX error diagnostic counter")
+    events, processed = counts["events"], counts["processed"]
+    if events != counts["errors"] + counts["timeouts"]:
+        fail("RX error diagnostic event kinds do not sum to events")
+    if processed + counts["queue_overflow"] != events:
+        fail("RX error diagnostic processed + overflow differs from events")
+    require(summary, "queue_overflow", 0)
+    require(summary, "hw_faults", 0)
+    require(summary, "samples", min(processed, 64))
+    require(summary, "samples_omitted", processed - counts["samples"])
+    for key in ("rearmed", "pre_zero", "post_zero", "changed", "hw_faults"):
+        if counts[key] > processed:
+            fail(f"RX error diagnostic {key} exceeds processed events")
+    deferred = key_values(last_line(lines, "EXP4_DEFERRED_CSV,"))
+    require(deferred, "rx_error", counts["errors"])
+    require(deferred, "rx_timeout", counts["timeouts"])
+
+    bit_rows = records["bits"]
+    if len(bit_rows) != 48 or {integer(row, "bit") for row in bit_rows} != set(range(48)):
+        fail("RX error diagnostic bit rows must cover each of 48 bits once")
+    bits = {integer(row, "bit"): row for row in bit_rows}
+    hardware_fault_bits = (19, 20, 25, 27, 40, 41, 42, 43)
+    for row in bit_rows:
+        if not row.get("name"):
+            fail("RX error diagnostic bit name is absent")
+        for key in ("pre_count", "post_count"):
+            if not 0 <= integer(row, key) <= processed:
+                fail(f"RX error diagnostic {key} is out of range")
+            if integer(row, "bit") in hardware_fault_bits and integer(row, key):
+                fail("RX error diagnostic hardware-fault bit occurred")
+
+    samples = records["samples"]
+    if len(samples) != counts["samples"]:
+        fail("RX error diagnostic raw sample count is incomplete")
+    sampled = {key: 0 for key in ("errors", "timeouts", "rearmed", "pre_zero",
+                                  "post_zero", "changed", "hw_faults")}
+    sampled_bits = {key: [0] * 48 for key in ("pre_count", "post_count")}
+    hardware_fault_mask = sum(1 << bit for bit in hardware_fault_bits)
+    for index, row in enumerate(samples):
+        require(row, "index", index)
+        require(row, "event", index + 1)
+        kind = row.get("kind")
+        if kind not in ("error", "timeout"):
+            fail("RX error diagnostic sample kind is invalid")
+        sampled["errors" if kind == "error" else "timeouts"] += 1
+        if not 1 <= integer(row, "sf") <= expected_cycles:
+            fail("RX error diagnostic sample superframe is out of range")
+        for key in ("logical_slot", "estimated_slot", "poll_fint", "post_fint"):
+            if not 0 <= integer(row, key) <= 255:
+                fail(f"RX error diagnostic sample {key} is not a byte")
+        for key in ("host", "rearmed"):
+            if integer(row, key) not in (0, 1):
+                fail(f"RX error diagnostic sample {key} is not binary")
+        sampled["rearmed"] += integer(row, "rearmed")
+        statuses = {}
+        for when in ("pre", "post"):
+            lo, hi = integer(row, f"{when}_lo"), integer(row, f"{when}_hi")
+            if not 0 <= lo < (1 << 32) or not 0 <= hi < (1 << 16):
+                fail("RX error diagnostic status is not 48 bits")
+            statuses[when] = (hi << 32) | lo
+            sampled[f"{when}_zero"] += int(statuses[when] == 0)
+            for bit in range(48):
+                sampled_bits[f"{when}_count"][bit] += (statuses[when] >> bit) & 1
+        sampled["changed"] += int(statuses["pre"] != statuses["post"])
+        sampled["hw_faults"] += int(bool((statuses["pre"] | statuses["post"]) &
+                                         hardware_fault_mask))
+    for key, value in sampled.items():
+        if value > counts[key] or (processed <= 64 and value != counts[key]):
+            fail(f"RX error diagnostic samples disagree with summary {key}")
+    for key, values in sampled_bits.items():
+        for bit, value in enumerate(values):
+            total = integer(bits[bit], key)
+            if value > total or (processed <= 64 and value != total):
+                fail(f"RX error diagnostic samples disagree with bit {bit} {key}")
+
+    phases = {"pre_status": processed, "post_status": processed,
+              "post_fint": processed, "detect_to_rearm_return": counts["rearmed"]}
+    timing_rows = records["timing"]
+    if len(timing_rows) != len(phases) or {row.get("phase") for row in timing_rows} != set(phases):
+        fail("RX error diagnostic timing phase set is incomplete")
+    for row in timing_rows:
+        count = phases[row["phase"]]
+        require(row, "count", count)
+        low, high, avg = (integer(row, key) for key in
+                          ("min_us", "max_us", "avg_x1000_us"))
+        if not 0 <= low * 1000 <= avg <= high * 1000:
+            fail("RX error diagnostic timing distribution is inconsistent")
+        if count == 0 and (low or high or avg):
+            fail("RX error diagnostic empty timing phase has nonzero values")
+
+
 def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
                 expected_pac, expected_sync_buffer, expected_sync_prep,
                 max_per_percent, sequence=None, spi_opt=False,
                 irq_pending=False, expected_cycles=1000,
                 phy_fast=False, phy_fast_skip_pgf=False,
-                rx_path_profile=False, spim_start_end_profile=False):
+                rx_path_profile=False, spim_start_end_profile=False,
+                rx_error_diag=False):
     slot_count = len(sequence) if sequence is not None else sensors
     expected = expected_cycles * slot_count
 
@@ -181,6 +310,10 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(host_irq, "mode", expected_host_irq_mode)
     require(host_irq, "spi_owner", "foreground")
     require(host_irq, "enabled", 0)
+
+    # Check diagnostic integrity before link-quality rejection: a high PER
+    # never excuses absent or truncated evidence in a diagnostic capture.
+    verify_rx_error_diag(lines, rx_error_diag, expected_cycles)
 
     done = key_values(last_line(lines, "EXP4_DONE,"))
     require(done, "plen", preamble)
@@ -687,6 +820,8 @@ def main():
                         help="Expect polling RX-path phase profiling.")
     parser.add_argument("--spim-start-end-profile", action="store_true",
                         help="Expect boot-only SPIM3 START-to-END profiling.")
+    parser.add_argument("--rx-error-diag", action="store_true",
+                        help="Expect pre/post-rearm error evidence on INIT only.")
     args = parser.parse_args()
 
     if args.role == "sensor" and args.node is None:
@@ -707,6 +842,10 @@ def main():
         parser.error("--phy-fast-skip-pgf requires --phy-fast-switch")
     if args.rx_path_profile and args.irq:
         parser.error("--rx-path-profile cannot be combined with --irq")
+    if args.rx_error_diag and (args.irq or args.rx_path_profile or
+                               args.spim_start_end_profile):
+        parser.error("--rx-error-diag cannot be combined with --irq or "
+                     "profiling options")
 
     try:
         lines = args.log.read_text(errors="replace").splitlines()
@@ -719,7 +858,8 @@ def main():
                                  args.phy_fast_switch,
                                  args.phy_fast_skip_pgf,
                                  args.rx_path_profile,
-                                 args.spim_start_end_profile)
+                                 args.spim_start_end_profile,
+                                 args.rx_error_diag)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard, args.sync_buffer,
