@@ -141,6 +141,9 @@ def verify_rx_error_diag(lines, enabled, expected_cycles):
     require(config, "status_bytes", 6)
     require(config, "queue_capacity", 32)
     require(config, "scope", "error_timeout_only")
+    require(config, "raw_scope", "pre_post_48bit")
+    require(config, "legacy_counter_scope", "post_rearm_four_bit")
+    require(config, "slot_identity", "estimate_only")
     keys = ("events", "errors", "timeouts", "processed", "rearmed",
             "queue_overflow", "samples", "samples_omitted", "pre_zero",
             "post_zero", "changed", "hw_faults")

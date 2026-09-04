@@ -68,7 +68,7 @@ cc -std=c11 -O2 -Wall -Wextra -Werror -fsanitize=address,undefined Drivers/API/t
 
 검증은 RAM collector,48비트 분류, 반복 집계, 기록 생략/overflow, 지연 통계, 진단 레코드 누락/오염, 하드웨어 경고, 플래그 전달/경로 분리/로그 덮어쓰기 거부 등을 포함한다. 실험 대체 데이터가 아닌 synthetic fixture를 사용한다. 실측 로그로도 기존 M256 PASS/M32 고손실 FAIL 및 유효RX0 FAIL 정책을 확인한다.
 
-오프라인 확인 결과: Python 테스트13개 PASS, C collector의 AddressSanitizer/UndefinedBehaviorSanitizer 검사 PASS, 셸 문법 검사 PASS. 공유 호출 수정 후 `Exp1_32_Init`와 `Exp2_32_Init` 빌드가 모두 성공했고 오류/경고는 없었다. 실제 RF 수신과 RTT 수집을 실행한 결과는 아니다. 최종 Exp4 바이너리의 커밋·해시·빌드 결과는 저장소 밖 `logs/exp4_rx_error_diag_build_20260904/`에 별도 기록한다.
+오프라인 확인 결과: Python 테스트15개 PASS, C collector의 AddressSanitizer/UndefinedBehaviorSanitizer 검사 PASS, 셸 문법 검사 PASS. 공유 호출 수정 후 `Exp1_32_Init`와 `Exp2_32_Init` 빌드가 모두 성공했고 오류/경고는 없었다. 실제 RF 수신과 RTT 수집을 실행한 결과는 아니다. 최종 Exp4 바이너리의 커밋·해시·빌드 결과는 저장소 밖 `logs/exp4_rx_error_diag_build_20260904/`에 별도 기록한다.
 
 ## 다음 실험 시작 조건
 

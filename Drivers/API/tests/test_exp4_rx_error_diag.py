@@ -29,7 +29,9 @@ def diagnostic_fixture(events=3):
     samples = min(events, 64)
     rows = [record("EXP4_RX_ERROR_DIAG_CONFIG_CSV", enabled=1, version=1,
                    status_bytes=6, queue_capacity=32, sample_capacity=64,
-                   scope="error_timeout_only", status="PASS"),
+                   scope="error_timeout_only", raw_scope="pre_post_48bit",
+                   legacy_counter_scope="post_rearm_four_bit",
+                   slot_identity="estimate_only", status="PASS"),
             record("EXP4_RX_ERROR_DIAG_CSV", enabled=1, version=1,
                    events=events, errors=events, timeouts=0, processed=events,
                    rearmed=events, queue_overflow=0, sample_capacity=64,
@@ -64,6 +66,51 @@ class DiagnosticContractTests(unittest.TestCase):
 
     def test_old_non_diagnostic_logs_need_no_new_records(self):
         self.check(["EXP4_CONFIG_CSV,rx_path_profile=disabled"], enabled=False)
+
+    def test_valid_timeout_without_rearm_and_high_status_bit(self):
+        # Mixed RXERR and timeout records, including RXPREJ (bit33), with
+        # the timeout as the final event: there is no following slot to arm.
+        rows = diagnostic_fixture(2)
+        rows[1] = record("EXP4_RX_ERROR_DIAG_CSV", enabled=1, version=1,
+                         events=2, errors=1, timeouts=1, processed=2, rearmed=1,
+                         queue_overflow=0, sample_capacity=64, samples=2,
+                         samples_omitted=0, pre_zero=0, post_zero=1, changed=1,
+                         hw_faults=0, status="PASS")
+        rows[2] = record("EXP4_DEFERRED_CSV", rx_error=1, rx_timeout=1)
+        for index, row in enumerate(rows):
+            values = verify.key_values(row)
+            if row.startswith("EXP4_RX_ERROR_BIT_CSV,"):
+                bit = int(values["bit"])
+                rows[index] = record("EXP4_RX_ERROR_BIT_CSV", bit=bit,
+                                     name=f"BIT_{bit}",
+                                     pre_count=1 if bit in (12, 17, 33) else 0,
+                                     post_count=1 if bit == 17 else 0)
+            elif row.startswith("EXP4_RX_ERROR_SAMPLE_CSV,index=0,"):
+                rows[index] = row.replace("pre_hi=0x0000", "pre_hi=0x0002")
+            elif row.startswith("EXP4_RX_ERROR_SAMPLE_CSV,index=1,"):
+                rows[index] = record("EXP4_RX_ERROR_SAMPLE_CSV", index=1,
+                                     event=2, kind="timeout", sf=2,
+                                     logical_slot=2, estimated_slot=2, host=1,
+                                     poll_fint="0x20", post_fint="0x20",
+                                     pre_lo="0x00020000", pre_hi="0x0000",
+                                     post_lo="0x00020000", post_hi="0x0000",
+                                     rearmed=0)
+            elif row.startswith("EXP4_RX_ERROR_TIMING_CSV,phase=detect_to_rearm_return,"):
+                rows[index] = row.replace("count=2", "count=1")
+        self.check(rows)
+
+    def test_semantic_scope_fields_are_required_and_exact(self):
+        expected = {"raw_scope": "pre_post_48bit",
+                    "legacy_counter_scope": "post_rearm_four_bit",
+                    "slot_identity": "estimate_only"}
+        for key, value in expected.items():
+            for change in ("missing", "incorrect"):
+                rows = diagnostic_fixture()
+                field = f",{key}={value}"
+                rows[0] = rows[0].replace(field, "" if change == "missing" else
+                                         f",{key}=incorrect")
+                with self.subTest(field=key, change=change), self.assertRaises(verify.VerificationError):
+                    self.check(rows)
 
     def test_off_rejects_unexpected_diagnostic_records(self):
         with self.assertRaises(verify.VerificationError):
