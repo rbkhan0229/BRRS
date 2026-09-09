@@ -48,12 +48,16 @@ def read_evidence(root,expected_case):
         if p.get('profile')=='paper':
             expected.update(suite_profile='paper',suite_block=str(p['run']),suite_rotation_index=str(p['rotation_index']),
                 physical_location=job['location'],suite_assignment_sha256=expected_case['assignment_sha256'],run_number=str(p['run']))
+        if p.get('profile')=='paper' or 'link_tx_role' in p:
             if state['case_id']!=c['id']: raise ValueError('side case identity mismatch')
             if job['logical_node']==1 and not orchestration['all_tx_ready_at']<=worker['started_at']:
                 raise ValueError('RX started before all TX READY')
         if any(meta.get(k)!=v for k,v in expected.items()) or worker['raw_sha256']!=sha(raw): raise ValueError('raw/metadata hash or identity mismatch')
         lines_by_role[role]=capture_lines(raw.read_text(),p['stage'],job['logical_node']==1)
-    remote=json.loads((out/'remote/status.json').read_text())
-    if set(remote['inactive_halted_after'])!=set(c['inactive_tx_roles']) or not all(remote['inactive_halted_after'].values()):
-        raise ValueError('inactive-board control evidence incomplete')
+    for side in ['local','remote']:
+        inactive={r for r in c['inactive_tx_roles'] if (c['boards'][r]['host']=='local')==(side=='local')}
+        if not inactive:continue
+        state=json.loads((out/side/'status.json').read_text())
+        if set(state['inactive_halted_after'])!=inactive or not all(state['inactive_halted_after'].values()):
+            raise ValueError('inactive-board control evidence incomplete')
     return c,lines_by_role,orchestration

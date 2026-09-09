@@ -1,6 +1,6 @@
 # 차량 준비용 고정 역할과 단계별 설정
 
-공통 설정은 `brrs_vehicle_manifest.json`이다. 물리 RX는 1050270933, 모든 1:1 TX는 **N4 1050282818**이다. 단일 링크 펌웨어의 논리 ID는 N2이므로 metadata의 `physical_role`과 `logical_node`를 구분한다. Exp4는 N2~N7의 원래 serial 매핑을 유지한다.
+공통 설정은 `brrs_vehicle_manifest.json`이다. 물리 RX는 1050270933이다. Stage0/Exp1/Exp3 및 Exp4 S1의 1:1 TX는 **N4 1050282818**이다. Exp2/Exp5는 `cir_link_tx_roles`의 **N2~N7을 한 대씩 순회**한다. 단일 링크 펌웨어의 논리 ID는 N2이므로 metadata의 `physical_role`과 `logical_node`를 구분한다. Exp4 준비 모드는 원래 serial 매핑을, 논문 모드는 사전에 정한 논리 역할 회전을 사용한다.
 
 이 사본의 통합 런너와 auto-TX는 기본적으로 위 manifest를 사용한다. USB 열거 순서나 run 번호에 따라 역할을 바꾸지 않는다. 지정 `--serial`이 manifest와 다르면 실행 전에 거부한다. auto-TX는 선택한 보드가 정확히 연결되었는지 확인하며, 모든 TX가 연결된 상태의 부분집합 제어는 별도 실행기에서 관리한다.
 
@@ -16,6 +16,7 @@ python3 brrs_suite_manifest.py plan brrs_vehicle_manifest.json --stage stage0
 Stage0는 원래 lead 0~40us의 41점 순서와 PAC4/8을 유지한다. `lead_selection`은 아직 미선정 상태다. Stage0 결과를 근거로 `lead_us_by_pac`와 `evidence`를 채우고 `frozen`을 true로 바꾼 뒤에야 나머지 단계의 계획이 생성된다. 본 실험용 lead를 임의로 정하지 않는다.
 
 - Exp1/Exp2: 각각 PAC4+lead4와 PAC8+lead8, M32/64/128/256.
+- Exp2/Exp5: 각 조건에서 RX와 선택 TX 한 대만 실행하고 나머지 5대 정지를 검증한다. 실제 serial·위치·링크별 case ID를 보존한다. [자동 링크 순회 사용법](BRRS_CIR_LINKS_KR.md).
 - Exp2: PAC는 CLI→빌드 정의→캐시 확인→로그 파일명→펌웨어 설정 마커→검증→metadata로 전달된다. 새 설정 마커가 없는 이전 Exp2 이미지는 새 검증 경로의 준비 이미지로 간주하지 않는다.
 - Exp3: A/B/C의 SFD·PHR 차이를 유지하고 PAC8, lead는 동결된 PAC8 값을 사용한다.
 - Exp4: M32/64/128/256을 비교하며 물리 TX6과 논리 슬롯 수를 별도로 둔다. G250/SB3000/SP2500/SF10ms에서 모델상 최대는 M32=13, M64=12, M128=10, M256=8이다. 기본 계획은 각 M·PAC의 6슬롯과 해당 상한, 총16조건이다. 이것은 최대 부하 RF 검증 완료를 뜻하지 않는다. M32 13슬롯 배정은 기존 `2345672345673`을 유지한다.
@@ -41,6 +42,8 @@ RTT 수집기는 READY/END 각 1개를 요구한다. Exp4 검증기는 슬롯별
 ## case 준비와 양쪽 실행
 
 `brrs_suite_case.py prepare --manifest brrs_vehicle_manifest.json --stage stage0 --case stage0_m32_pac8_l25 --reuse --bundle <새-실행-폴더>`는 기존 캡처 CLI의 build-only로 이미지를 확인하고, 모든 단계 도구와 해당 case의 HEX/ELF/설정 stamp를 독립 capture-only SDK로 묶는다. `--reuse`는 동일 조건의 검증된 이미지가 있을 때만 쓴다. 새로운 조건의 빌드는 원본 Git이 아닌 현재 fix 사본에서 수행한다. prepare는 보드에 접속하지 않는다.
+
+아래는 RX 로컬·TX 원격의 두 호스트 경로다. Exp2/Exp5는 보드 7대가 모두 같은 컴퓨터에 있는 구성도 지원하며, manifest의 모든 `host`를 해당 컴퓨터로 지정한다.
 
 생성된 폴더를 원격 노트북의 동일 절대 경로에 새로 배포한 뒤, 그 폴더 안 `sdk/Drivers/API/brrs_suite_case.py run --bundle <실행-폴더>`를 로컬에서 실행한다. 원격 경로를 덮어쓰지 않는다. 양쪽 파일 hash와 payload index가 다르거나 지정 probe set이 다르면 보드 실행 전에 거부한다. 각 단계의 원래 캡처·검증 도구를 `--no-build`로 호출하므로 원격 빌드에 의한 이미지 차이가 생기지 않는다.
 

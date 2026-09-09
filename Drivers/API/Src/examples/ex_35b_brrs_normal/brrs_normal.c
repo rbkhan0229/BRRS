@@ -207,8 +207,8 @@ static void terminal_log_info(unsigned char *data)
 #define DATA_PAC        DWT_PAC8
 #define DATA_PAC_SYMBOLS 8U
 #endif
-#define SYNC_PLEN       DWT_PLEN_256
-#define SYNC_PREAMBLE_SYMBOLS 256
+#define SYNC_PLEN       DWT_PLEN_512
+#define SYNC_PREAMBLE_SYMBOLS 512
 #define ENABLE_CIR      0
 #ifndef BRRS_TARGET_CYCLES
 #define BRRS_TARGET_CYCLES 1000

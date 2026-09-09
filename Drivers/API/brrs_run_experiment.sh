@@ -28,6 +28,8 @@ Submission defaults for one fixed physical placement:
 
 Options:
   --board-map <json>     Fixed board manifest; overrides discovery/rotation.
+  --physical-tx-role <N2..N7> Exp2/Exp5: explicitly select one physical TX.
+                         Use brrs_suite_campaign.py for all-link orchestration.
   --slotted-rx           Exp4 bounded delayed-RX per slot.
   --spi-opt              Exp4 persistent/direct SPI.
   --sync-buffer <us>     Exp4 SYNC-to-DATA budget (default: 3000).
@@ -88,6 +90,7 @@ shift 3
 
 DISTANCE="na"
 SERIAL=""
+PHYSICAL_TX_ROLE=""
 RUN_START=1
 REPEATS=""
 PREAMBLE_SPEC=""
@@ -127,6 +130,9 @@ fi
 while (( $# > 0 )); do
     case "$1" in
         --board-map) BOARD_MAP="$2"; shift 2 ;;
+        --physical-tx-role)
+            (( $# >= 2 )) || { echo "--physical-tx-role requires a value" >&2; exit 2; }
+            PHYSICAL_TX_ROLE="$2"; shift 2 ;;
         --slotted-rx) SLOTTED_RX=1; shift ;;
         --spi-opt) SPI_OPT=1; shift ;;
         --sync-buffer) SYNC_BUFFER_US="$2"; shift 2 ;;
@@ -490,11 +496,16 @@ mark_key_built() {
 }
 
 if [[ -n "${BOARD_MAP}" && "${ROLE}" != "tx-auto" ]]; then
-    SERIAL_OPTIONS=()
+    SERIAL_OPTIONS=(--stage "${EXPERIMENT}" --role "${ROLE}")
     [[ "${EXPERIMENT}" != "exp4" ]] || SERIAL_OPTIONS+=(--sensors "${SENSOR_COUNT}")
-    SELECTED_SERIAL="$(python3 "${SCRIPT_DIR}/brrs_suite_manifest.py" serial "${BOARD_MAP}" --stage "${EXPERIMENT}" --role "${ROLE}" "${SERIAL_OPTIONS[@]}")"
+    [[ -z "${PHYSICAL_TX_ROLE}" ]] || SERIAL_OPTIONS+=(--physical-tx-role "${PHYSICAL_TX_ROLE}")
+    SELECTED_SERIAL="$(python3 "${SCRIPT_DIR}/brrs_suite_manifest.py" serial "${BOARD_MAP}" "${SERIAL_OPTIONS[@]}")"
     [[ -z "${SERIAL}" || "${SERIAL}" == "${SELECTED_SERIAL}" ]] || { echo "serial conflicts with fixed board manifest" >&2; exit 2; }
     SERIAL="${SELECTED_SERIAL}"
+fi
+if [[ -n "${PHYSICAL_TX_ROLE}" ]]; then
+    [[ -n "${BOARD_MAP}" && "${ROLE}" == "tx" && ( "${EXPERIMENT}" == "exp2" || "${EXPERIMENT}" == "exp5" ) ]] \
+        || { echo "physical TX selector requires an Exp2/Exp5 TX and board manifest" >&2; exit 2; }
 fi
 if [[ "${EXPERIMENT}" != "exp4" ]] && (( SLOTTED_RX || SPI_OPT || SYNC_BUFFER_US != 3000 || SYNC_PREP_US != 2500 || TARGET_CYCLES != 1000 )); then
     echo "Exp4 RX/SPI/timing options are only valid for Exp4" >&2; exit 2

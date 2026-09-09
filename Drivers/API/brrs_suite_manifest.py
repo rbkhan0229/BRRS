@@ -23,6 +23,10 @@ def load(path):
         raise ValueError('board serials must be unique decimal strings')
     if m['single_link_tx_role'] not in ROLES[1:]:
         raise ValueError('invalid single-link physical TX role')
+    if 'cir_link_tx_roles' in m:
+        links=m['cir_link_tx_roles']
+        if not isinstance(links,list) or not links or any(r not in ROLES[1:] for r in links) or len(set(links))!=len(links):
+            raise ValueError('cir_link_tx_roles must be a nonempty ordered list of unique physical TX roles')
     if m['pacs'] != [4, 8] or m['repeat_each_condition'] != 1:
         raise ValueError('this campaign requires PAC4/PAC8 and one run per condition')
     if not re.fullmatch(r'[A-Za-z0-9._-]+', m['environment']):
@@ -74,8 +78,14 @@ def max_slots(e, plen):
         raise ValueError('Exp4 DATA budget cannot fit a guarded slot')
     return min(32, 1 + (budget - 55 - e['guard_us']) // (AIRTIME_US[plen] + e['guard_us']))
 
-def serial_for(m, stage, role):
+def cir_links(m):
+    # Missing field keeps historical manifests and case IDs unchanged.
+    return m.get('cir_link_tx_roles',[m['single_link_tx_role']])
+
+def serial_for(m, stage, role, physical_tx_role=None):
     if stage == 'exp4':
+        if physical_tx_role is not None:
+            raise ValueError('physical TX selector is for Exp2/Exp5 TX only')
         physical = role
         if physical not in ROLES[:m['exp4']['sensors'] + 1]:
             raise ValueError('role outside the configured Exp4 sensor set')
@@ -85,6 +95,14 @@ def serial_for(m, stage, role):
         if role not in ['rx', 'tx']:
             raise ValueError('single-link role must be rx or tx')
         physical = 'init' if role == 'rx' else m['single_link_tx_role']
+        if role=='tx' and stage in ['exp2','exp5']:
+            links=cir_links(m)
+            if physical_tx_role is None and len(links)!=1:
+                raise ValueError('Exp2/Exp5 has multiple links; select --physical-tx-role or use the campaign plan')
+            physical=physical_tx_role or links[0]
+            if physical not in links:raise ValueError('physical TX is not in cir_link_tx_roles')
+        elif physical_tx_role is not None:
+            raise ValueError('physical TX selector is for Exp2/Exp5 TX only')
     return m['boards'][physical]['serial']
 
 def fixed_assignments(m, sensors, actual):
@@ -117,13 +135,15 @@ def plan(m, stage, *, capacity_candidates=False, profile='preparation', confirma
         raise ValueError('capacity candidates are only supported for Exp4')
     cases = []
     canonical_manifest_sha = hashlib.sha256(json.dumps(m,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-    def case(plen, pac, lead, variant=None, count=None):
+    def case(plen, pac, lead, variant=None, count=None, link_role=None):
         e = m['exp4']; cycles = 2000 if stage in ['stage0','exp1'] else e['cycles'] if stage == 'exp4' else 1000
         owners = ''.join(str(2 + i % e['sensors']) for i in range(count)) if stage == 'exp4' else '2'
         if stage == 'exp4':
             owners = e.get('sequences_by_preamble_slotcount', {}).get(f'{plen}:{count}', owners)
         conditions = {'stage': stage, 'preamble': plen, 'rx_pac': pac, 'lead_us': lead, 'tail_us': 0, 'cycles': cycles,
                       'variant': variant, 'slot_owners': owners, 'run': 1}
+        if link_role is not None and 'cir_link_tx_roles' in m:
+            conditions.update(link_tx_role=link_role,link_mode='sequential_single_tx')
         if stage == 'exp4':
             if lead > e['guard_us']:
                 raise ValueError('Exp4 lead exceeds guard')
@@ -133,10 +153,11 @@ def plan(m, stage, *, capacity_candidates=False, profile='preparation', confirma
             conditions['max_slots'] = max_slots(e, plen)
         digest = hashlib.sha256(json.dumps(conditions, sort_keys=True).encode()).hexdigest()
         cid = f'{stage}_m{plen}_pac{pac}_l{lead}' + (f'_{variant}' if variant else '') + (f'_k{count}' if count else '')
+        if 'link_tx_role' in conditions:cid += '_tx'+link_role
         roles = ROLES[:e['sensors'] + 1] if stage == 'exp4' else ['rx','tx']
         jobs = []
         for role in roles:
-            physical = role if stage == 'exp4' else 'init' if role == 'rx' else m['single_link_tx_role']
+            physical = role if stage == 'exp4' else 'init' if role == 'rx' else (link_role or m['single_link_tx_role'])
             if stage=='exp4' and e['sensors']==1 and role=='N2':
                 physical=m['single_link_tx_role']
             board = m['boards'][physical]
@@ -172,7 +193,9 @@ def plan(m, stage, *, capacity_candidates=False, profile='preparation', confirma
     elif stage in ['exp1','exp2']:
         for pac in m['pacs']:
             lead = selected_lead(m,pac)
-            for plen in m[stage]['preambles']: case(plen,pac,lead)
+            for plen in m[stage]['preambles']:
+                for link_role in (cir_links(m) if stage=='exp2' else [None]):
+                    case(plen,pac,lead,link_role=link_role)
     elif stage == 'exp3':
         for variant in m['exp3']['variants']: case(32,8,selected_lead(m,8),variant)
     elif stage == 'exp4':
@@ -181,7 +204,8 @@ def plan(m, stage, *, capacity_candidates=False, profile='preparation', confirma
                 counts = (capacity_counts(m['exp4'],plen) if capacity_candidates
                           else m['exp4']['slot_counts_by_preamble'][str(plen)])
                 for count in counts: case(plen,pac,selected_lead(m,pac),count=count)
-    elif stage == 'exp5': case(1024,32,selected_lead(m,8))
+    elif stage == 'exp5':
+        for link_role in cir_links(m):case(1024,32,selected_lead(m,8),link_role=link_role)
     else: raise ValueError('unknown stage')
     return cases
 
@@ -191,6 +215,7 @@ def main():
     ap.add_argument('manifest',type=Path)
     ap.add_argument('--stage',choices=['stage0','exp1','exp2','exp3','exp4','exp5'])
     ap.add_argument('--role')
+    ap.add_argument('--physical-tx-role',choices=ROLES[1:],help='explicit Exp2/Exp5 TX for serial lookup')
     ap.add_argument('--sensors',type=int,choices=range(1,7),help='serial lookup: selected Exp4 physical TX count')
     ap.add_argument('--profile',choices=['preparation','paper'],default='preparation')
     ap.add_argument('--confirmation',action='store_true',help='Stage0 candidate and adjacent-lead repetitions')
@@ -204,14 +229,14 @@ def main():
             if a.sensors is not None:
                 if a.stage!='exp4':raise ValueError('sensor override is Exp4 only')
                 m['exp4']['sensors']=a.sensors
-            print(serial_for(m,a.stage,a.role)); return
+            print(serial_for(m,a.stage,a.role,a.physical_tx_role)); return
         if a.action=='plan':
             if not a.stage: raise ValueError('plan requires stage')
             print(json.dumps({'manifest':str(a.manifest.resolve()),'manifest_file_sha256':hashlib.sha256(a.manifest.read_bytes()).hexdigest(),
                               'canonical_manifest_sha256':hashlib.sha256(json.dumps(m,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
                               'rf_execution_performed':False,'capacity_candidates':a.capacity_candidates,
                               'profile':a.profile,'cases':plan(m,a.stage,capacity_candidates=a.capacity_candidates,profile=a.profile,confirmation=a.confirmation)},indent=2)); return
-        print(json.dumps({'valid':True,'single_link_tx':serial_for(m,'exp1','tx'),'exp4_max_slots':{str(n):max_slots(m['exp4'],n) for n in m['exp4']['preambles']},'lead_selection_frozen':m['lead_selection']['frozen']},indent=2))
+        print(json.dumps({'valid':True,'single_link_tx':serial_for(m,'exp1','tx'),'cir_link_tx_roles':cir_links(m),'exp4_max_slots':{str(n):max_slots(m['exp4'],n) for n in m['exp4']['preambles']},'lead_selection_frozen':m['lead_selection']['frozen']},indent=2))
     except (KeyError,TypeError,ValueError,OSError) as e: ap.error(str(e))
 
 if __name__=='__main__': main()

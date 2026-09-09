@@ -100,7 +100,12 @@ def assess(root):
             received=int(marker(rx,'EXP1_DONE,')['rx']);sent=int(marker(tx,'EXP1_TX_DONE,')['success'])
             if not 0<=received<=sent<=p['cycles']:raise ValueError('RX/TX mismatch')
             if received==0 and p['stage']!='stage0':raise ValueError('zero valid packets')
-        elif p['stage'] in ['exp2','exp5']:received,sent,extra=validate_cir(rx,tx,p)
+        elif p['stage'] in ['exp2','exp5']:
+            received,sent,extra=validate_cir(rx,tx,p)
+            rxjob=next(j for j in c['jobs'] if j['logical_node']==1)
+            extra['physical_link']={'tx_role':txjob['physical_role'],'tx_serial':txjob['serial'],
+                'tx_location':txjob['location'],'rx_serial':rxjob['serial'],'rx_location':rxjob['location'],
+                'raw_node_id':'N2','mode':'single_active_tx'}
         else:received,sent,extra=validate_exttxe(rx,tx,p)
         offered=p['cycles'];per=100*(offered-received)/offered
         result={'case_id':c['id'],'conditions':p,'condition_id':c.get('condition_id',c['id']),'bundle':str(root),

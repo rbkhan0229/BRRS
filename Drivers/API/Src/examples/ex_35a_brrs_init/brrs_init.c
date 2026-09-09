@@ -179,8 +179,8 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define DATA_PAC        DWT_PAC8
 #define DATA_PAC_SYMBOLS 8U
 #endif
-#define SYNC_PLEN       DWT_PLEN_256
-#define SYNC_PREAMBLE_SYMBOLS 256
+#define SYNC_PLEN       DWT_PLEN_512
+#define SYNC_PREAMBLE_SYMBOLS 512
 
 /* Experiment 2 is the CIR acquisition (preamble-length sweep) run.
  * Experiment 5 is the standalone Npre=1024 channel-characterization pilot;

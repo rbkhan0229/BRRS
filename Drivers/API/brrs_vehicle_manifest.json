@@ -40,6 +40,7 @@
     }
   },
   "single_link_tx_role": "N4",
+  "cir_link_tx_roles": ["N2", "N3", "N4", "N5", "N6", "N7"],
   "pacs": [
     4,
     8

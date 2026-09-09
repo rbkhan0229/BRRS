@@ -62,7 +62,7 @@ class PaperTests(unittest.TestCase):
         cls.m=frozen();cls.exp4=manifest.plan(cls.m,'exp4',profile='paper')
 
     def test_paper_repetitions_unique_ids(self):
-        for stage,n in {'stage0':82,'exp1':40,'exp2':24,'exp3':9,'exp4':696,'exp5':3}.items():
+        for stage,n in {'stage0':82,'exp1':40,'exp2':144,'exp3':9,'exp4':696,'exp5':18}.items():
             c=manifest.plan(self.m,stage,profile='paper')
             self.assertEqual(len(c),n);self.assertEqual(len({x['id'] for x in c}),n)
         self.assertEqual(len(manifest.plan(self.m,'exp4')),16)
@@ -99,7 +99,8 @@ class PaperTests(unittest.TestCase):
                     self.assertEqual(j['argv'][j['argv'].index('--serial')+1],j['serial'])
                     self.assertEqual(j['environment']['BRRS_SUITE_PHYSICAL_ROLE'],j['physical_role'])
                     self.assertEqual(j['environment']['BRRS_SUITE_MANIFEST_SHA256'],paper.digest(self.m))
-                    if stage!='exp4' and j['logical_node']==2:self.assertEqual(j['physical_role'],'N4')
+                    if stage in ['stage0','exp1','exp3'] and j['logical_node']==2:self.assertEqual(j['physical_role'],'N4')
+                    if stage in ['exp2','exp5'] and j['logical_node']==2:self.assertEqual(j['physical_role'],p['link_tx_role'])
 
     def test_incomplete_rotation_cycle_rejected(self):
         m=copy.deepcopy(self.m);m['paper']['repeats_by_stage']['exp4']=10

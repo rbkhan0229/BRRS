@@ -80,7 +80,12 @@ def transport_host(c,override=None):
     return hosts.pop()
 
 def deploy(bundle,host=None,dry_run=False):
-    root=Path(bundle).resolve();c=checked(root);host=transport_host(c,host)
+    root=Path(bundle).resolve();c=checked(root)
+    if {b['host'] for b in c['boards'].values()}=={'local'}:
+        if host:raise ValueError('SSH override is not valid for an all-local campaign')
+        return {'bundle':str(root),'host':None,'status':'LOCAL_PAYLOAD_VERIFIED',
+                'payload_index_sha256':sha(root/'payload_hashes.json'),'network_access_performed':False}
+    host=transport_host(c,host)
     command=['ssh','-o','BatchMode=yes','-o','ConnectTimeout=10',host,shlex.join(['python3','-c',REMOTE_EXTRACT,str(root),sha(root/'payload_hashes.json')])]
     if dry_run:return {'bundle':str(root),'host':host,'payload_index_sha256':sha(root/'payload_hashes.json'),'network_access_performed':False}
     buf=io.BytesIO()
@@ -107,7 +112,9 @@ def run_campaign(a):
         actions.append({'case_id':cid,'action':'DEPLOY_THEN_RUN'})
         if a.dry_run:continue
         deployed=deploy(bundle,a.host);save(root/(cid+'.deployment.json'),deployed)
-        r=subprocess.run([sys.executable,str(bundle/'sdk/Drivers/API/brrs_suite_case.py'),'run','--bundle',str(bundle),'--host',deployed['host']])
+        command=[sys.executable,str(bundle/'sdk/Drivers/API/brrs_suite_case.py'),'run','--bundle',str(bundle)]
+        if deployed['host']:command+=['--host',deployed['host']]
+        r=subprocess.run(command)
         if r.returncode:raise RuntimeError('case control/collection failed; preserved without retry: '+cid)
         observations[cid]=assess(bundle)
         save(root/'progress.json',{'completed':list(observations),'last_case':cid,'last_verdict':observations[cid]['verdict']})

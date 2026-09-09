@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare immutable per-case images; run TX READY -> RX across two hosts.
+"""Prepare immutable images; run TX READY -> RX with explicit host/board roles.
 
 Builds happen only in prepare. Runtime always calls the existing stage capture
 and verifier with --no-build, after exact probe-set and payload checks.
@@ -97,6 +97,15 @@ def checked(root):
             raise ValueError('payload mismatch: ' + path)
     c = json.loads((root / 'case.json').read_text())
     if len({j['serial'] for j in c['jobs']}) != len(c['jobs']): raise ValueError('duplicate active serial')
+    if 'link_tx_role' in c['conditions']:
+        p=c['conditions'];tx=[j for j in c['jobs'] if j['logical_node']!=1]
+        rx=[j for j in c['jobs'] if j['logical_node']==1]
+        if p['stage'] not in ['exp2','exp5'] or p.get('link_mode')!='sequential_single_tx':
+            raise ValueError('invalid sequential CIR condition')
+        if len(tx)!=1 or len(rx)!=1 or tx[0]['physical_role']!=p['link_tx_role'] or tx[0]['logical_node']!=2 or rx[0]['physical_role']!='init':
+            raise ValueError('sequential CIR requires INIT and exactly the selected physical TX as logical N2')
+        if set(c['inactive_tx_roles'])!=set(c['boards'])-{'init',p['link_tx_role']}:
+            raise ValueError('sequential CIR inactive TX set mismatch')
     for j in c['jobs']:
         if j['serial'] != c['boards'][j['physical_role']]['serial']: raise ValueError('role/serial mismatch')
         if sha(root / j['hex']) != j['hex_sha256']: raise ValueError('image mismatch')
@@ -234,7 +243,8 @@ def side(a):
         deadline=time.monotonic()+200
         while any(p.poll() is None for p in workers):
             check_stop()
-            if any(p.poll() not in [None,0] for p in workers): raise RuntimeError('capture/verification failed')
+            # Preserve peer observations until bounded collectors finish; the exit-code
+            # validation below still rejects any failed worker.
             if time.monotonic()>deadline: raise TimeoutError('case capture timeout')
             time.sleep(.1)
         for job, proc in zip(jobs,workers):
@@ -275,8 +285,39 @@ def side(a):
         state['finished_at']=now(); persist(); print(json.dumps(state),flush=True)
     return result
 
+def run_single_host(a,c):
+    """Dispatch an Exp2/Exp5 single-host case and copy its standard evidence."""
+    root=a.bundle.resolve();host=next(iter({b['host'] for b in c['boards'].values()}))
+    if c['conditions']['stage'] not in ['exp2','exp5']:
+        raise ValueError('suite single-host dispatch supports Exp2/Exp5; use the existing Exp4 single-host entry point')
+    if (root/'results').exists():raise ValueError('case already has results; assess/resume the campaign, never rerun in place')
+    index=sha(root/'payload_hashes.json')
+    if host=='local':
+        if getattr(a,'host',None):raise ValueError('SSH override is not valid for an all-local case')
+        from brrs_single_host import run as single_run
+        return single_run(root,c,index)
+    host=getattr(a,'host',None) or host
+    if not re.fullmatch(r'[A-Za-z0-9._-]+',host):raise ValueError('invalid SSH host')
+    cmd=['python3',str(root/'sdk/Drivers/API/brrs_single_host.py'),'run',
+         '--bundle',str(root),'--expected-index',index]
+    rc=1
+    try:
+        rc=subprocess.run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=10',host,shlex.join(cmd)],timeout=360).returncode
+    finally:
+        # Even failed captures remain reviewable. No retry or reflash on error.
+        copy=subprocess.run(['scp','-q','-r',f'{host}:{root}/results',str(root)],timeout=60)
+        if copy.returncode:raise RuntimeError('single-host evidence copy failed; remote results preserved')
+    if rc:return rc
+    from brrs_suite_results import assess
+    save(root/'results/ASSESSMENT.json',assess(root))
+    return 0
+
 def run(a):
     root=a.bundle.resolve(); c=checked(root)
+    if len({b['host'] for b in c['boards'].values()})==1:
+        return run_single_host(a,c)
+    if c['boards']['init']['host']!='local' or any(c['boards'][r]['host']=='local' for r in c['boards'] if r!='init'):
+        raise ValueError('split-host mode requires local INIT and all TX on the remote host')
     hosts={b['host'] for b in c['boards'].values()}-{'local'}
     if len(hosts)!=1: raise ValueError('exactly one remote host required')
     host=getattr(a,'host',None) or hosts.pop(); script=str(root/'sdk/Drivers/API/brrs_suite_case.py')
