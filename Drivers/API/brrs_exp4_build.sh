@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--cycles <n>] [--sequence <digits>] [--spi-opt] [--irq] [--phy-profile] [--rx-path-profile] [--spim-start-end-profile] [--rx-error-diag] [--phy-fast-switch] [--phy-fast-skip-pgf]"
+    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--cycles <n>] [--sequence <digits>] [--spi-opt] [--irq] [--phy-profile] [--rx-path-profile] [--spim-start-end-profile] [--rx-error-diag] [--slotted-rx] [--phy-fast-switch] [--phy-fast-skip-pgf]"
     echo "Example: $0 32 2 200 N3 15"
     echo "Example (custom slot schedule): $0 64 2 200 all 15 --sequence 2323232323232"
     echo
@@ -24,6 +24,7 @@ PHY_PROFILE=0
 RX_PATH_PROFILE=0
 SPIM_START_END_PROFILE=0
 RX_ERROR_DIAG=0
+SLOTTED_RX=0
 PHY_FAST_SWITCH=0
 PHY_FAST_SKIP_PGF=0
 TARGET_CYCLES=1000
@@ -53,6 +54,7 @@ while (( $# > 0 )); do
         --rx-path-profile) RX_PATH_PROFILE=1; shift ;;
         --spim-start-end-profile) SPIM_START_END_PROFILE=1; shift ;;
         --rx-error-diag) RX_ERROR_DIAG=1; shift ;;
+        --slotted-rx) SLOTTED_RX=1; shift ;;
         --phy-fast-switch) PHY_FAST_SWITCH=1; shift ;;
         --phy-fast-skip-pgf) PHY_FAST_SKIP_PGF=1; shift ;;
         *) ARGS+=("$1"); shift ;;
@@ -195,6 +197,9 @@ fi
 if (( RX_ERROR_DIAG )); then
     dest_dir+="_rxerrdiag"
 fi
+if (( SLOTTED_RX )); then
+    dest_dir+="_slottedrx"
+fi
 if (( PHY_FAST_SWITCH )); then
     dest_dir+="_phyfast"
 fi
@@ -231,6 +236,9 @@ build_image() {
     extra_defs+=";BRRS_SYNC_BUFFER_US=${SYNC_BUFFER_US}"
     extra_defs+=";BRRS_EXP4_SYNC_PREP_US=${SYNC_PREP_US}"
     extra_defs+=";BRRS_TARGET_CYCLES=${TARGET_CYCLES}"
+    if [[ "${role}" == "init" ]]; then
+        extra_defs+=";BRRS_EXP4_SLOTTED_RX=${SLOTTED_RX}"
+    fi
     extra_defs+=";BRRS_OPT_PHY_CONFIG_PROFILE=${PHY_PROFILE}"
     extra_defs+=";BRRS_OPT_RX_PATH_PROFILE=${RX_PATH_PROFILE}"
     extra_defs+=";BRRS_OPT_PHY_FAST_SWITCH=${PHY_FAST_SWITCH}"
