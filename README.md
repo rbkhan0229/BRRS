@@ -1,5 +1,24 @@
 :orphan:
 
+Current BRRS development (2026-09-09):
+
+    Use branch vehicle-experiments in this repository. It contains the latest
+    vehicle firmware, Stage0-Exp5 campaign tools, and sequential Exp2/Exp5
+    measurements of physical links N2-N7. Earlier source copies are preserved
+    under archive/* branches; no additional full SDK copy is needed.
+
+    Start with docs/BRRS_WORKSPACE_KR.md and
+    Drivers/API/BRRS_CIR_LINKS_KR.md. Historical experiment scripts under
+    experiments/legacy are provenance, not the current execution entry point.
+
+    Offline checks (no SSH, flash, or RF):
+      python3 -B -m unittest discover -s Drivers/API/tests -p 'test_*.py' -v
+      python3 tools/verify_experiment_archive.py
+
+    Large local logs and firmware images remain outside Git. Their paths and
+    hashes are indexed in docs/reproducibility; this is not a cloud backup of
+    those artifacts. See docs/BRRS_WORKSPACE_KR.md before removing any old copy.
+
 Local BRRS workspace policy:
 
     The repository contains firmware sources, SES project definitions, analysis

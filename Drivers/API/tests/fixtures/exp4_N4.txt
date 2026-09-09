@@ -1,0 +1,40 @@
+BRRS NODE 4 v2.10 (beacon-scheduled delayed-TX)
+EXP4_PHY_FAST_SELFTEST_CSV,role=sensor,node=N4,enabled=0,skip_pgf=0,stage=0,data_mismatch=0x00,sync_mismatch=0x00,status=SKIP
+EXP4_TX_BOOT_CSV,BRRS NODE 4 v2.10 (beacon-scheduled delayed-TX),seq=4,data_plen_source=beacon,default_m=32,psdu_bytes=26,app_payload_bytes=16,superframe_us=10000,sync_buffer_us=3000,sync_prep_us=2500,data_budget_us=4500,sync_frame_us=337,sync_rx_open_offset_us=9719,sync_rx_window_us=349
+EXP4_TX_FIRMWARE_REV,rev=25,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,end_rx=immediate_wide_on_last_cycle,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,wait_budget=first_owned_delayed_tx_arm,timing_metric=uwb_signed_slot_error
+BRRS NODE 4 v2.10 (beacon-scheduled delayed-TX): EXP=4 SEQ=4 SLOT_START=beacon DATA_PLEN=beacon(default=3/32sym) SUPERFRAME=10000us PERIODS=1 TARGET=1000 CIR=0
+DBG: enabling initial RX...
+DBG: initial RX enabled, waiting for SYNC...
+EXP_LOG_READY,channel=1
+DBG[1]: no SYNC yet. status=0x00000000 config_is_sync=1
+DBG: forced RX re-enable
+DBG[2]: no SYNC yet. status=0x00000000 config_is_sync=1
+DBG: forced RX re-enable
+DBG[3]: no SYNC yet. status=0x00000000 config_is_sync=1
+DBG: forced RX re-enable
+DBG[4]: no SYNC yet. status=0x00000000 config_is_sync=1
+DBG: forced RX re-enable
+DBG[5]: no SYNC yet. status=0x00000000 config_is_sync=1
+DBG: forced RX re-enable
+DBG[6]: no SYNC yet. status=0x00000000 config_is_sync=1
+DBG: forced RX re-enable
+BRRS_BEACON_RX_CSV,version=3,seq=1,m=32,data_psdu=26,data_rate=1,active_bitmap=0x3F,slot_count=13,slot_owners=2345672345673,first_slot_rmarker_us=3000,slot_interval_us=347,period_us=10000
+BRRS_DATA_PHY_APPLIED_CSV,experiment=4,source=beacon,m=32,plen_code=3,sfd_to=33,node=4
+BRRS_END_RX_ARMED,seq=1000,status=PASS
+
+===== BRRS NODE 4 v2.10 (beacon-scheduled delayed-TX) FINAL STATS (PLEN=3, 32sym) =====
+My TX: success=2000 attempts=2000 delayed_late=0
+EXP4_TX_SLOT_TIMING_CSV,node=N4,n=2000,min_error_ns=252,max_error_ns=256,avg_error_ns=254,reference=sync_rx_rmarker,observation=data_tx_rmarker
+EXP4_TX_FIRST_ARM_CSV,node=N4,scope=sync_rx_rmarker_to_conservative_post_arm_systime,sync_buffer_us=3000,first_owned_slot_us=3694,count=1000,min_us=1572,max_us=1618,avg_x1000_us=1589625,p50_us=1586,p95_us=1615,p99_us=1617,data_rmarker_slack_min_us=2075,data_rmarker_slack_avg_x1000_us=2103374,data_rmarker_slack_p01_us=2076,data_rmarker_slack_p05_us=2078,data_rmarker_slack_p50_us=2107,sample_overflow=0,delayed_late=0
+EXP4_TX_WAIT_PHASE_CSV,node=N4,phase=sync_event_detect_to_frame_read,count=1000,min_us=126,max_us=126,avg_x1000_us=126000
+EXP4_TX_WAIT_PHASE_CSV,node=N4,phase=sync_event_detect_to_beacon_ready,count=1000,min_us=178,max_us=178,avg_x1000_us=178000
+EXP4_TX_WAIT_PHASE_CSV,node=N4,phase=sensor_data_phy_config,count=1000,min_us=990,max_us=990,avg_x1000_us=990000
+EXP4_TX_WAIT_PHASE_CSV,node=N4,phase=sensor_tx_buffer_write,count=1000,min_us=73,max_us=73,avg_x1000_us=73000
+EXP4_TX_WAIT_PHASE_CSV,node=N4,phase=sensor_delayed_tx_arm_call,count=1000,min_us=174,max_us=174,avg_x1000_us=174000
+EXP4_TX_SYNC_RX_CSV,scheduled=999,delayed_late=0,early_us=281,window_us=349
+Beacon RX: received=1000 expected=1000 miss=0 gaps=0 duplicates=0 end=1
+EXP4_TX_RESULT_CSV,BRRS NODE 4 v2.10 (beacon-scheduled delayed-TX),4,32,1000,0,2000,2000,0,1,PASS,PASS
+EXP4_TX_DONE,node=BRRS NODE 4 v2.10 (beacon-scheduled delayed-TX),plen=32,beacons=1000/1000,attempts=2000,success=2000,end=1,schedule=PASS,beacon=PASS,status=PASS
+SYNC loss: 0 timeouts  RX errors=1  beacon_config_errors=0  data_config_errors=0
+===== END STATS =====
+

@@ -29,6 +29,30 @@ def save(path, value):
     tmp.write_text(json.dumps(value, indent=2) + '\n')
     tmp.replace(path)
 
+def git_provenance(api):
+    """Record the source commit without treating uncommitted edits as that commit."""
+    def query(*args):
+        return subprocess.run(['git','--no-optional-locks','-C',str(api),*args],
+                              stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=20)
+    try:
+        top=query('rev-parse','--show-toplevel')
+    except FileNotFoundError:
+        return {'available':False,'reason':'git_unavailable'},b''
+    if top.returncode:
+        return {'available':False,'reason':'source_is_not_a_git_worktree'},b''
+    values={}
+    for key,args in {'commit':('rev-parse','HEAD'),
+                     'branch':('rev-parse','--abbrev-ref','HEAD'),
+                     'status':('status','--porcelain=v1','--untracked-files=all')}.items():
+        result=query(*args)
+        if result.returncode:raise ValueError('cannot record Git provenance: '+key)
+        values[key]=result.stdout.decode().strip()
+    patch=query('diff','--binary','HEAD')
+    if patch.returncode:raise ValueError('cannot record source Git diff')
+    return {'available':True,'root':top.stdout.decode().strip(),**values,
+            'dirty':bool(values['status']),'tracked_diff_sha256':hashlib.sha256(patch.stdout).hexdigest(),
+            'commit_alone_describes_worktree':not bool(values['status'])},patch.stdout
+
 def prepare(a):
     from brrs_suite_manifest import load, plan
     m = load(a.manifest)
@@ -40,6 +64,10 @@ def prepare(a):
     c = cases[0]
     c.update(boards=m['boards'], prepared_at=now(), source_api=str(API),
              manifest_file_sha256=sha(a.manifest), deployment='portable capture-only SDK; build on source host')
+    c['source_git'],source_patch=git_provenance(API)
+    (root/'provenance').mkdir()
+    save(root/'provenance/source_git.json',c['source_git'])
+    if source_patch:(root/'provenance/source_git.patch').write_bytes(source_patch)
     runtime = root / 'sdk/Drivers/API'
     runtime.mkdir(parents=True)
     # All stage tools travel together; only this case's images are executable.

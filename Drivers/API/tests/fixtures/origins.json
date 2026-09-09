@@ -1,0 +1,74 @@
+[
+  {
+    "fixture": "exp2_init.txt",
+    "source_workspace_path": "logs/vehicle_suite_nlos69_smoke_20260907_2301/exp2_m32_pac8_l25/results/local/init.log",
+    "sha256": "d711753fb1a4dd9b42aa98cf94e2d992f16317c9f08c17efad3531314409b17d",
+    "bytes": 80040
+  },
+  {
+    "fixture": "exp2_tx.txt",
+    "source_workspace_path": "logs/vehicle_suite_nlos69_smoke_20260907_2301/exp2_m32_pac8_l25/results/remote/N4.log",
+    "sha256": "1b325212966e930c1136b0490499b8f79e63a828242f6287e34c88ab39033363",
+    "bytes": 1359
+  },
+  {
+    "fixture": "exp5_init.txt",
+    "source_workspace_path": "logs/vehicle_suite_nlos69_smoke_20260907_2301/exp5_m1024_pac32_l25/results/local/init.log",
+    "sha256": "e640d832d6db453a3b6a355bcfa15b84aa201fd350115a45a5ec87de02d7193f",
+    "bytes": 303368
+  },
+  {
+    "fixture": "exp5_tx.txt",
+    "source_workspace_path": "logs/vehicle_suite_nlos69_smoke_20260907_2301/exp5_m1024_pac32_l25/results/remote/N4.log",
+    "sha256": "289c8697af68f6c0a20febbe6920928eaf2e7d88c8ec7f5cf789238bcde51839",
+    "bytes": 1374
+  },
+  {
+    "fixture": "exp4_init.txt",
+    "source_workspace_path": "logs/exp4_home_s6_multislot_pac_ab_20260907/R13P4_r1/init/init.log",
+    "sha256": "4a5628ca0a5c35c057f7012443ac3fb281723f65fad161aa0baa50021579b570",
+    "bytes": 14366
+  },
+  {
+    "fixture": "single_host_exp4_case.json",
+    "source_workspace_path": "logs/vehicle_single_host_ready_20260908/capture1/case.json",
+    "sha256": "699fdeef9d31c0058b4f9a4fbbfb933ff84e2fef90a7e6d05113516c6a14914e",
+    "bytes": 23813
+  },
+  {
+    "fixture": "exp4_N2.txt",
+    "source_workspace_path": "logs/exp4_home_s6_multislot_pac_ab_20260907/R13P4_r1/tx/N2.log",
+    "sha256": "afa36c79b75655d54afbdcadb25e120fc427e9e05a5d54fbfced3f7f23f7e28f",
+    "bytes": 3826
+  },
+  {
+    "fixture": "exp4_N3.txt",
+    "source_workspace_path": "logs/exp4_home_s6_multislot_pac_ab_20260907/R13P4_r1/tx/N3.log",
+    "sha256": "c726162c550ec084ee11661cc3f68884f76e9f22d5fb4c3485ba762b43129775",
+    "bytes": 3745
+  },
+  {
+    "fixture": "exp4_N4.txt",
+    "source_workspace_path": "logs/exp4_home_s6_multislot_pac_ab_20260907/R13P4_r1/tx/N4.log",
+    "sha256": "08bb4d7e2f2284c9436285ead8f67862367b3c57bf0f728f9a5c1d113b093d9f",
+    "bytes": 3664
+  },
+  {
+    "fixture": "exp4_N5.txt",
+    "source_workspace_path": "logs/exp4_home_s6_multislot_pac_ab_20260907/R13P4_r1/tx/N5.log",
+    "sha256": "7116a80dec4d70e338c13e87553328adfe1bdc7f34bdae60f72b5ae2e234a746",
+    "bytes": 3583
+  },
+  {
+    "fixture": "exp4_N6.txt",
+    "source_workspace_path": "logs/exp4_home_s6_multislot_pac_ab_20260907/R13P4_r1/tx/N6.log",
+    "sha256": "5b59cb8b6482de828619c8bdbc2448f1c49f0ad4d20a0b7833ba46c79aaecb84",
+    "bytes": 3502
+  },
+  {
+    "fixture": "exp4_N7.txt",
+    "source_workspace_path": "logs/exp4_home_s6_multislot_pac_ab_20260907/R13P4_r1/tx/N7.log",
+    "sha256": "bd0643a4e8f2379d92fc8ec92b360b616ecd3495b33992f32204c808ae0e16fe",
+    "bytes": 3421
+  }
+]

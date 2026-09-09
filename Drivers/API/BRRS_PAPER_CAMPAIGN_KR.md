@@ -1,6 +1,6 @@
 # Stage0~Exp5 논문용 실행 경로
 
-이 문서는 `DW3_QM33_SDK_1.0.2_vehicle_beacon512_20260908/Drivers/API`의 구현 기준이다. 준비 점검은 `--profile preparation`으로 고정 역할·1회, 논문용 측정은 `--profile paper`로 사전 계획한 반복·회전을 사용한다. **plan/prepare/dry-run/결과 집계는 RF를 시작하지 않는다. 실제 송수신은 `run`에서만 시작한다.** `deploy`는 원격 파일 배포만 한다.
+이 문서는 `DW3_QM33_SDK_1.0.2/Drivers/API`의 구현 기준이다. 준비 점검은 `--profile preparation`으로 고정 역할·1회, 논문용 측정은 `--profile paper`로 사전 계획한 반복·회전을 사용한다. **plan/prepare/dry-run/결과 집계는 RF를 시작하지 않는다. 실제 송수신은 `run`에서만 시작한다.** `deploy`는 원격 파일 배포만 한다.
 
 ## 환경별 manifest
 

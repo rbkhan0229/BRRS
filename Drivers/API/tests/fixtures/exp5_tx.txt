@@ -1,0 +1,23 @@
+BRRS NODE 2 v2.10 (beacon-scheduled delayed-TX)
+BRRS NODE 2 v2.10 (beacon-scheduled delayed-TX): EXP=2 SEQ=2 SLOT_START=beacon DATA_PLEN=beacon(default=3/32sym) SUPERFRAME=10000us PERIODS=1 TARGET=1000 CIR=0
+DBG: enabling initial RX...
+DBG: initial RX enabled, waiting for SYNC...
+EXP_LOG_READY,channel=1
+DBG[1]: no SYNC yet. status=0x00000000 config_is_sync=1
+DBG: forced RX re-enable
+DBG[2]: no SYNC yet. status=0x00000000 config_is_sync=1
+DBG: forced RX re-enable
+DBG[3]: no SYNC yet. status=0x00000000 config_is_sync=1
+DBG: forced RX re-enable
+DBG[4]: no SYNC yet. status=0x00000000 config_is_sync=1
+DBG: forced RX re-enable
+BRRS_BEACON_RX_CSV,version=3,seq=1,m=1024,data_psdu=26,data_rate=1,active_bitmap=0x01,slot_count=1,slot_owners=2,first_slot_rmarker_us=3000,slot_interval_us=1607,period_us=10000
+BRRS_DATA_PHY_APPLIED_CSV,experiment=2,source=beacon,m=1024,plen_code=127,sfd_to=1025,node=2
+BRRS_END_RX_ARMED,seq=1000,status=PASS
+
+===== BRRS NODE 2 v2.10 (beacon-scheduled delayed-TX) FINAL STATS (PLEN=127, 1024sym) =====
+My TX: success=1000 attempts=1000 delayed_late=0 (PER -> INIT)
+SYNC loss: 0 timeouts  RX errors=0  beacon_config_errors=0  data_config_errors=0
+EXP2_TX_DONE,node=N2,plen=1024,expected=1000,attempts=1000,success=1000,delayed_late=0,beacon_config_errors=0,data_config_errors=0,end=1,collection=PASS,link=PASS,status=PASS
+===== END STATS =====
+

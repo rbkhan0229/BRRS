@@ -21,13 +21,11 @@ import brrs_suite_campaign as campaign
 import brrs_single_host as single
 from test_vehicle_paper import fake_bundle, frozen
 
-BASE=API.parents[2]
-SMOKE=BASE/'logs/vehicle_suite_nlos69_smoke_20260907_2301'
+FIXTURES=Path(__file__).resolve().parent/'fixtures'
 
 def real_raw(stage):
-    name='exp2_m32_pac8_l25' if stage=='exp2' else 'exp5_m1024_pac32_l25'
-    root=SMOKE/name/'results'
-    return {'init':(root/'local/init.log').read_text(),'N2':(root/'remote/N4.log').read_text()}
+    return {'init':(FIXTURES/(stage+'_init.txt')).read_text(),
+            'N2':(FIXTURES/(stage+'_tx.txt')).read_text()}
 
 def selected(m,stage,role,profile='paper'):
     return next(c for c in manifest.plan(m,stage,profile=profile)

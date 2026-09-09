@@ -116,7 +116,7 @@ def assess(root):
             'diagnostic_lines':{'rx':[l for l in rx if l.startswith(('RX timeouts=','TDMA validation:'))],
                 'tx':[l for l in tx if l.startswith(('SYNC loss:','My TX:'))]}}
     result.update(context_sha256=context_hash(m),payload_index_sha256=sha(root/'payload_hashes.json'),
-        firmware_source_sha256=c.get('firmware_source_sha256',{}),
+        firmware_source_sha256=c.get('firmware_source_sha256',{}),source_git=c.get('source_git'),
         log_sha256_by_serial={j['serial']:sha(root/'results'/('local' if j['host']=='local' else 'remote')/(j['physical_role']+'.log')) for j in c['jobs']})
     for row in result['nodes_by_serial'].values():
         row['per_wilson95_percent']=[100*x for x in wilson_interval(row['offered']-row['rx'],row['offered'],.95)]

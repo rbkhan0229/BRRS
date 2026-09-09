@@ -1,0 +1,90 @@
+[
+  {
+    "folder": "DW3_QM33_SDK_1.0.2",
+    "ref": "refs/heads/exp4-final-eval-20260902",
+    "commit": "f420f95e29351e4b737cc76561bffae7191f4376",
+    "imported": false
+  },
+  {
+    "folder": "DW3_QM33_SDK_1.0.2_exp4_phy_ab_20260903",
+    "ref": "refs/heads/exp4-nlos-phy-ab-20260903",
+    "commit": "f420f95e29351e4b737cc76561bffae7191f4376",
+    "imported": false
+  },
+  {
+    "folder": "DW3_QM33_SDK_1.0.2_exp4_rx_error_diag_20260904",
+    "ref": "refs/heads/exp4-rx-error-diag-20260904",
+    "commit": "55a23fa94fb7b4e372ec7b03d54be72f01b81e7a",
+    "imported": false
+  },
+  {
+    "folder": "DW3_QM33_SDK_1.0.2_exp4_slotrx_ab_20260907",
+    "ref": "refs/heads/archive/exp4-slotrx-ab-20260907",
+    "commit": "1bfa1a61f07188327c10985739903b67a0249916",
+    "tree": "09402a457507922c9a33fac8415c4a090d6fe50c",
+    "parent": "55a23fa94fb7b4e372ec7b03d54be72f01b81e7a",
+    "source_manifest_sha256": "aef702482984b6fb8fb0e418b886e0b0fa888d68f347b485e6bff98cb4e158b7",
+    "file_count": 374,
+    "imported": true
+  },
+  {
+    "folder": "DW3_QM33_SDK_1.0.2_exp4_rxlead_20260907",
+    "ref": "refs/heads/archive/exp4-rxlead-20260907",
+    "commit": "98179685af65da3ec7377f4df942b92b97018904",
+    "tree": "54218a628bc90c25c793ee6417726822d8965c94",
+    "parent": "55a23fa94fb7b4e372ec7b03d54be72f01b81e7a",
+    "source_manifest_sha256": "3c597b1b3f37df2ef581fa45bf8998753ba743e169ac7cf035fe862bce3452b3",
+    "file_count": 374,
+    "imported": true
+  },
+  {
+    "folder": "DW3_QM33_SDK_1.0.2_exp4_s6_multislot_20260907",
+    "ref": "refs/heads/archive/exp4-s6-multislot-20260907",
+    "commit": "79e0d14cec59a345f4bf229c1aad3a5c69a5524c",
+    "tree": "2f736a2742d8fe382193f93806f68e34aac1c85f",
+    "parent": "55a23fa94fb7b4e372ec7b03d54be72f01b81e7a",
+    "source_manifest_sha256": "3ddc35f2ef08eb383a05fc4e5e832627f4318f1cd133a39698a2747138c82447",
+    "file_count": 374,
+    "imported": true
+  },
+  {
+    "folder": "DW3_QM33_SDK_1.0.2_exp4_s6_sfd64_20260907",
+    "ref": "refs/heads/archive/exp4-s6-sfd64-20260907",
+    "commit": "ef7fcd4baae3f89b3afda4bb9a99636b9d7eef9c",
+    "tree": "c0b7326eab135c8ff291117030a163a34ca98dbd",
+    "parent": "55a23fa94fb7b4e372ec7b03d54be72f01b81e7a",
+    "source_manifest_sha256": "a3f9f985f65d943c3f0b9a3e9e39ca7b9bcf0dfb5d1b3207f7e16c3b924eb14d",
+    "file_count": 374,
+    "imported": true
+  },
+  {
+    "folder": "DW3_QM33_SDK_1.0.2_vehicle_suite_audit_20260907",
+    "ref": "refs/heads/archive/vehicle-suite-audit-20260907",
+    "commit": "4169fe07fa20e94c89dcb2f18a55d13db81665a2",
+    "tree": "2f736a2742d8fe382193f93806f68e34aac1c85f",
+    "parent": "55a23fa94fb7b4e372ec7b03d54be72f01b81e7a",
+    "source_manifest_sha256": "3ddc35f2ef08eb383a05fc4e5e832627f4318f1cd133a39698a2747138c82447",
+    "file_count": 374,
+    "imported": true
+  },
+  {
+    "folder": "DW3_QM33_SDK_1.0.2_vehicle_suite_fix_20260907",
+    "ref": "refs/heads/archive/vehicle-suite-fix-20260907",
+    "commit": "ed1213eec432a7967053518901f7ea20e6b6f248",
+    "tree": "5ef800c9f33b020b371f61165f0d1d9edc32f3cf",
+    "parent": "55a23fa94fb7b4e372ec7b03d54be72f01b81e7a",
+    "source_manifest_sha256": "e02ed47993a3dd1d6a99572d49b482a834423377e4d55ede203bffe22b6ce383",
+    "file_count": 386,
+    "imported": true
+  },
+  {
+    "folder": "DW3_QM33_SDK_1.0.2_vehicle_beacon512_20260908",
+    "ref": "refs/heads/archive/vehicle-beacon512-20260908",
+    "commit": "03e7aab184a271338881d78d0081acab3be6c572",
+    "tree": "da83dc4d7a97b56c067ad5aeaba48245469df722",
+    "parent": "ed1213eec432a7967053518901f7ea20e6b6f248",
+    "source_manifest_sha256": "33dc6ca35bafdf67e0c7b99f8f9a9be1c077a20a9a3dfe435a0e2430e4e4bdf5",
+    "file_count": 389,
+    "imported": true
+  }
+]

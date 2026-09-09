@@ -1,0 +1,4 @@
+# Preserve historical inputs byte-for-byte, including original line endings and
+# trailing whitespace. Their SHA256 values refer to the unmodified originals.
+experiments/legacy/** -text -whitespace
+Drivers/API/tests/fixtures/** -text -whitespace

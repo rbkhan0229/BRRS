@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-API=Path(__file__).resolve().parents[1];BASE=API.parents[2]
+API=Path(__file__).resolve().parents[1];FIXTURES=Path(__file__).resolve().parent/'fixtures'
 sys.path.insert(0,str(API))
 import brrs_suite_manifest as manifest
 import brrs_suite_paper as paper
@@ -131,9 +131,8 @@ class PaperTests(unittest.TestCase):
 
     def rotated_fixture(self,root):
         c=next(c for c in self.exp4 if c['id']=='paper_exp4_m32_pac4_l25_k13_s6_b02')
-        old=BASE/'logs/exp4_home_s6_multislot_pac_ab_20260907/R13P4_r1'
-        raw={'init':(old/'init/init.log').read_text()}
-        raw.update({f'N{i}':(old/f'tx/N{i}.log').read_text() for i in range(2,8)})
+        raw={'init':(FIXTURES/'exp4_init.txt').read_text()}
+        raw.update({f'N{i}':(FIXTURES/f'exp4_N{i}.txt').read_text() for i in range(2,8)})
         fake_bundle(root,self.m,c,raw);return c
 
     def test_actual_log_loss_follows_physical_serial_after_rotation(self):

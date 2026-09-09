@@ -1,0 +1,132 @@
+EXP_LOG_READY,channel=1
+EXP_LOG_CONFIG_CSV,experiment=4,plen=32,lead_us=25,tail_us=0,target=1000,cir=0
+BRRS INIT NODE v2.10 (beacon-scheduled delayed-RX)
+EXP4_PHY_FAST_SELFTEST_CSV,role=coordinator,enabled=0,skip_pgf=0,stage=0,data_mismatch=0x00,sync_mismatch=0x00,status=SKIP
+EXP4_DOUBLE_BUFFER_CONFIG_CSV,enabled=1,mode=manual,status=PASS
+EXP4_EVENT_MASK_CONFIG_CSV,expected_lo=0x3437D000,actual_lo=0x3437D000,status=PASS
+EXP4_HOST_IRQ_CONFIG_CSV,mode=polling,spi_owner=foreground,enabled=0,status=PASS
+BRRS v2.11: EXP=4 SYNC_PLEN=31 DATA_PLEN=3(32sym) PRE_US=33 SLOT=347us RX_WIN=122us LEAD=25us TAIL=0us PAC=4 RX_MODE=delayed SUPERFRAME=10000us PERIODS=1 TARGET=1000 CIR=0
+BRRS_BEACON_CONFIG_CSV,version=3,beacon_psdu=39,m=32,data_psdu=26,data_rate=1,active_bitmap=0x3F,first_slot_rmarker_us=3000,slot_interval_us=347,period_us=10000
+BRRS_TIMING_CONFIG_CSV,metric=uwb_signed_slot_error,reference=sync_tx_rmarker,observation=data_rx_rmarker,slot_identity=nearest_scheduled_rmarker,unit=ns,resolution_ns_x1000=4006
+EXP4_CONFIG_CSV,physical_sensors=6,data_slots=13,slot_repeats=1,data_plen=32,data_pac=4,psdu_bytes=26,app_payload_bytes=16,sync_plen=256,superframe_us=10000,sync_rmarker_offset_us=269,sync_buffer_us=3000,sync_prep_us=2500,data_budget_us=4500,frame_airtime_us=97,slot_us=347,guard_us=250,lead_us=25,tail_us=0,data_burst_deadline_us=7469,sync_prep_deadline_us=7500,burst_rearm_budget_us=250,max_slots=13,spi_mode=persistent_data_burst,rx_path_profile=disabled,spim_start_end_profile=disabled
+EXP4_FIRMWARE_REV,rev=48,beacon_protocol=3,data_header_bytes=8,slot_identity=rx_rmarker,data_rx=per_slot_delayed_bounded_single_attempt,rearm=absolute_slot_after_cia_or_error_detail,event_source=fint_polling,event_mask=rxfcg_or_error_validated,rearm_order=wait_ciadone_then_rearm,cia_readiness=matching_rdb_or_unambiguous_global_before_rearm,host_irq=disabled_polling,spi_owner=foreground_only,spi_session=feature_flagged_bounded_data_burst,hot_spi=feature_flagged_direct_register_header,spi_cs_idle=direct_gpio_8nop_125ns_floor,rx_metadata=single_completed_buffer_spi_read_after_ready,error_detail=direct_sys_status_read_post_rearm,error_subtype=legacy_four_bit_post_read,validation=deferred_until_burst_close,rdb_status=validate_rxfcg_plus_ciadone_current_host_buffer,error_status_clear=pre_buffer_free,buffer_release=rdb_w1c_plus_cmd_db_toggle,resync_log=deferred,slot_class_diag=source_observed_host,burst_end=last_event_or_schedule_deadline,error_attribution=armed_slot,sync_arm=measured_reserved_prep,wait_budget=first_rx_arm_plus_sync_prep_e2e,rx_path_profile=disabled,spim_start_end_profile=feature_flagged_boot_only,tx_wait=bounded,elapsed=u64,timing_metric=uwb_signed_slot_error,pass_policy=system_faults_zero_phy_errors_count_as_per
+Startup grace: 500 ms before first SYNC
+EXP4_RUN_START,superframes=1000,fixed_period_us=10000,cycle_logs=off
+EXP4_SLOT_SCHEDULE_CSV,active_bitmap=0x3F,slot_count=13,slot_owners=2345672345673,repeats=1
+EXP4_SYNC_PROGRESS,seq=2,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=100,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=200,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=300,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=400,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=500,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=600,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=700,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=800,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=900,delayed_late=0,tx_wait_timeout=0
+EXP4_SYNC_PROGRESS,seq=1000,delayed_late=0,tx_wait_timeout=0
+
+===== BRRS FINAL STATS (PLEN=3, 32 sym) =====
+Superframes: total=1000 all-slots-ok=862 fail=138 success=86.20%
+Aggregate: rx=12857/13000 PER=1.100% app_goodput=164569 bps offered=166400 bps elapsed=9999998us
+TDMA validation: wrong-length=0 wrong-slot=0 wrong-superframe=0 data-config-errors=0 rx-schedule-late=0 sync-delayed-late=0 rearm-deadline-miss=0 rx-buffer-overrun=0 deferred-overflow=0 rx-timeout=2 rx-error=141
+EXP4_TIMING_CSV,period_count=1000,min_x1000_us=9999993,max_x1000_us=10000250,avg_x1000_us=9999997,elapsed_us=9999998,sync_delayed_late=0,tx_wait_timeout=0,end_tx=3
+EXP4_SYNC_PREP_CSV,budget_us=2500,count=999,min_us=1347,max_us=1347,avg_x1000_us=1347000,delayed_late=0
+EXP4_FIRST_RX_ARM_CSV,scope=sync_tx_rmarker_to_conservative_post_arm_systime,budget_us=3000,count=1000,min_us=1453,max_us=1617,avg_x1000_us=1480171,p50_us=1481,p95_us=1492,p99_us=1579,rx_open_slack_min_us=1315,rx_open_slack_avg_x1000_us=1451829,rx_open_slack_p01_us=1349,rx_open_slack_p05_us=1440,rx_open_slack_p50_us=1451,data_rmarker_slack_min_us=1382,sample_overflow=0,delayed_late=0
+EXP4_SYNC_PREP_E2E_CSV,scope=scheduled_config_switch_to_conservative_post_arm_systime,budget_us=2500,count=999,min_us=1759,max_us=1813,avg_x1000_us=1797374,p50_us=1799,p95_us=1810,p99_us=1812,remaining_lead_min_us=685,remaining_lead_avg_x1000_us=701357,remaining_lead_p01_us=687,remaining_lead_p05_us=688,remaining_lead_p50_us=700,detect_late_max_us=363,burst_close_max_us=45,sample_overflow=0,delayed_late=0
+EXP4_WAIT_PHASE_CSV,phase=coordinator_data_phy_config,count=1000,min_us=1017,max_us=1018,avg_x1000_us=1017025
+EXP4_WAIT_PHASE_CSV,phase=coordinator_delayed_rx_arm_call,count=1000,min_us=214,max_us=214,avg_x1000_us=214000
+EXP4_WAIT_PHASE_CSV,phase=sync_prep_deadline_detect_lateness,count=999,min_us=309,max_us=363,avg_x1000_us=347811
+EXP4_WAIT_PHASE_CSV,phase=sync_prep_burst_close,count=999,min_us=45,max_us=45,avg_x1000_us=45000
+EXP4_FRAME_LENGTH_CSV,source=single_completed_buffer_metadata_read,expected=26,wrong=0,buffer0=0,buffer1=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=0,owner=2,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=1315,slack_samples=1000
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=1,owner=3,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=2,owner=4,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=929,timeout=1,error=70,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=3,owner=5,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=4,owner=6,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=5,owner=7,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=6,owner=2,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=7,owner=3,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=8,owner=4,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=928,timeout=1,error=71,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=9,owner=5,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=10,owner=6,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=11,owner=7,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=0,slack_samples=0
+EXP4_SLOT_RX_CSV,mode=per_slot_delayed_bounded_single_attempt,slot=12,owner=3,window_us=122,fwto_uus=119,attempted=1000,armed=1000,late=0,rx_good=1000,timeout=0,error=0,min_arm_slack_us=0,slack_samples=0
+EXP4_BURST_CSV,mode=last_valid_frame_or_schedule_deadline,scheduled_end_us=7469,early_close=1000,deadline_close=0,forced_prep_close=0,total=1000
+EXP4_REARM_CSV,mode=slotted_rx_use_slot_rx_counters,event_source=fint_polling,scope=event_specific_detect_to_rx_command,count=0,service_min_us=0,service_max_us=0,service_avg_x1000_us=0,poll_count=12000,rx_enable_count=0,clear_pre_count=0,clear_post_count=12000,poll_max_us=20,poll_detection_allowance_us=20,startup_allowance_us=25,required_guard_us=25,delayed_schedule_late=0
+EXP4_REARM_PHASE_CSV,phase=status_poll_detecting_read,count=12000,min_us=20,max_us=20,avg_x1000_us=20000
+EXP4_REARM_PHASE_CSV,phase=rx_enable_critical,count=0,min_us=0,max_us=0,avg_x1000_us=0
+EXP4_REARM_PHASE_CSV,phase=rdb_status_read_post_rearm,count=11857,min_us=20,max_us=20,avg_x1000_us=20000
+EXP4_REARM_PHASE_CSV,phase=rx_metadata_read_post_rearm,count=11857,min_us=25,max_us=25,avg_x1000_us=25000
+EXP4_REARM_PHASE_CSV,phase=data_header_read_post_rearm,count=11857,min_us=24,max_us=24,avg_x1000_us=24000
+EXP4_REARM_PHASE_CSV,phase=status_clear_pre_rearm_unused,count=0,min_us=0,max_us=0,avg_x1000_us=0
+EXP4_REARM_PHASE_CSV,phase=status_clear_post_rearm_all_paths,count=12000,min_us=22,max_us=22,avg_x1000_us=22000
+EXP4_REARM_PHASE_CSV,phase=error_detail_read_post_rearm,count=143,min_us=23,max_us=23,avg_x1000_us=23000
+EXP4_DOUBLE_BUFFER_CSV,mode=manual,release=rdb_w1c_plus_cmd_db_toggle,rx_good_events=12857,rdb_good_events=12857,rdb_dispatches=12857,rdb_host_mismatch=0,rdb_incomplete=0,rdb_incomplete_recovered=0,rdb_global_ciadone=0,rdb_resync=0,free_count=12857,free_min_us=38,free_max_us=38,free_avg_x1000_us=38000,overrun=0
+EXP4_HOT_PATH_PHASE_CSV,phase=event_detect_to_metadata_done,count=12857,min_us=73,max_us=77,avg_x1000_us=76227
+EXP4_HOT_PATH_PHASE_CSV,phase=event_detect_to_status_clear_done,count=12857,min_us=99,max_us=165,avg_x1000_us=159866
+EXP4_HOT_PATH_PHASE_CSV,phase=event_detect_to_header_copy_done,count=12857,min_us=130,max_us=197,avg_x1000_us=191788
+EXP4_HOT_PATH_CSV,scope=event_detect_to_buffer_free,count=12857,min_us=172,max_us=239,avg_x1000_us=233788,p50_us=239,p90_us=239,p95_us=239,p99_us=239,p999_us=239,hist_overflow=0
+EXP4_DEFERRED_CSV,batches=1000,pending=0,queue_overflow=0,rearm_deadline_miss=0,rx_timeout=2,rx_error=141,status=PASS
+EXP4_SPI_CSV,mode=persistent_data_burst,begin=1000,end=1000,active=0,begin_fail=0,end_fail=0,device_id_fail=0,state_error=0,transfer_error=0,direct_xfers=242009,direct_timeout=0,recovery=0,status=PASS
+EXP4_STATUS_CSV,schedule=PASS,timing=PASS,collection=PASS,link=LOSS
+EXP4_SUMMARY_CSV,32,6,13,1,26,16,347,250,13,1000,13000,12857,11000,164569,166400,9999998,0,0,PASS
+EXP4_DONE,plen=32,physical_sensors=6,data_slots=13,slot_repeats=1,superframes=1000,expected=13000,rx=12857,collection=PASS,link=LOSS,status=PASS
+--- PER per node ---
+N2: rx=2000 expected=2000 miss=0 PER=0.00% err=0
+EXP4_NODE_CSV,N2,32,2000,2000,0,0
+N3: rx=3000 expected=3000 miss=0 PER=0.00% err=0
+EXP4_NODE_CSV,N3,32,3000,3000,0,0
+N4: rx=1857 expected=2000 miss=143 PER=7.15% err=141
+EXP4_NODE_CSV,N4,32,2000,1857,143,141
+N5: rx=2000 expected=2000 miss=0 PER=0.00% err=0
+EXP4_NODE_CSV,N5,32,2000,2000,0,0
+N6: rx=2000 expected=2000 miss=0 PER=0.00% err=0
+EXP4_NODE_CSV,N6,32,2000,2000,0,0
+N7: rx=2000 expected=2000 miss=0 PER=0.00% err=0
+EXP4_NODE_CSV,N7,32,2000,2000,0,0
+--- Exp4 source-to-observed-slot classification ---
+EXP4_SLOT_CLASS_CSV,src=N2,observed_slot=0,observed_owner=N2,count=1000,host0=506,host1=494
+EXP4_SLOT_CLASS_CSV,src=N2,observed_slot=6,observed_owner=N2,count=1000,host0=489,host1=511
+EXP4_SLOT_CLASS_CSV,src=N3,observed_slot=1,observed_owner=N3,count=1000,host0=494,host1=506
+EXP4_SLOT_CLASS_CSV,src=N3,observed_slot=7,observed_owner=N3,count=1000,host0=511,host1=489
+EXP4_SLOT_CLASS_CSV,src=N3,observed_slot=12,observed_owner=N3,count=1000,host0=495,host1=505
+EXP4_SLOT_CLASS_CSV,src=N4,observed_slot=2,observed_owner=N4,count=929,host0=462,host1=467
+EXP4_SLOT_CLASS_CSV,src=N4,observed_slot=8,observed_owner=N4,count=928,host0=456,host1=472
+EXP4_SLOT_CLASS_CSV,src=N5,observed_slot=3,observed_owner=N5,count=1000,host0=511,host1=489
+EXP4_SLOT_CLASS_CSV,src=N5,observed_slot=9,observed_owner=N5,count=1000,host0=505,host1=495
+EXP4_SLOT_CLASS_CSV,src=N6,observed_slot=4,observed_owner=N6,count=1000,host0=489,host1=511
+EXP4_SLOT_CLASS_CSV,src=N6,observed_slot=10,observed_owner=N6,count=1000,host0=495,host1=505
+EXP4_SLOT_CLASS_CSV,src=N7,observed_slot=5,observed_owner=N7,count=1000,host0=511,host1=489
+EXP4_SLOT_CLASS_CSV,src=N7,observed_slot=11,observed_owner=N7,count=1000,host0=505,host1=495
+RX timeouts=2 (fwto=2 pto=0)  RX errors=141 (sfdto=99 phe=41 fce=0 fsl=1 fint-only=0 overrun=0)  delayed schedule late=0  data config errors=0
+--- Ipatov accumCount (of PLEN) ---
+--- accum histogram ---
+--- RX-open to RMARKER (expect pre+SFD+lead) ---
+N2: min=67us max=67us avg=67us (n=2000)
+N3: min=67us max=67us avg=67us (n=3000)
+N4: min=67us max=67us avg=67us (n=1857)
+N5: min=67us max=67us avg=67us (n=2000)
+N6: min=67us max=67us avg=67us (n=2000)
+N7: min=67us max=67us avg=67us (n=2000)
+--- UWB RX offset from SYNC TX ---
+N2: min=3000us max=5082us avg=4041us (n=2000)
+N3: min=3347us max=7164us avg=5313us (n=3000)
+N4: min=3694us max=5776us avg=4734us (n=1857)
+N5: min=4041us max=6123us avg=5082us (n=2000)
+N6: min=4388us max=6470us avg=5429us (n=2000)
+N7: min=4735us max=6817us avg=5776us (n=2000)
+--- UWB slot timing error (actual - scheduled RMARKER) ---
+N2: min=256ns max=264ns avg=258.7ns (n=2000)
+BRRS_SLOT_TIMING_CSV,N2,32,256,264,258654,2000,2000,PASS
+N3: min=252ns max=264ns avg=259.0ns (n=3000)
+BRRS_SLOT_TIMING_CSV,N3,32,252,264,259044,3000,3000,PASS
+N4: min=248ns max=264ns avg=253.7ns (n=1857)
+BRRS_SLOT_TIMING_CSV,N4,32,248,264,253656,1857,1857,PASS
+N5: min=252ns max=264ns avg=258.1ns (n=2000)
+BRRS_SLOT_TIMING_CSV,N5,32,252,264,258102,2000,2000,PASS
+N6: min=240ns max=256ns avg=248.0ns (n=2000)
+BRRS_SLOT_TIMING_CSV,N6,32,240,256,247954,2000,2000,PASS
+N7: min=236ns max=248ns avg=242.4ns (n=2000)
+BRRS_SLOT_TIMING_CSV,N7,32,236,248,242350,2000,2000,PASS
+===== END STATS =====
+
