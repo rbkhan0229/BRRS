@@ -3,6 +3,7 @@
 # Experiment 1 and Stage0: build -> flash -> PyLink RTT capture -> verify.
 
 set -Eeuo pipefail
+BUILD_ONLY=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SDK_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -24,6 +25,7 @@ Options:
                         Immediate keeps the same beacon/PHY/slot and opens RX
                         as soon as DATA configuration is ready.
   --serial <S/N>       Select a J-Link when multiple probes are attached.
+  --build-only              Build/resolve images without board access.
   --no-build           Reuse the existing ELF and HEX.
   --timeout <seconds>  Override capture timeout (RX 120 s, TX 600 s).
   --force              Preserve an existing log as .prev.<time> and retry.
@@ -71,6 +73,7 @@ while (( $# > 0 )); do
         --serial)
             (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }
             SERIAL="$2"; shift 2 ;;
+        --build-only) BUILD_ONLY=1; shift ;;
         --no-build) NO_BUILD=1; shift ;;
         --timeout)
             (( $# >= 2 )) || { echo "--timeout requires a value" >&2; exit 2; }
@@ -168,6 +171,10 @@ DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
 OUTDIR="${SDK_ROOT}/../logs/${MODE}_${ENVIRONMENT}${DISTANCE_TAG}_${DATE_TAG}"
+if [[ -n "${BRRS_SUITE_CASE_ID:-}" ]]; then
+    [[ "${BRRS_SUITE_CASE_ID}" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Invalid suite case ID" >&2; exit 2; }
+    OUTDIR+="/${BRRS_SUITE_CASE_ID}"
+fi
 mkdir -p "${OUTDIR}"
 BASE="${LOG_PREFIX}_r${RUN_NUMBER}_${ROLE}"
 RAW_LOG="${OUTDIR}/${BASE}.log"
@@ -288,6 +295,7 @@ RTT_SYMBOL="$("${ARM_NM}" -n "${ELF_FILE}" \
     || { echo "_SEGGER_RTT not found in ELF" >&2; exit 1; }
 RTT_ADDR="0x${RTT_SYMBOL}"
 echo "[rtt] control block @ ${RTT_ADDR}"
+if (( BUILD_ONLY )); then echo "[build-only] verified image ${HEX_FILE}; no board access"; exit 0; fi
 
 PYLINK_ARGS=(
     python3 "${SCRIPT_DIR}/rtt_capture.py"
@@ -321,6 +329,17 @@ fi
 {
     printf 'mode=%s\n' "${MODE}"
     printf 'role=%s\n' "${ROLE}"
+    printf 'serial=%s\n' "${SERIAL}"
+    printf 'suite_manifest_sha256=%s\n' "${BRRS_SUITE_MANIFEST_SHA256:-standalone}"
+    printf 'suite_conditions_sha256=%s\n' "${BRRS_SUITE_CONDITIONS_SHA256:-standalone}"
+    printf 'suite_case_id=%s\n' "${BRRS_SUITE_CASE_ID:-standalone}"
+    printf 'physical_role=%s\n' "${BRRS_SUITE_PHYSICAL_ROLE:-standalone}"
+    printf 'logical_node=%s\n' "${BRRS_SUITE_LOGICAL_NODE:-standalone}"
+    printf 'suite_profile=%s\n' "${BRRS_SUITE_PROFILE:-standalone}"
+    printf 'suite_block=%s\n' "${BRRS_SUITE_BLOCK:-standalone}"
+    printf 'suite_rotation_index=%s\n' "${BRRS_SUITE_ROTATION_INDEX:-standalone}"
+    printf 'physical_location=%s\n' "${BRRS_SUITE_LOCATION:-standalone}"
+    printf 'suite_assignment_sha256=%s\n' "${BRRS_SUITE_ASSIGNMENT_SHA256:-standalone}"
     printf 'configuration=%s\n' "${CONFIG}"
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
     printf 'lead_us=%s\n' "${LEAD_US}"

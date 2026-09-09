@@ -85,6 +85,15 @@ def parse_expect_lines(specs):
     return out
 
 
+def marker_errors(text, ready_marker, end_marker):
+    """Require exactly one complete marker line; RF loss is checked separately."""
+    errors = []
+    for label, prefix in [('READY', ready_marker), ('END', end_marker)]:
+        if prefix and sum(line.startswith(prefix) for line in text.splitlines()) != 1:
+            errors.append(f"expected exactly one {label} marker: {prefix}")
+    return errors
+
+
 def attach_running_target(serial, speed, rtt_addr, channel,
                           attempts, delay_s):
     """Reattach to a running target without reset or reflashing."""
@@ -248,7 +257,10 @@ def main():
             return 2
 
         text = captured.decode("utf-8", errors="replace")
-        ok = True
+        errors = marker_errors(text, args.ready_marker, args.end_marker)
+        ok = not errors
+        for error in errors:
+            log(f"ERROR: {error}")
         for needle in args.require:
             if needle not in text:
                 log(f"ERROR: 필수 문자열 없음: {needle!r}")

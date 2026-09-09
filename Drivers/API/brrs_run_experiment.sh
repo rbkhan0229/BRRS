@@ -23,10 +23,17 @@ Submission defaults for one fixed physical placement:
   exp1:   M=32/64/128/256, 1 run per M
   exp2:   M=32/64/128/256, 1 run per M
   exp3:   A/B/C, 1 run per variant
-  exp4:   M=32/64/256, 1 run per M (requires --sensors)
+  exp4:   M=32/64/128/256, 1 run per M (requires --sensors)
   exp5:   M=1024 channel characterization, 1 run
 
 Options:
+  --board-map <json>     Fixed board manifest; overrides discovery/rotation.
+  --slotted-rx           Exp4 bounded delayed-RX per slot.
+  --spi-opt              Exp4 persistent/direct SPI.
+  --sync-buffer <us>     Exp4 SYNC-to-DATA budget (default: 3000).
+  --sync-prep <us>       Exp4 next-SYNC reserve (default: 2500).
+  --cycles <n>           Exp4 superframes (default: 1000).
+  --build-only           Build each case without board access.
   --serial <S/N>         Select the J-Link attached to this role.
   --run-start <N>        First run number (default: 1).
   --repeats <N>          Run every condition N times (default: 1).
@@ -34,7 +41,7 @@ Options:
   --leads <list>         Stage0 lead list, e.g. 14,15,16 or 0-20.
   --lead <us>            Fixed RX lead for Exp1-Exp4 (default: 15).
   --tail <us>            Stage0 tail margin (default: 0).
-  --pac <4|8>            Stage0/Exp1/Exp4 RX PAC size.
+  --pac <4|8>            Stage0/Exp1/Exp2/Exp4 RX PAC size.
   --pacs <list>          Exp1 PAC list (default: 4,8 unless --pac is set).
   --rx-mode <mode>       Exp1 RX mode: delayed or immediate (default: delayed).
   --sensors <1..7>       Exp4 physical sensor count (required for Exp4).
@@ -105,6 +112,13 @@ PEER_READY_DELAY=""
 NO_BUILD=0
 FORCE=0
 DRY_RUN=0
+BOARD_MAP="${SCRIPT_DIR}/brrs_vehicle_manifest.json"
+SLOTTED_RX=0
+SPI_OPT=0
+SYNC_BUFFER_US=3000
+SYNC_PREP_US=2500
+TARGET_CYCLES=1000
+BUILD_ONLY=0
 
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
@@ -112,6 +126,13 @@ if (( $# > 0 )) && [[ "$1" != --* ]]; then
 fi
 while (( $# > 0 )); do
     case "$1" in
+        --board-map) BOARD_MAP="$2"; shift 2 ;;
+        --slotted-rx) SLOTTED_RX=1; shift ;;
+        --spi-opt) SPI_OPT=1; shift ;;
+        --sync-buffer) SYNC_BUFFER_US="$2"; shift 2 ;;
+        --sync-prep) SYNC_PREP_US="$2"; shift 2 ;;
+        --cycles) TARGET_CYCLES="$2"; shift 2 ;;
+        --build-only) BUILD_ONLY=1; shift ;;
         --serial)
             (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }
             SERIAL="$2"; shift 2 ;;
@@ -333,7 +354,7 @@ case "${EXPERIMENT}" in
         ;;
     exp4)
         REPEATS="${REPEATS:-1}"
-        PREAMBLE_SPEC="${PREAMBLE_SPEC:-32,64,256}"
+        PREAMBLE_SPEC="${PREAMBLE_SPEC:-32,64,128,256}"
         if [[ -n "${GUARD_SPEC}" ]]; then
             (( GUARD_SET == 0 )) || { echo "use either --guard or --guards, not both" >&2; exit 2; }
             parse_integer_list "${GUARD_SPEC}" 0 1000 guard
@@ -397,8 +418,8 @@ if [[ "${EXPERIMENT}" != "stage0" && "${TAIL_US}" != "0" ]]; then
     echo "--tail is only valid for Stage0" >&2
     exit 2
 fi
-if [[ "${EXPERIMENT}" != "stage0" && "${EXPERIMENT}" != "exp1" && "${EXPERIMENT}" != "exp4" && ${PAC_SET} -eq 1 ]]; then
-    echo "--pac is only valid for Stage0, Exp1, or Exp4" >&2
+if [[ "${EXPERIMENT}" != "stage0" && "${EXPERIMENT}" != "exp1" && "${EXPERIMENT}" != "exp2" && "${EXPERIMENT}" != "exp4" && ${PAC_SET} -eq 1 ]]; then
+    echo "--pac is only valid for Stage0, Exp1, Exp2, or Exp4" >&2
     exit 2
 fi
 if [[ "${EXPERIMENT}" != "exp1" && -n "${PAC_SPEC}" ]]; then
@@ -468,6 +489,23 @@ mark_key_built() {
     BUILT_KEYS="${BUILT_KEYS}$1|"
 }
 
+if [[ -n "${BOARD_MAP}" && "${ROLE}" != "tx-auto" ]]; then
+    SERIAL_OPTIONS=()
+    [[ "${EXPERIMENT}" != "exp4" ]] || SERIAL_OPTIONS+=(--sensors "${SENSOR_COUNT}")
+    SELECTED_SERIAL="$(python3 "${SCRIPT_DIR}/brrs_suite_manifest.py" serial "${BOARD_MAP}" --stage "${EXPERIMENT}" --role "${ROLE}" "${SERIAL_OPTIONS[@]}")"
+    [[ -z "${SERIAL}" || "${SERIAL}" == "${SELECTED_SERIAL}" ]] || { echo "serial conflicts with fixed board manifest" >&2; exit 2; }
+    SERIAL="${SELECTED_SERIAL}"
+fi
+if [[ "${EXPERIMENT}" != "exp4" ]] && (( SLOTTED_RX || SPI_OPT || SYNC_BUFFER_US != 3000 || SYNC_PREP_US != 2500 || TARGET_CYCLES != 1000 )); then
+    echo "Exp4 RX/SPI/timing options are only valid for Exp4" >&2; exit 2
+fi
+EXP4_OPTIONS=(--sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}" --cycles "${TARGET_CYCLES}")
+if (( BUILD_ONLY )) && [[ "${ROLE}" == "tx-auto" ]]; then
+    echo "build-only requires explicit N2..N7 roles; auto-TX is a hardware supervisor" >&2; exit 2
+fi
+(( SLOTTED_RX == 0 )) || EXP4_OPTIONS+=(--slotted-rx)
+(( SPI_OPT == 0 )) || EXP4_OPTIONS+=(--spi-opt)
+
 CASE_NUMBER=0
 run_case() {
     local key="$1"
@@ -480,6 +518,7 @@ run_case() {
     [[ -z "${SERIAL}" ]] || command+=(--serial "${SERIAL}")
     [[ -z "${TIMEOUT}" ]] || command+=(--timeout "${TIMEOUT}")
     (( FORCE == 0 )) || command+=(--force)
+    (( BUILD_ONLY == 0 )) || command+=(--build-only)
     if (( NO_BUILD == 1 )) || key_is_built "${key}"; then
         command+=(--no-build)
     fi
@@ -571,7 +610,7 @@ if [[ "${EXPERIMENT}" == "exp4" && ${NO_BUILD} -eq 0 ]]; then
                     else
                         build_role="${ROLE}"
                     fi
-                    build_args=("${preamble}" "${SENSOR_COUNT}" "${guard}" "${build_role}" "${FIXED_LEAD_US}" --pac "${PAC}")
+                    build_args=("${preamble}" "${SENSOR_COUNT}" "${guard}" "${build_role}" "${FIXED_LEAD_US}" --pac "${PAC}" "${EXP4_OPTIONS[@]}")
                     [[ -n "${condition_sequence}" ]] && build_args+=(--sequence "${condition_sequence}")
                     "${SCRIPT_DIR}/brrs_exp4_build.sh" "${build_args[@]}"
                     mark_key_built "exp4_${ROLE}_m${preamble}_s${SENSOR_COUNT}_g${guard}_l${FIXED_LEAD_US}_pac${PAC}_seq${condition_sequence:-default}"
@@ -624,11 +663,11 @@ for (( offset=0; offset<REPEATS; offset++ )); do
                 if [[ "${ROLE}" == "tx" ]]; then
                     key="${EXPERIMENT}_tx"
                 else
-                    key="${EXPERIMENT}_rx_m${preamble}_l${FIXED_LEAD_US}"
+                    key="${EXPERIMENT}_rx_m${preamble}_l${FIXED_LEAD_US}_pac${PAC}"
                 fi
                 args=("${ROLE}" "${preamble}" "${run}" "${ENVIRONMENT}")
                 [[ "${DISTANCE}" == "na" ]] || args+=("${DISTANCE}")
-                args+=(--lead "${FIXED_LEAD_US}")
+                args+=(--lead "${FIXED_LEAD_US}" --pac "${PAC}")
                 if [[ "${METHOD}" != "pylink" ]]; then
                     args+=(--method "${METHOD}")
                 fi
@@ -670,12 +709,13 @@ for (( offset=0; offset<REPEATS; offset++ )); do
                     fi
                     for preamble in "${ORDERED_VALUES[@]}"; do
                         key="exp4_${ROLE}_m${preamble}_s${SENSOR_COUNT}_g${guard}_l${FIXED_LEAD_US}_pac${PAC}_seq${condition_sequence:-default}"
-                        common_args=(--guard "${guard}" --lead "${FIXED_LEAD_US}" --pac "${PAC}")
+                        common_args=(--guard "${guard}" --lead "${FIXED_LEAD_US}" --pac "${PAC}" "${EXP4_OPTIONS[@]}")
                         [[ -n "${condition_sequence}" ]] && common_args+=(--sequence "${condition_sequence}")
                         if [[ "${ROLE}" == "tx-auto" ]]; then
                             args=("${preamble}" "${SENSOR_COUNT}" "${run}" "${ENVIRONMENT}")
                             [[ "${DISTANCE}" == "na" ]] || args+=("${DISTANCE}")
                             args+=("${common_args[@]}")
+                            [[ -z "${BOARD_MAP}" ]] || args+=(--board-map "${BOARD_MAP}")
                             run_case "${key}" "exp4 auto-TX M=${preamble} sensors=${SENSOR_COUNT} slots=${slot_count} guard=${guard} pac=${PAC} run=${run}" \
                                 "${SCRIPT_DIR}/brrs_exp4_multi_tx.sh" "${args[@]}"
                         else

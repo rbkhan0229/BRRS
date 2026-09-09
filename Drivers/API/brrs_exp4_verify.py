@@ -246,7 +246,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
                 irq_pending=False, expected_cycles=1000,
                 phy_fast=False, phy_fast_skip_pgf=False,
                 rx_path_profile=False, spim_start_end_profile=False,
-                rx_error_diag=False):
+                rx_error_diag=False, slotted_rx=False):
     slot_count = len(sequence) if sequence is not None else sensors
     expected = expected_cycles * slot_count
 
@@ -303,6 +303,27 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(schedule, "slot_count", slot_count)
     require(schedule, "slot_owners", expected_owners(sensors, sequence))
     require(schedule, "repeats", 1)
+
+    revision = key_values(last_line(lines, "EXP4_FIRMWARE_REV,"))
+    windows = [key_values(line) for line in lines if line.startswith("EXP4_SLOT_RX_CSV,")]
+    if slotted_rx:
+        require(revision, "data_rx", "per_slot_delayed_bounded_single_attempt")
+        if len(windows) != slot_count or {integer(w, "slot") for w in windows} != set(range(slot_count)):
+            fail("slot RX rows must cover each slot exactly once")
+        owners = expected_owners(sensors, sequence)
+        window_us = FRAME_AIRTIME_US[preamble] + expected_lead
+        fwto_uus = (window_us * 10000 + 10255) // 10256
+        for w in windows:
+            require(w, "owner", owners[integer(w, "slot")])
+            for key in ["attempted", "armed"]:
+                require(w, key, expected_cycles)
+            require(w, "late", 0)
+            require(w, "window_us", window_us)
+            require(w, "fwto_uus", fwto_uus)
+            if sum(integer(w, k) for k in ["rx_good", "timeout", "error"]) != expected_cycles:
+                fail("slot RX terminal counts do not sum to opportunities")
+    elif windows or revision.get("data_rx") == "per_slot_delayed_bounded_single_attempt":
+        fail("slotted RX firmware requires --slotted-rx")
 
     require_status_line(lines, "EXP4_DOUBLE_BUFFER_CONFIG_CSV,")
     require_status_line(lines, "EXP4_EVENT_MASK_CONFIG_CSV,")
@@ -433,6 +454,9 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
             fail(f"{key} does not match rx_good_events")
     for key in ("rdb_host_mismatch", "rdb_incomplete", "overrun"):
         require(double_buffer, key, 0)
+    if slotted_rx:
+        for key in ['rdb_incomplete_recovered', 'rdb_resync']:
+            require(double_buffer, key, 0)
     if good_events != rx:
         fail(f"double-buffer good events {good_events} != accepted RX {rx}")
 
@@ -575,7 +599,9 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
     require(deferred, "pending", 0)
     require(deferred, "queue_overflow", 0)
     require(deferred, "rearm_deadline_miss", 0)
-    require(deferred, "rx_timeout", 0)
+    require(deferred, "rx_timeout", sum(integer(w, 'timeout') for w in windows) if slotted_rx else 0)
+    if slotted_rx:
+        require(deferred, "rx_error", sum(integer(w, 'error') for w in windows))
     require(deferred, "status", "PASS")
 
     summary = csv_fields(last_line(lines, "EXP4_SUMMARY_CSV,"))
@@ -608,6 +634,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         fail(f"EXP4_NODE_CSV rows {len(node_lines)}/{sensors}")
     seen_nodes = set()
     node_expected = node_rx = 0
+    node_pers = {}
     for line in node_lines:
         fields = csv_fields(line)
         if len(fields) != 7:
@@ -621,8 +648,13 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         if int(fields[2]) != preamble or int(fields[3]) != node_slot_expected:
             fail(f"unexpected preamble/expected count for {node}")
         received, missed = int(fields[4]), int(fields[5])
-        if received + missed != node_slot_expected:
+        if node_slot_expected <= 0 or received < 0 or missed < 0 or received + missed != node_slot_expected:
             fail(f"received + missed != {node_slot_expected} for {node}")
+        node_pers[node] = 100.0 * missed / node_slot_expected
+        if slotted_rx:
+            owned_windows = [w for w in windows if w['owner'] == node[1:]]
+            if sum(integer(w, 'rx_good') for w in owned_windows) != received or sum(integer(w, 'error') for w in owned_windows) != int(fields[6]):
+                fail(f"slot RX totals do not match node totals for {node}")
         node_expected += int(fields[3])
         node_rx += received
     expected_nodes = {f"N{node}" for node in range(2, sensors + 2)}
@@ -653,6 +685,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         f"period={period_avg_x1000 / 1000:.3f}us; "
         f"guard={guard_us}us(required={required_guard}us); lead={lead_us}us"
         f"; pac={expected_pac}"
+        f"; per_node_goal={'PASS' if all(v < 1.0 for v in node_pers.values()) else 'FAIL_PER'}"
+        f"; worst_node_per={max(node_pers.values()):.3f}%"
     )
 
 
@@ -810,6 +844,8 @@ def main():
                              "default one-slot-per-node round robin.")
     parser.add_argument("--spi-opt", action="store_true",
                         help="Expect persistent SPIM during DATA bursts.")
+    parser.add_argument("--slotted-rx", action="store_true",
+                        help="Verify bounded delayed RX for every logical slot.")
     parser.add_argument("--irq", action="store_true",
                         help="Expect GPIO IRQ pending-event dispatch.")
     parser.add_argument("--cycles", type=int, default=1000,
@@ -852,6 +888,9 @@ def main():
 
     try:
         lines = args.log.read_text(errors="replace").splitlines()
+        for prefix in ['EXP_LOG_READY,channel=1', '===== END STATS =====']:
+            if sum(line.startswith(prefix) for line in lines) != 1:
+                fail(f"expected exactly one marker: {prefix}")
         if args.role == "init":
             detail = verify_init(lines, args.preamble, args.sensors,
                                  args.guard, args.lead, args.pac,
@@ -862,7 +901,7 @@ def main():
                                  args.phy_fast_skip_pgf,
                                  args.rx_path_profile,
                                  args.spim_start_end_profile,
-                                 args.rx_error_diag)
+                                 args.rx_error_diag, args.slotted_rx)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard, args.sync_buffer,

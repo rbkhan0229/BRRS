@@ -22,6 +22,7 @@
 #       [--serial <S/N>] [--no-build] [--timeout <s>] [--method telnet|pylink]
 
 set -Eeuo pipefail
+BUILD_ONLY=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SDK_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -36,8 +37,10 @@ Usage:
   $(basename "$0") <tx|rx> <32|64|128|256> <run> <environment> [distance] [options]
 
 Options:
+  --pac <4|8>               DATA RX PAC (default: 8).
   --lead <us>                RX lead margin (default: 15).
   --serial <S/N>             Select a J-Link when multiple probes are attached.
+  --build-only              Build/resolve images without board access.
   --no-build                 Reuse the existing ELF and HEX.
   --timeout <seconds>        Override the capture timeout.
   --method <pylink|telnet>   Capture backend (default: pylink).
@@ -57,12 +60,14 @@ fi
 
 ROLE="${1:?role tx|rx}"; PREAMBLE="${2:?preamble}"; RUN_NUMBER="${3:?run}"
 ENVIRONMENT="${4:?environment}"; shift 4
-DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="${BRRS_EXP2_CAPTURE_METHOD:-pylink}"; FORCE=0; LEAD_US=15
+DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="${BRRS_EXP2_CAPTURE_METHOD:-pylink}"; FORCE=0; LEAD_US=15; PAC=8
 if (( $# > 0 )) && [[ "${1}" != --* ]]; then DISTANCE="$1"; shift; fi
 while (( $# > 0 )); do
     case "$1" in
+        --pac) PAC="$2"; shift 2 ;;
         --lead)   (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }; LEAD_US="$2"; shift 2 ;;
         --serial) (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }; SERIAL="$2"; shift 2 ;;
+        --build-only) BUILD_ONLY=1; shift ;;
         --no-build) NO_BUILD=1; shift ;;
         --timeout) TIMEOUT="$2"; shift 2 ;;
         --method)  METHOD="$2"; shift 2 ;;
@@ -79,6 +84,7 @@ esac
     || { echo "run must be a positive integer" >&2; exit 2; }
 [[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
     || { echo "lead must be between 0 and 1000 us" >&2; exit 2; }
+case "${PAC}" in 4|8) ;; *) echo "pac must be 4 or 8" >&2; exit 2 ;; esac
 case "${METHOD}" in
     pylink|telnet) ;;
     *) echo "method must be pylink or telnet" >&2; exit 2 ;;
@@ -99,12 +105,17 @@ esac
 HEX_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.hex"
 ELF_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.elf"
 LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
+PAC_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_pac"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
 OUTDIR="${SDK_ROOT}/../logs/exp2_${ENVIRONMENT}${DISTANCE_TAG}_${DATE_TAG}"
+if [[ -n "${BRRS_SUITE_CASE_ID:-}" ]]; then
+    [[ "${BRRS_SUITE_CASE_ID}" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Invalid suite case ID" >&2; exit 2; }
+    OUTDIR+="/${BRRS_SUITE_CASE_ID}"
+fi
 mkdir -p "${OUTDIR}"
-BASE="exp2_${PREAMBLE}_l${LEAD_US}_r${RUN_NUMBER}_${ROLE}"
+BASE="exp2_${PREAMBLE}_l${LEAD_US}_pac${PAC}_r${RUN_NUMBER}_${ROLE}"
 RAW_LOG="${OUTDIR}/${BASE}.log"
 META_FILE="${OUTDIR}/${BASE}.meta.txt"
 FLASH_LOG="${OUTDIR}/${BASE}.flash.log"
@@ -171,7 +182,7 @@ if (( NO_BUILD == 0 )); then
     BUILD_ARGS=(-threadnum "${EMBUILD_THREADS:-1}")
     if [[ "${ROLE}" == "rx" ]]; then
         DEFS="DEBUG;BRRS_TARGET_CYCLES=${EXPECTED_SAMPLES}"
-        DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
+        DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US};BRRS_RX_PAC_SYMBOLS=${PAC}"
         BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     fi
     BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
@@ -179,11 +190,13 @@ if (( NO_BUILD == 0 )); then
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
     if [[ "${ROLE}" == "rx" ]]; then
         printf '%s\n' "${LEAD_US}" >"${LEAD_STAMP}"
+        printf '%s\n' "${PAC}" >"${PAC_STAMP}"
     fi
 fi
 [[ -f "${HEX_FILE}" && -f "${ELF_FILE}" ]] \
     || { echo "firmware image missing" >&2; exit 1; }
 if (( NO_BUILD == 1 )) && [[ "${ROLE}" == "rx" ]]; then
+    [[ -f "${PAC_STAMP}" && "$(<"${PAC_STAMP}")" == "${PAC}" ]] || { echo "cached ${CONFIG} PAC mismatch" >&2; exit 1; }
     [[ -f "${LEAD_STAMP}" && "$(<"${LEAD_STAMP}")" == "${LEAD_US}" ]] \
         || { echo "cached ${CONFIG} was not built with lead ${LEAD_US} us" >&2; exit 1; }
 fi
@@ -194,6 +207,7 @@ RTT_ADDR="0x$("${ARM_NM}" -n "${ELF_FILE}" \
 [[ "${RTT_ADDR}" =~ ^0x[0-9A-Fa-f]+$ ]] \
     || { echo "_SEGGER_RTT not found in ELF" >&2; exit 1; }
 echo "[rtt] control block @ ${RTT_ADDR}"
+if (( BUILD_ONLY )); then echo "[build-only] verified image ${HEX_FILE}; no board access"; exit 0; fi
 
 # ---------------------------------------------------------------- pylink 경로
 if [[ "${METHOD}" == "pylink" ]]; then
@@ -362,6 +376,7 @@ EOF
         exit 3
     fi
 
+    grep -Fxq "EXP2_PHY_CONFIG_CSV,plen=${PREAMBLE},pac=${PAC},sfd_timeout=$((PREAMBLE + 9 - PAC)),lead_us=${LEAD_US}" "${RAW_LOG}" || { echo "[verify] FAIL: Exp2 PHY/PAC/lead mismatch" >&2; exit 3; }
     read -r DONE_PLEN DONE_EXPECTED DONE_RX DONE_VALID DONE_DUMP DONE_END_TX DONE_COLLECTION DONE_LINK DONE_PER_X1000 DONE_STATUS <<EOF
 $(printf '%s\n' "${EXP2_LINE}" | awk -F, '
     {
@@ -495,8 +510,20 @@ else
 fi
 {
     printf 'role=%s\n' "${ROLE}"
+    printf 'serial=%s\n' "${SERIAL}"
+    printf 'suite_manifest_sha256=%s\n' "${BRRS_SUITE_MANIFEST_SHA256:-standalone}"
+    printf 'suite_conditions_sha256=%s\n' "${BRRS_SUITE_CONDITIONS_SHA256:-standalone}"
+    printf 'suite_case_id=%s\n' "${BRRS_SUITE_CASE_ID:-standalone}"
+    printf 'physical_role=%s\n' "${BRRS_SUITE_PHYSICAL_ROLE:-standalone}"
+    printf 'logical_node=%s\n' "${BRRS_SUITE_LOGICAL_NODE:-standalone}"
+    printf 'suite_profile=%s\n' "${BRRS_SUITE_PROFILE:-standalone}"
+    printf 'suite_block=%s\n' "${BRRS_SUITE_BLOCK:-standalone}"
+    printf 'suite_rotation_index=%s\n' "${BRRS_SUITE_ROTATION_INDEX:-standalone}"
+    printf 'physical_location=%s\n' "${BRRS_SUITE_LOCATION:-standalone}"
+    printf 'suite_assignment_sha256=%s\n' "${BRRS_SUITE_ASSIGNMENT_SHA256:-standalone}"
     printf 'configuration=%s\n' "${CONFIG}"
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
+    printf 'pac=%s\n' "${PAC}"
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"

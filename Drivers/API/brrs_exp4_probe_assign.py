@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Discover J-Link probes and assign Exp4 node roles by cyclic rotation."""
+"""Match discovered J-Link probes to fixed vehicle experiment roles."""
 
 from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
+from brrs_suite_manifest import load as load_board_map, fixed_assignments
 
 
 def parse_serials(spec: str) -> list[int]:
@@ -55,6 +57,8 @@ def main() -> int:
         help="comma-separated override for diagnostics; default is USB auto-discovery",
     )
     parser.add_argument("--format", choices=("tsv", "csv", "human"), default="human")
+    parser.add_argument("--board-map", default=str(Path(__file__).with_name('brrs_vehicle_manifest.json')),
+                        help="Fixed board manifest; never sort or rotate roles.")
     args = parser.parse_args()
 
     if args.run < 1:
@@ -62,12 +66,13 @@ def main() -> int:
 
     try:
         serials = parse_serials(args.serials) if args.serials else discover_serials()
-        assignments = make_assignments(serials, args.sensors, args.run)
-    except (RuntimeError, ValueError) as exc:
+        assignments = (fixed_assignments(load_board_map(args.board_map), args.sensors, serials)
+                       if args.board_map else make_assignments(serials, args.sensors, args.run))
+    except (RuntimeError, ValueError, KeyError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    rotation = (args.run - 1) % args.sensors
+    rotation = 0 if args.board_map else (args.run - 1) % args.sensors
     if args.format == "tsv":
         for role, serial in assignments:
             print(f"{role}\t{serial}")

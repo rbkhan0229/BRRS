@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Exp4 multi-sensor TX orchestrator: discover, rotate, flash, and capture all nodes.
+# Exp4 multi-sensor TX orchestrator with the fixed vehicle board manifest.
 
 set -Eeuo pipefail
 
@@ -31,13 +31,15 @@ Options:
   --phy-fast-switch         Use the BRRS delta PHY switch path.
   --phy-fast-skip-pgf       Skip delta-path PGF calibration (requires fast switch).
   --timeout <seconds>       Sensor capture timeout (default: 180).
+  --board-map <json>       Fixed role manifest (default: brrs_vehicle_manifest.json).
+  --slotted-rx              Use bounded delayed RX images for every DATA slot.
   --probe-serials <csv>     Diagnostic override; default discovers every USB probe.
   --no-build                Reuse previously built node images.
   --force                   Preserve existing artifacts and repeat the run.
   -h, --help                Show this help.
 
-The TX computer must have exactly sensor-count J-Link probes connected. Probes
-are sorted by serial number and cyclically rotated across roles for each run.
+The TX computer must have exactly the selected sensor-count probes connected.
+The default board manifest keeps roles fixed regardless of USB order or run number.
 EOF
 }
 
@@ -66,6 +68,9 @@ PROBE_SERIALS=""
 NO_BUILD=0
 FORCE=0
 SPI_OPT=0
+SLOTTED_RX=0
+BOARD_MAP="${SCRIPT_DIR}/brrs_vehicle_manifest.json"
+BUILD_ONLY=0
 IRQ_PENDING=0
 PHY_PROFILE=0
 RX_PATH_PROFILE=0
@@ -115,6 +120,9 @@ while (( $# > 0 )); do
             PROBE_SERIALS="$2"; shift 2 ;;
         --no-build) NO_BUILD=1; shift ;;
         --force) FORCE=1; shift ;;
+        --board-map) BOARD_MAP="$2"; shift 2 ;;
+        --slotted-rx) SLOTTED_RX=1; shift ;;
+        --build-only) BUILD_ONLY=1; shift ;;
         --spi-opt) SPI_OPT=1; shift ;;
         --irq) IRQ_PENDING=1; shift ;;
         --phy-profile) PHY_PROFILE=1; shift ;;
@@ -196,7 +204,9 @@ fi
     || { echo "timeout must be a positive integer" >&2; exit 2; }
 
 ASSIGN_ARGS=(--sensors "${SENSOR_COUNT}" --run "${RUN_NUMBER}" --format tsv)
+if (( BUILD_ONLY )); then echo "use individual N2..N7 capture --build-only; auto-TX requires hardware" >&2; exit 2; fi
 [[ -z "${PROBE_SERIALS}" ]] || ASSIGN_ARGS+=(--serials "${PROBE_SERIALS}")
+[[ -z "${BOARD_MAP}" ]] || ASSIGN_ARGS+=(--board-map "${BOARD_MAP}")
 ASSIGNMENT_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_probe_assign.py" "${ASSIGN_ARGS[@]}")"
 
 ROLES=()
@@ -234,6 +244,7 @@ fi
 if (( RX_ERROR_DIAG )); then
     OUTDIR+="_rxerrdiag"
 fi
+if (( SLOTTED_RX )); then OUTDIR+="_slottedrx"; fi
 if (( PHY_FAST_SWITCH )); then
     OUTDIR+="_phyfast"
 fi
@@ -264,6 +275,7 @@ fi
 exec > >(tee -a "${ORCHESTRATOR_LOG}") 2>&1
 
 ROTATION=$(( (RUN_NUMBER - 1) % SENSOR_COUNT ))
+[[ -z "${BOARD_MAP}" ]] || ROTATION=0
 echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us / PAC ${PAC} / sync ${SYNC_BUFFER_US}+${SYNC_PREP_US} us / cycles ${TARGET_CYCLES}"
 echo "[multi-tx] slot sequence: ${SEQUENCE:-default-round-robin}"
 echo "[multi-tx] RX error diagnostics: $((( RX_ERROR_DIAG )) && echo enabled-on-init || echo disabled)"
@@ -286,6 +298,7 @@ if (( NO_BUILD == 0 )); then
         --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}"
         --cycles "${TARGET_CYCLES}")
     [[ -n "${SEQUENCE}" ]] && BUILD_ARGS+=(--sequence "${SEQUENCE}")
+    (( SLOTTED_RX == 0 )) || BUILD_ARGS+=(--slotted-rx)
     (( SPI_OPT == 0 )) || BUILD_ARGS+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || BUILD_ARGS+=(--irq)
     (( PHY_PROFILE == 0 )) || BUILD_ARGS+=(--phy-profile)
@@ -341,6 +354,8 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
         --max-per-percent "${MAX_PER_PERCENT}"
         --serial "${serial}" --timeout "${TIMEOUT}" --no-build)
     [[ -n "${SEQUENCE}" ]] && command+=(--sequence "${SEQUENCE}")
+    (( SLOTTED_RX == 0 )) || command+=(--slotted-rx)
+    (( BUILD_ONLY == 0 )) || command+=(--build-only)
     (( SPI_OPT == 0 )) || command+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || command+=(--irq)
     (( PHY_PROFILE == 0 )) || command+=(--phy-profile)

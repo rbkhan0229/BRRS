@@ -10,6 +10,9 @@ import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
+
+from brrs_exp1_verify import validate_rx as validate_current_rx
 
 
 MATPLOTLIB_CACHE = Path(tempfile.gettempdir()) / "brrs-matplotlib"
@@ -41,13 +44,8 @@ ERROR_RE = re.compile(
     r"delayed(?: schedule)? late=(?P<delayed_late>\d+)"
 )
 ACCUM_RE = re.compile(r"^accum=(?P<accum>\d+): n=(?P<count>\d+)")
-DONE_RE = re.compile(
-    r"^EXP1_DONE,plen=(?P<symbols>\d+),lead_us=(?P<lead>\d+),"
-    r"tail_us=(?P<tail>\d+),expected=(?P<expected>\d+),rx=(?P<rx>\d+),"
-    r"collection=(?P<collection>PASS|FAIL),link=(?P<link>PASS|LOSS),"
-    r"status=(?P<status>PASS|FAIL)"
-)
-FILENAME_LEAD_RE = re.compile(r"lead(?P<lead>\d+)")
+DONE_RE = re.compile(r"^EXP1_DONE,(?P<fields>.*)$")
+FILENAME_LEAD_RE = re.compile(r"(?:lead|(?:^|_)l)(?P<lead>\d+)")
 
 FAILURE_FIELDS = ("fwto", "pto", "sfdto", "phe", "fce", "fsl")
 FAILURE_LABELS = {
@@ -76,6 +74,8 @@ class Exp1Run:
     rx_window_us: int | None = None
     plen: int | None = None
     preamble_symbols: int | None = None
+    pac: int | None = None
+    rx_mode: str | None = None
     rx: int | None = None
     expected: int | None = None
     miss: int | None = None
@@ -114,10 +114,12 @@ def clean_line(raw_line: str) -> str:
 
 def parse_log(path: Path) -> Exp1Run:
     run = Exp1Run(path=path)
+    captured_lines: list[str] = []
 
     with path.open("r", errors="replace") as log_file:
         for raw_line in log_file:
             line = clean_line(raw_line)
+            captured_lines.append(line)
             if line.startswith("CYCLE "):
                 run.cycle_lines += 1
 
@@ -129,6 +131,9 @@ def parse_log(path: Path) -> Exp1Run:
                 run.rx_window_us = values["rx_window"]
                 run.lead_us = values["lead"]
                 run.tail_us = values["tail"]
+                phy = re.search(r"\bPAC=(\d+) RX_MODE=(\w+)", line)
+                if phy:
+                    run.pac, run.rx_mode = int(phy[1]), phy[2]
                 continue
 
             match = STATS_RE.match(line)
@@ -156,15 +161,33 @@ def parse_log(path: Path) -> Exp1Run:
 
             match = DONE_RE.match(line)
             if match:
-                values = match.groupdict()
-                run.completion_marker = True
-                run.completion_status = values["status"]
-                if run.preamble_symbols != int(values["symbols"]):
+                if run.completion_marker:
+                    raise ValueError(f"{path.name}: duplicate EXP1_DONE marker")
+                fields = [item.split("=", 1) for item in match["fields"].split(",")]
+                if any(len(item) != 2 for item in fields):
+                    raise ValueError(f"{path.name}: malformed EXP1_DONE fields")
+                values = dict(fields)
+                required = {"plen", "lead_us", "tail_us", "expected", "rx", "collection", "link", "status"}
+                if len(values) != len(fields) or not required.issubset(values):
+                    raise ValueError(f"{path.name}: missing/duplicate EXP1_DONE fields")
+                if run.preamble_symbols != int(values["plen"]):
                     raise ValueError(f"{path.name}: EXP1_DONE preamble mismatch")
-                if run.lead_us != int(values["lead"]) or run.tail_us != int(values["tail"]):
+                if run.lead_us != int(values["lead_us"]) or run.tail_us != int(values["tail_us"]):
                     raise ValueError(f"{path.name}: EXP1_DONE margin mismatch")
                 if run.expected != int(values["expected"]) or run.rx != int(values["rx"]):
                     raise ValueError(f"{path.name}: EXP1_DONE counter mismatch")
+                if values["collection"] != "PASS" or values["status"] != "PASS":
+                    raise ValueError(f"{path.name}: EXP1_DONE collection status is FAIL")
+                if values["link"] != ("PASS" if run.rx == run.expected else "LOSS"):
+                    raise ValueError(f"{path.name}: EXP1_DONE link/count mismatch")
+                if {"pac", "rx_mode", "end_tx", "per_x1000"}.intersection(values):
+                    # Share the capture verifier's current PHY, END, schedule,
+                    # and PER checks instead of assuming the old field order.
+                    validate_current_rx("\n".join(captured_lines), SimpleNamespace(
+                        preamble=run.preamble_symbols, lead=run.lead_us, tail=run.tail_us,
+                        pac=run.pac, rx_mode=run.rx_mode, expected=run.expected))
+                run.completion_marker = True
+                run.completion_status = values["status"]
                 continue
 
             # RTT loggers can append the next reset/header after a completed run.
@@ -196,10 +219,12 @@ def validate_run(run: Exp1Run) -> None:
         raise ValueError(f"{run.path.name}: missing fields: {', '.join(missing_fields)}")
 
     filename_match = FILENAME_LEAD_RE.search(run.path.name)
-    if not filename_match:
+    if not filename_match and not run.completion_marker:
         raise ValueError(f"{run.path.name}: filename has no lead value")
-    filename_lead = int(filename_match.group("lead"))
-    if filename_lead != run.lead_us:
+    # Case bundles use init.log; their validated header + DONE carry the lead.
+    # When a legacy or current filename also carries it, require agreement.
+    filename_lead = int(filename_match.group("lead")) if filename_match else run.lead_us
+    if filename_match and filename_lead != run.lead_us:
         raise ValueError(
             f"{run.path.name}: filename lead={filename_lead}, log header lead={run.lead_us}"
         )
@@ -265,6 +290,8 @@ def write_summary_csv(runs: list[Exp1Run], path: Path) -> None:
         "tail_us",
         "rx_window_us",
         "preamble_symbols",
+        "pac",
+        "rx_mode",
         "expected",
         "rx",
         "miss",
@@ -295,6 +322,8 @@ def write_summary_csv(runs: list[Exp1Run], path: Path) -> None:
                     "tail_us": run.tail_us,
                     "rx_window_us": run.rx_window_us,
                     "preamble_symbols": run.preamble_symbols,
+                    "pac": run.pac,
+                    "rx_mode": run.rx_mode,
                     "expected": run.expected,
                     "rx": run.rx,
                     "miss": run.miss,
@@ -353,11 +382,9 @@ def plot_per(runs: list[Exp1Run], output_dir: Path, prefix: str) -> list[Path]:
     main_axis, zoom_axis = axes
 
     main_axis.plot(leads, per_values, color="#3A6EA5", marker="o", linewidth=2)
-    main_axis.axvspan(4, 6, color="#F2CF5B", alpha=0.25)
     main_axis.set_ylabel("PER (%)")
     main_axis.set_ylim(-3, 105)
     main_axis.set_title("Experiment 1: PER vs. delayed-RX lead margin")
-    main_axis.text(5, 83, "Transition\n4-6 us", ha="center", va="center")
     style_axis(main_axis)
 
     for lead, per_value in zip(leads, per_values):
@@ -370,14 +397,14 @@ def plot_per(runs: list[Exp1Run], output_dir: Path, prefix: str) -> list[Path]:
             fontsize=8,
         )
 
-    zoom_leads = [run.lead_us for run in runs if (run.lead_us or 0) >= 6]
-    zoom_values = [run.per_percent for run in runs if (run.lead_us or 0) >= 6]
+    zoom_leads = leads
+    zoom_values = per_values
     zoom_axis.plot(zoom_leads, zoom_values, color="#E45756", marker="o", linewidth=2)
     zoom_axis.set_ylabel("PER (%)")
     zoom_axis.set_xlabel("Lead margin (us)")
     zoom_axis.set_ylim(-0.05, max(1.0, max(zoom_values) + 0.15))
     zoom_axis.set_xticks(leads)
-    zoom_axis.set_title("Low-PER region (lead >= 6 us)", fontsize=10)
+    zoom_axis.set_title("Observed PER (rescaled)", fontsize=10)
     style_axis(zoom_axis)
 
     for lead, per_value in zip(zoom_leads, zoom_values):

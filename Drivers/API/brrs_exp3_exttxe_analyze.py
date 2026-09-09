@@ -22,7 +22,7 @@ TX_SUMMARY_RE = re.compile(
 )
 TX_RESULT_RE = re.compile(
     r"EXP3_TX_RESULT,variant=([ABC]),attempts=(\d+),success=(\d+),"
-    r"captures=(\d+),status=(PASS|FAIL)"
+    r"captures=(\d+),(?:end=(\d+),)?status=(PASS|FAIL)"
 )
 RX_RESULT_RE = re.compile(
     r"EXP3_RX_RESULT_CSV,([ABC]),(\d+),(STD|DTA),(\d+),"
@@ -111,7 +111,11 @@ def parse_logs(paths: list[Path]):
 
             match = TX_RESULT_RE.search(line)
             if match:
-                variant, attempts, success, captures, status = match.groups()
+                variant, attempts, success, captures, end, status = match.groups()
+                # Current firmware records the received END beacon explicitly.
+                # Older logs omitted this field; retain their parsing support.
+                if end is not None and end != "1":
+                    fail(f"variant {variant}: END beacon was not received (end={end})")
                 add_unique(
                     tx_results,
                     variant,

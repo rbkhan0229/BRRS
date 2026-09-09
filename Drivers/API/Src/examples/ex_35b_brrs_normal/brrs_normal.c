@@ -1979,7 +1979,11 @@ int brrs_normal(void)
                     dwt_forcetrxoff();
                     dwt_writesysstatuslo(0xFFFFFFFF);
 
+#if BRRS_EXPERIMENT == 4
                     if (brrs_exp4_phy_switch(&config_data) == DWT_SUCCESS) {
+#else
+                    if (dwt_configure(&config_data) == DWT_SUCCESS) {
+#endif
                         config_is_sync = false;
 #if BRRS_EXPERIMENT == 4
                         exp4_latency_record(&exp4_data_config_stats,
@@ -2002,7 +2006,11 @@ int brrs_normal(void)
                         test_run_info((unsigned char *)config_error_line);
 
                         dwt_forcetrxoff();
+#if BRRS_EXPERIMENT == 4
                         if (brrs_exp4_phy_switch(&config_sync) == DWT_SUCCESS) {
+#else
+                        if (dwt_configure(&config_sync) == DWT_SUCCESS) {
+#endif
                             config_is_sync = true;
                         }
                         dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));

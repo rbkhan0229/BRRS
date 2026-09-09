@@ -3,6 +3,7 @@
 # Experiment 4: parameterized build -> flash -> PyLink RTT capture -> verify.
 
 set -Eeuo pipefail
+BUILD_ONLY=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SDK_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -22,6 +23,7 @@ Options:
   --sync-prep <us>     Reserved DATA-to-next-SYNC preparation (default: 2500).
   --cycles <n>         Superframes to collect (default: 1000).
   --max-per-percent <n> Aggregate PER ceiling for INIT PASS (default: 5.0).
+  --slotted-rx         Expect bounded delayed RX in every DATA slot.
   --spi-opt            Keep SPIM enabled during each bounded DATA burst.
   --irq                Use GPIO IRQ pending events; foreground remains sole SPI owner.
   --phy-profile        Profile internal dwt_configure phases (diagnostic build).
@@ -32,6 +34,7 @@ Options:
   --phy-fast-switch    Use the BRRS delta PHY switch path.
   --phy-fast-skip-pgf  Skip PGF calibration in the delta path (requires fast switch).
   --serial <S/N>       Select a J-Link when multiple probes are attached.
+  --build-only              Build/resolve images without board access.
   --no-build           Reuse an image previously made with the same parameters.
   --timeout <seconds>  Override capture timeout (INIT 90 s, sensor 180 s).
   --force              Preserve an existing log as .prev.<time> and retry.
@@ -74,6 +77,7 @@ TIMEOUT=""
 FORCE=0
 SEQUENCE=""
 SPI_OPT=0
+SLOTTED_RX=0
 IRQ_PENDING=0
 PHY_PROFILE=0
 RX_PATH_PROFILE=0
@@ -123,6 +127,7 @@ while (( $# > 0 )); do
             (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }
             SERIAL="$2"; shift 2
             ;;
+        --build-only) BUILD_ONLY=1; shift ;;
         --no-build) NO_BUILD=1; shift ;;
         --timeout)
             (( $# >= 2 )) || { echo "--timeout requires a value" >&2; exit 2; }
@@ -133,6 +138,7 @@ while (( $# > 0 )); do
             (( $# >= 2 )) || { echo "--sequence requires a value" >&2; exit 2; }
             SEQUENCE="$2"; shift 2
             ;;
+        --slotted-rx) SLOTTED_RX=1; shift ;;
         --spi-opt) SPI_OPT=1; shift ;;
         --irq) IRQ_PENDING=1; shift ;;
         --phy-profile) PHY_PROFILE=1; shift ;;
@@ -257,6 +263,7 @@ fi
 if (( RX_ERROR_DIAG )); then
     IMAGE_DIR+="_rxerrdiag"
 fi
+if (( SLOTTED_RX )); then IMAGE_DIR+="_slottedrx"; fi
 if (( PHY_FAST_SWITCH )); then
     IMAGE_DIR+="_phyfast"
 fi
@@ -289,6 +296,7 @@ fi
 if (( RX_ERROR_DIAG )); then
     CONFIG+="_RXERRDIAG"
 fi
+if (( SLOTTED_RX )); then CONFIG+="_SLOTTEDRX"; fi
 if (( PHY_FAST_SWITCH )); then
     CONFIG+="_PHYFAST"
 fi
@@ -323,6 +331,7 @@ fi
 if (( RX_ERROR_DIAG )); then
     OUTDIR+="_rxerrdiag"
 fi
+if (( SLOTTED_RX )); then OUTDIR+="_slottedrx"; fi
 if (( PHY_FAST_SWITCH )); then
     OUTDIR+="_phyfast"
 fi
@@ -331,6 +340,10 @@ if (( PHY_FAST_SKIP_PGF )); then
 fi
 if (( TARGET_CYCLES != 1000 )); then
     OUTDIR+="_cycles${TARGET_CYCLES}"
+fi
+if [[ -n "${BRRS_SUITE_CASE_ID:-}" ]]; then
+    [[ "${BRRS_SUITE_CASE_ID}" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Invalid suite case ID" >&2; exit 2; }
+    OUTDIR+="/${BRRS_SUITE_CASE_ID}"
 fi
 mkdir -p "${OUTDIR}"
 
@@ -423,6 +436,7 @@ if (( NO_BUILD == 0 )); then
         --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}"
         --cycles "${TARGET_CYCLES}")
     [[ -n "${SEQUENCE}" ]] && BUILD_CMD+=(--sequence "${SEQUENCE}")
+    (( SLOTTED_RX == 0 )) || BUILD_CMD+=(--slotted-rx)
     (( SPI_OPT == 0 )) || BUILD_CMD+=(--spi-opt)
     (( IRQ_PENDING == 0 )) || BUILD_CMD+=(--irq)
     (( PHY_PROFILE == 0 )) || BUILD_CMD+=(--phy-profile)
@@ -444,6 +458,7 @@ RTT_SYMBOL="$("${ARM_NM}" -n "${ELF_FILE}" \
     || { echo "_SEGGER_RTT not found in ELF" >&2; exit 1; }
 RTT_ADDR="0x${RTT_SYMBOL}"
 echo "[rtt] control block @ ${RTT_ADDR}"
+if (( BUILD_ONLY )); then echo "[build-only] verified image ${HEX_FILE}; no board access"; exit 0; fi
 
 PYLINK_ARGS=(
     python3 "${SCRIPT_DIR}/rtt_capture.py"
@@ -463,6 +478,7 @@ PYLINK_ARGS=(
 VERIFY_SEQ_ARGS=()
 [[ -n "${SEQUENCE}" ]] && VERIFY_SEQ_ARGS+=(--sequence "${SEQUENCE}")
 VERIFY_SPI_ARGS=()
+(( SLOTTED_RX == 0 )) || VERIFY_SPI_ARGS+=(--slotted-rx)
 (( SPI_OPT == 0 )) || VERIFY_SPI_ARGS+=(--spi-opt)
 VERIFY_IRQ_ARGS=()
 (( IRQ_PENDING == 0 )) || VERIFY_IRQ_ARGS+=(--irq)
@@ -511,9 +527,9 @@ else
     FIRMWARE_SHA256="$(shasum -a 256 "${HEX_FILE}" | awk '{print $1}')"
 fi
 
-GIT_COMMIT="$(git -C "${SDK_ROOT}" rev-parse HEAD)"
-GIT_BRANCH="$(git -C "${SDK_ROOT}" branch --show-current)"
-if [[ -n "$(git -C "${SDK_ROOT}" status --porcelain --untracked-files=no)" ]]; then
+GIT_COMMIT="$(git -C "${SDK_ROOT}" rev-parse HEAD 2>/dev/null || echo independent-copy)"
+GIT_BRANCH="$(git -C "${SDK_ROOT}" branch --show-current 2>/dev/null || echo independent-copy)"
+if [[ -n "$(git -C "${SDK_ROOT}" status --porcelain --untracked-files=no 2>/dev/null || true)" ]]; then
     GIT_WORKTREE="dirty"
 else
     GIT_WORKTREE="clean"
@@ -529,11 +545,23 @@ fi
 
 {
     printf 'role=%s\n' "${ROLE_LABEL}"
+    printf 'serial=%s\n' "${SERIAL}"
+    printf 'suite_manifest_sha256=%s\n' "${BRRS_SUITE_MANIFEST_SHA256:-standalone}"
+    printf 'suite_conditions_sha256=%s\n' "${BRRS_SUITE_CONDITIONS_SHA256:-standalone}"
+    printf 'suite_case_id=%s\n' "${BRRS_SUITE_CASE_ID:-standalone}"
+    printf 'physical_role=%s\n' "${BRRS_SUITE_PHYSICAL_ROLE:-standalone}"
+    printf 'logical_node=%s\n' "${BRRS_SUITE_LOGICAL_NODE:-standalone}"
+    printf 'suite_profile=%s\n' "${BRRS_SUITE_PROFILE:-standalone}"
+    printf 'suite_block=%s\n' "${BRRS_SUITE_BLOCK:-standalone}"
+    printf 'suite_rotation_index=%s\n' "${BRRS_SUITE_ROTATION_INDEX:-standalone}"
+    printf 'physical_location=%s\n' "${BRRS_SUITE_LOCATION:-standalone}"
+    printf 'suite_assignment_sha256=%s\n' "${BRRS_SUITE_ASSIGNMENT_SHA256:-standalone}"
     printf 'configuration=%s\n' "${CONFIG}"
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
     printf 'sensor_count=%s\n' "${SENSOR_COUNT}"
     printf 'guard_us=%s\n' "${GUARD_US}"
     printf 'lead_us=%s\n' "${LEAD_US}"
+    printf 'slotted_rx=%s\n' "${SLOTTED_RX}"
     printf 'pac=%s\n' "${PAC}"
     printf 'sync_buffer_us=%s\n' "${SYNC_BUFFER_US}"
     printf 'sync_prep_us=%s\n' "${SYNC_PREP_US}"

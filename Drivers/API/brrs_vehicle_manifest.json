@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "environment": "vehicle_preparation",
+  "distance_m": null,
+  "boards": {
+    "init": {
+      "serial": "1050270933",
+      "host": "local",
+      "location": "frunk"
+    },
+    "N2": {
+      "serial": "1050211584",
+      "host": "s-macbook-air",
+      "location": "bumper_A"
+    },
+    "N3": {
+      "serial": "1050273888",
+      "host": "s-macbook-air",
+      "location": "bumper_B"
+    },
+    "N4": {
+      "serial": "1050282818",
+      "host": "s-macbook-air",
+      "location": "driver_seat"
+    },
+    "N5": {
+      "serial": "1050208509",
+      "host": "s-macbook-air",
+      "location": "passenger_seat"
+    },
+    "N6": {
+      "serial": "1050227627",
+      "host": "s-macbook-air",
+      "location": "trunk_A"
+    },
+    "N7": {
+      "serial": "1050204212",
+      "host": "s-macbook-air",
+      "location": "trunk_B"
+    }
+  },
+  "single_link_tx_role": "N4",
+  "pacs": [
+    4,
+    8
+  ],
+  "lead_selection": {
+    "frozen": false,
+    "lead_us_by_pac": {
+      "4": null,
+      "8": null
+    },
+    "evidence": null
+  },
+  "stage0": {
+    "leads_us": [
+      20,
+      0,
+      40,
+      10,
+      30,
+      5,
+      25,
+      15,
+      35,
+      2,
+      22,
+      12,
+      32,
+      7,
+      27,
+      17,
+      37,
+      4,
+      24,
+      14,
+      34,
+      9,
+      29,
+      19,
+      39,
+      1,
+      21,
+      11,
+      31,
+      6,
+      26,
+      16,
+      36,
+      3,
+      23,
+      13,
+      33,
+      8,
+      28,
+      18,
+      38
+    ],
+    "tail_us": 0
+  },
+  "exp1": {
+    "preambles": [
+      32,
+      64,
+      128,
+      256
+    ]
+  },
+  "exp2": {
+    "preambles": [
+      32,
+      64,
+      128,
+      256
+    ]
+  },
+  "exp3": {
+    "variants": [
+      "A",
+      "B",
+      "C"
+    ],
+    "pac": 8,
+    "lead_from_pac": 8
+  },
+  "exp4": {
+    "preambles": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "sensors": 6,
+    "guard_us": 250,
+    "sync_buffer_us": 3000,
+    "sync_prep_us": 2500,
+    "cycles": 1000,
+    "slotted_rx": true,
+    "spi_opt": true,
+    "slot_counts_by_preamble": {
+      "32": [
+        6,
+        13
+      ],
+      "64": [
+        6,
+        12
+      ],
+      "128": [
+        6,
+        10
+      ],
+      "256": [
+        6,
+        8
+      ]
+    },
+    "sequences_by_preamble_slotcount": {
+      "32:13": "2345672345673"
+    },
+    "capacity_search": {
+      "mode": "baseline_then_descending",
+      "minimum_slots": 6,
+      "invalid_run_action": "stop",
+      "goal_percent_strictly_below": 1.0
+    }
+  },
+  "exp5": {
+    "preamble": 1024,
+    "pac": 32,
+    "lead_from_pac": 8
+  },
+  "goal_per_node_percent_strictly_below": 1.0,
+  "repeat_each_condition": 1,
+  "paper": {
+    "repeats_by_stage": {
+      "stage0": 1,
+      "exp1": 5,
+      "exp2": 3,
+      "exp3": 3,
+      "exp4": 12,
+      "exp5": 3
+    },
+    "stage0_confirmation_repeats": 5,
+    "active_tx_counts": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "exp4_assignment": "installation_cyclic",
+    "condition_order": "alternating_rotated",
+    "s6_slot_counts_by_preamble": {
+      "32": [
+        6,
+        12,
+        13
+      ],
+      "64": [
+        6,
+        12
+      ],
+      "128": [
+        6,
+        10
+      ],
+      "256": [
+        6,
+        8
+      ]
+    }
+  },
+  "lead_candidates_us_by_pac": {
+    "4": null,
+    "8": null
+  }
+}

@@ -23,6 +23,7 @@
 #       [--serial <S/N>] [--no-build] [--timeout <s>] [--method telnet|pylink]
 
 set -Eeuo pipefail
+BUILD_ONLY=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SDK_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -40,6 +41,7 @@ Usage:
 Options:
   --lead <us>                RX lead margin (default: 15).
   --serial <S/N>             Select a J-Link when multiple probes are attached.
+  --build-only              Build/resolve images without board access.
   --no-build                 Reuse the existing ELF and HEX.
   --timeout <seconds>        Override the capture timeout.
   --method <pylink|telnet>   Capture backend (default: pylink).
@@ -65,6 +67,7 @@ while (( $# > 0 )); do
     case "$1" in
         --lead)   (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }; LEAD_US="$2"; shift 2 ;;
         --serial) (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }; SERIAL="$2"; shift 2 ;;
+        --build-only) BUILD_ONLY=1; shift ;;
         --no-build) NO_BUILD=1; shift ;;
         --timeout) TIMEOUT="$2"; shift 2 ;;
         --method)  METHOD="$2"; shift 2 ;;
@@ -101,6 +104,10 @@ DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
 OUTDIR="${SDK_ROOT}/../logs/exp5_${ENVIRONMENT}${DISTANCE_TAG}_${DATE_TAG}"
+if [[ -n "${BRRS_SUITE_CASE_ID:-}" ]]; then
+    [[ "${BRRS_SUITE_CASE_ID}" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Invalid suite case ID" >&2; exit 2; }
+    OUTDIR+="/${BRRS_SUITE_CASE_ID}"
+fi
 mkdir -p "${OUTDIR}"
 BASE="exp5_${PREAMBLE}_l${LEAD_US}_r${RUN_NUMBER}_${ROLE}"
 RAW_LOG="${OUTDIR}/${BASE}.log"
@@ -192,6 +199,7 @@ RTT_ADDR="0x$("${ARM_NM}" -n "${ELF_FILE}" \
 [[ "${RTT_ADDR}" =~ ^0x[0-9A-Fa-f]+$ ]] \
     || { echo "_SEGGER_RTT not found in ELF" >&2; exit 1; }
 echo "[rtt] control block @ ${RTT_ADDR}"
+if (( BUILD_ONLY )); then echo "[build-only] verified image ${HEX_FILE}; no board access"; exit 0; fi
 
 # ---------------------------------------------------------------- pylink 경로
 if [[ "${METHOD}" == "pylink" ]]; then
@@ -572,6 +580,17 @@ else
 fi
 {
     printf 'role=%s\n' "${ROLE}"
+    printf 'serial=%s\n' "${SERIAL}"
+    printf 'suite_manifest_sha256=%s\n' "${BRRS_SUITE_MANIFEST_SHA256:-standalone}"
+    printf 'suite_conditions_sha256=%s\n' "${BRRS_SUITE_CONDITIONS_SHA256:-standalone}"
+    printf 'suite_case_id=%s\n' "${BRRS_SUITE_CASE_ID:-standalone}"
+    printf 'physical_role=%s\n' "${BRRS_SUITE_PHYSICAL_ROLE:-standalone}"
+    printf 'logical_node=%s\n' "${BRRS_SUITE_LOGICAL_NODE:-standalone}"
+    printf 'suite_profile=%s\n' "${BRRS_SUITE_PROFILE:-standalone}"
+    printf 'suite_block=%s\n' "${BRRS_SUITE_BLOCK:-standalone}"
+    printf 'suite_rotation_index=%s\n' "${BRRS_SUITE_ROTATION_INDEX:-standalone}"
+    printf 'physical_location=%s\n' "${BRRS_SUITE_LOCATION:-standalone}"
+    printf 'suite_assignment_sha256=%s\n' "${BRRS_SUITE_ASSIGNMENT_SHA256:-standalone}"
     printf 'configuration=%s\n' "${CONFIG}"
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
     printf 'lead_us=%s\n' "${LEAD_US}"
