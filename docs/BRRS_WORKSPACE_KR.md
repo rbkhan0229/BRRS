@@ -140,5 +140,5 @@ python3 tools/verify_experiment_archive.py
 
 - [차량 설정·보드 역할](../Drivers/API/BRRS_VEHICLE_MANIFEST_KR.md)
 - [Stage0~Exp5 논문 반복·회전](../Drivers/API/BRRS_PAPER_CAMPAIGN_KR.md)
-- [실험 case와 실행 방식](../Drivers/API/exp_cases.md)
+- [실험 case와 실행 방식](experiments/BRRS_EXPERIMENT_CASES_KR.md)
 - [Exp2·Exp5 물리 링크 순회](../Drivers/API/BRRS_CIR_LINKS_KR.md)
