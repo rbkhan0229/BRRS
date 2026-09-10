@@ -31,7 +31,24 @@ def integer(values: dict[str, str], key: str) -> int:
     return int(value)
 
 
+def validate_beacon_preamble(text: str, expected: int, role: str) -> None:
+    prefix = "BRRS_BEACON_CONFIG_CSV," if role == "rx" else "BRRS_BEACON_RX_CSV,"
+    values = parse_kv_marker(text, prefix)
+    actual = values.get("sync_m")
+    if actual is None:
+        if expected != 512:
+            fail("non-default beacon preamble lacks runtime sync_m evidence")
+    elif actual != str(expected):
+        fail(f"firmware beacon preamble={actual}, requested={expected}")
+    if role == "rx":
+        config = parse_kv_marker(text, "EXP_LOG_CONFIG_CSV,")
+        configured = config.get("sync_plen")
+        if configured is not None and configured != str(expected):
+            fail(f"firmware sync_plen={configured}, requested={expected}")
+
+
 def validate_rx(text: str, args: argparse.Namespace) -> str:
+    validate_beacon_preamble(text, args.beacon_preamble, "rx")
     values = parse_kv_marker(text, "EXP1_DONE,")
     plen = integer(values, "plen")
     lead = integer(values, "lead_us")
@@ -96,6 +113,7 @@ def validate_rx(text: str, args: argparse.Namespace) -> str:
 
 
 def validate_tx(text: str, args: argparse.Namespace) -> str:
+    validate_beacon_preamble(text, args.beacon_preamble, "tx")
     values = parse_kv_marker(text, "EXP1_TX_DONE,")
     plen = integer(values, "plen")
     expected = integer(values, "expected")
@@ -157,6 +175,8 @@ def main() -> int:
     parser.add_argument("--mode", choices=("stage0", "exp1"), required=True)
     parser.add_argument("--role", choices=("rx", "tx"), required=True)
     parser.add_argument("--preamble", type=int, required=True)
+    parser.add_argument("--beacon-preamble", type=int, default=512,
+                        choices=(32, 64, 128, 256, 512, 1024))
     parser.add_argument("--lead", type=int, required=True)
     parser.add_argument("--tail", type=int, required=True)
     parser.add_argument("--pac", type=int, default=8)

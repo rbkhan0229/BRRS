@@ -34,6 +34,8 @@ Options:
   --spi-opt              Exp4 persistent/direct SPI.
   --sync-buffer <us>     Exp4 SYNC-to-DATA budget (default: 3000).
   --sync-prep <us>       Exp4 next-SYNC reserve (default: 2500).
+  --beacon-preamble <symbols> SYNC beacon preamble for Stage0-Exp5
+                         (32/64/128/256/512/1024; default: 512).
   --cycles <n>           Exp4 superframes (default: 1000).
   --build-only           Build each case without board access.
   --serial <S/N>         Select the J-Link attached to this role.
@@ -121,6 +123,7 @@ SPI_OPT=0
 SYNC_BUFFER_US=3000
 SYNC_PREP_US=2500
 TARGET_CYCLES=1000
+BEACON_PREAMBLE=512
 BUILD_ONLY=0
 
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
@@ -137,6 +140,9 @@ while (( $# > 0 )); do
         --spi-opt) SPI_OPT=1; shift ;;
         --sync-buffer) SYNC_BUFFER_US="$2"; shift 2 ;;
         --sync-prep) SYNC_PREP_US="$2"; shift 2 ;;
+        --beacon-preamble)
+            (( $# >= 2 )) || { echo "--beacon-preamble requires a value" >&2; exit 2; }
+            BEACON_PREAMBLE="$2"; shift 2 ;;
         --cycles) TARGET_CYCLES="$2"; shift 2 ;;
         --build-only) BUILD_ONLY=1; shift ;;
         --serial)
@@ -263,6 +269,10 @@ esac
 case "${RX_MODE}" in
     delayed|immediate) ;;
     *) echo "rx-mode must be delayed or immediate" >&2; exit 2 ;;
+esac
+case "${BEACON_PREAMBLE}" in
+    32|64|128|256|512|1024) ;;
+    *) echo "beacon preamble must be 32, 64, 128, 256, 512, or 1024" >&2; exit 2 ;;
 esac
 
 if [[ -z "${PEER_READY_DELAY}" ]]; then
@@ -526,6 +536,7 @@ run_case() {
     local command=("${script}" "$@")
     local rc
 
+    command+=(--beacon-preamble "${BEACON_PREAMBLE}")
     [[ -z "${SERIAL}" ]] || command+=(--serial "${SERIAL}")
     [[ -z "${TIMEOUT}" ]] || command+=(--timeout "${TIMEOUT}")
     (( FORCE == 0 )) || command+=(--force)
@@ -591,6 +602,7 @@ round_robin_sequence() {
 }
 
 record "SUITE_START experiment=${EXPERIMENT} role=${ROLE} environment=${ENVIRONMENT} distance=${DISTANCE} run_start=${RUN_START} repeats=${REPEATS} cases=${TOTAL_CASES}"
+record "SUITE_PARAMETER beacon_preamble_symbols=${BEACON_PREAMBLE}"
 if [[ "${EXPERIMENT}" != "stage0" ]]; then
     record "SUITE_PARAMETER rx_lead_us=${FIXED_LEAD_US}"
 fi
@@ -621,7 +633,7 @@ if [[ "${EXPERIMENT}" == "exp4" && ${NO_BUILD} -eq 0 ]]; then
                     else
                         build_role="${ROLE}"
                     fi
-                    build_args=("${preamble}" "${SENSOR_COUNT}" "${guard}" "${build_role}" "${FIXED_LEAD_US}" --pac "${PAC}" "${EXP4_OPTIONS[@]}")
+                    build_args=("${preamble}" "${SENSOR_COUNT}" "${guard}" "${build_role}" "${FIXED_LEAD_US}" --pac "${PAC}" --beacon-preamble "${BEACON_PREAMBLE}" "${EXP4_OPTIONS[@]}")
                     [[ -n "${condition_sequence}" ]] && build_args+=(--sequence "${condition_sequence}")
                     "${SCRIPT_DIR}/brrs_exp4_build.sh" "${build_args[@]}"
                     mark_key_built "exp4_${ROLE}_m${preamble}_s${SENSOR_COUNT}_g${guard}_l${FIXED_LEAD_US}_pac${PAC}_seq${condition_sequence:-default}"

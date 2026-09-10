@@ -21,6 +21,8 @@ Options:
   --pac <4|8>          Coordinator DATA RX PAC size (default: 8).
   --sync-buffer <us>   SYNC RMARKER to first DATA RMARKER (default: 3000).
   --sync-prep <us>     Reserved DATA-to-next-SYNC preparation (default: 2500).
+  --beacon-preamble <symbols>
+                       SYNC beacon preamble: 32/64/128/256/512/1024 (default: 512).
   --cycles <n>         Superframes to collect (default: 1000).
   --max-per-percent <n> Aggregate PER ceiling for INIT PASS (default: 5.0).
   --slotted-rx         Expect bounded delayed RX in every DATA slot.
@@ -88,6 +90,7 @@ PHY_FAST_SKIP_PGF=0
 TARGET_CYCLES=1000
 SYNC_BUFFER_US=3000
 SYNC_PREP_US=2500
+BEACON_PREAMBLE=512
 MAX_PER_PERCENT=5.0
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
@@ -114,6 +117,10 @@ while (( $# > 0 )); do
         --sync-prep)
             (( $# >= 2 )) || { echo "--sync-prep requires a value" >&2; exit 2; }
             SYNC_PREP_US="$2"; shift 2
+            ;;
+        --beacon-preamble)
+            (( $# >= 2 )) || { echo "--beacon-preamble requires a value" >&2; exit 2; }
+            BEACON_PREAMBLE="$2"; shift 2
             ;;
         --cycles)
             (( $# >= 2 )) || { echo "--cycles requires a value" >&2; exit 2; }
@@ -172,6 +179,10 @@ fi
 case "${PAC}" in
     4|8) ;;
     *) echo "pac must be 4 or 8" >&2; exit 2 ;;
+esac
+case "${BEACON_PREAMBLE}" in
+    32|64|128|256|512|1024) ;;
+    *) echo "beacon preamble must be 32, 64, 128, 256, 512, or 1024" >&2; exit 2 ;;
 esac
 if (( SENSOR_COUNT > 1 && GUARD_US < LEAD_US )); then
     echo "multi-sensor guard must be at least the ${LEAD_US} us RX lead margin" >&2
@@ -233,6 +244,9 @@ fi
 
 IMAGE_DIR="${OUTPUT_DIR}/Debug/Exe/exp4/plen${PREAMBLE}_sensors${SENSOR_COUNT}"
 IMAGE_DIR+="_sb${SYNC_BUFFER_US}_sp${SYNC_PREP_US}"
+if (( BEACON_PREAMBLE != 512 )); then
+    IMAGE_DIR+="_sync${BEACON_PREAMBLE}"
+fi
 if (( GUARD_US != 100 )); then
     IMAGE_DIR+="_guard${GUARD_US}"
 fi
@@ -278,6 +292,7 @@ HEX_FILE="${IMAGE_DIR}/${IMAGE_BASE}.hex"
 ELF_FILE="${IMAGE_DIR}/${IMAGE_BASE}.elf"
 CONFIG="Generated_Exp4_${PREAMBLE}_S${SENSOR_COUNT}_G${GUARD_US}_L${LEAD_US}_PAC${PAC}_${ROLE_LABEL}"
 CONFIG+="_SB${SYNC_BUFFER_US}_SP${SYNC_PREP_US}"
+CONFIG+="_SYNC${BEACON_PREAMBLE}"
 if (( SPI_OPT )); then
     CONFIG+="_SPIOPT"
 fi
@@ -313,6 +328,7 @@ OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${L
 if [[ -n "${SEQUENCE}" ]]; then
     OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_sb${SYNC_BUFFER_US}_sp${SYNC_PREP_US}_seq${SEQUENCE}_${DATE_TAG}"
 fi
+OUTDIR+="_sync${BEACON_PREAMBLE}"
 if (( SPI_OPT )); then
     OUTDIR+="_spiopt"
 fi
@@ -413,6 +429,7 @@ echo "  RX lead:       ${LEAD_US} us"
 echo "  RX PAC:        ${PAC}"
 echo "  SYNC buffer:   ${SYNC_BUFFER_US} us"
 echo "  SYNC prep:     ${SYNC_PREP_US} us"
+echo "  SYNC preamble: ${BEACON_PREAMBLE} symbols"
 echo "  DATA budget:   $((10000 - SYNC_BUFFER_US - SYNC_PREP_US)) us"
 echo "  PER limit:     ${MAX_PER_PERCENT}%"
 echo "  SPI mode:      $((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
@@ -434,7 +451,7 @@ if (( NO_BUILD == 0 )); then
     BUILD_CMD=("${SCRIPT_DIR}/brrs_exp4_build.sh"
         "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}"
         --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}"
-        --cycles "${TARGET_CYCLES}")
+        --beacon-preamble "${BEACON_PREAMBLE}" --cycles "${TARGET_CYCLES}")
     [[ -n "${SEQUENCE}" ]] && BUILD_CMD+=(--sequence "${SEQUENCE}")
     (( SLOTTED_RX == 0 )) || BUILD_CMD+=(--slotted-rx)
     (( SPI_OPT == 0 )) || BUILD_CMD+=(--spi-opt)
@@ -497,6 +514,7 @@ VERIFY_RX_ERROR_DIAG_ARGS=()
 set +e
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp4_verify.py" "${RAW_LOG}" \
     "${VERIFY_ARGS[@]}" --preamble "${PREAMBLE}" \
+    --beacon-preamble "${BEACON_PREAMBLE}" \
     --sensors "${SENSOR_COUNT}" --guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}" \
     --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}" \
     --cycles "${TARGET_CYCLES}" \
@@ -558,6 +576,7 @@ fi
     printf 'suite_assignment_sha256=%s\n' "${BRRS_SUITE_ASSIGNMENT_SHA256:-standalone}"
     printf 'configuration=%s\n' "${CONFIG}"
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
+    printf 'beacon_preamble_symbols=%s\n' "${BEACON_PREAMBLE}"
     printf 'sensor_count=%s\n' "${SENSOR_COUNT}"
     printf 'guard_us=%s\n' "${GUARD_US}"
     printf 'lead_us=%s\n' "${LEAD_US}"

@@ -221,11 +221,12 @@ class OfflineCliTests(unittest.TestCase):
             mock.chmod(0o755)
             env = dict(os.environ, EMBUILD=str(mock), MOCK_EXE=str(exe))
             base = ["bash", str(api / "brrs_exp4_build.sh"), "32", "3", "200", "all", "15",
-                    "--spi-opt", "--sync-buffer", "2000", "--sync-prep", "2002"]
+                    "--spi-opt", "--sync-buffer", "2000", "--sync-prep", "2002",
+                    "--beacon-preamble", "256"]
             for extra in ([], ["--rx-error-diag"]):
                 result = subprocess.run(base + extra, text=True, capture_output=True, env=env, timeout=10)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            normal = exe / "exp4/plen32_sensors3_sb2000_sp2002_guard200_spiopt"
+            normal = exe / "exp4/plen32_sensors3_sb2000_sp2002_sync256_guard200_spiopt"
             diag = normal.with_name(normal.name + "_rxerrdiag")
             self.assertTrue(normal.is_dir())
             self.assertTrue(diag.is_dir())
@@ -233,6 +234,7 @@ class OfflineCliTests(unittest.TestCase):
                 self.assertEqual((normal / f"exp4_32_s3_{role}.hex").read_text(),
                                  (diag / f"exp4_32_s3_{role}.hex").read_text())
                 self.assertNotIn("BRRS_OPT_RX_ERROR_DIAG", (diag / f"exp4_32_s3_{role}.hex").read_text())
+                self.assertIn("BRRS_SYNC_PREAMBLE_SYMBOLS=256", (diag / f"exp4_32_s3_{role}.hex").read_text())
             self.assertNotIn("BRRS_OPT_RX_ERROR_DIAG", (normal / "exp4_32_s3_init.hex").read_text())
             self.assertIn("BRRS_OPT_RX_ERROR_DIAG=1", (diag / "exp4_32_s3_init.hex").read_text())
 
@@ -251,7 +253,7 @@ class OfflineCliTests(unittest.TestCase):
                 target = bindir / name
                 target.write_text(body)
                 target.chmod(0o755)
-            image_dir = api / "Build_Platforms/nRF52840-DK/Output/Debug/Exe/exp4/plen32_sensors3_sb2000_sp2002_guard200_spiopt_rxerrdiag"
+            image_dir = api / "Build_Platforms/nRF52840-DK/Output/Debug/Exe/exp4/plen32_sensors3_sb2000_sp2002_sync256_guard200_spiopt_rxerrdiag"
             image_dir.mkdir(parents=True)
             for suffix in ("hex", "elf"):
                 (image_dir / f"exp4_32_s3_init.{suffix}").write_text("INERT MOCK ARTIFACT")
@@ -262,18 +264,20 @@ class OfflineCliTests(unittest.TestCase):
                 "import sys\n"
                 "assert '--rx-error-diag' in sys.argv\n"
                 "assert '--spi-opt' in sys.argv\n"
+                "assert sys.argv[sys.argv.index('--beacon-preamble')+1] == '256'\n"
                 "print('[verify] PASS: offline mock only')\n")
             env = dict(os.environ, EMBUILD="/usr/bin/true", ARM_NM=str(bindir / "arm-nm"),
                        PATH=str(bindir) + os.pathsep + os.environ["PATH"])
             cmd = ["bash", str(api / "brrs_exp4_capture.sh"), "init", "32", "3", "1", "offline",
                    "--sync-buffer", "2000", "--sync-prep", "2002", "--spi-opt", "--rx-error-diag",
-                   "--no-build", "--serial", "12345"]
+                   "--beacon-preamble", "256", "--no-build", "--serial", "12345"]
             result = subprocess.run(cmd, text=True, capture_output=True, env=env, timeout=10)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             metas = list((root / "logs").glob("*_spiopt_rxerrdiag/*.meta.txt"))
             self.assertEqual(len(metas), 1)
             metadata = metas[0].read_text()
             self.assertIn("rx_error_diag=enabled-on-init\n", metadata)
+            self.assertIn("beacon_preamble_symbols=256\n", metadata)
             self.assertIn("_SPIOPT_RXERRDIAG\n", metadata)
             self.assertIn(str(image_dir / "exp4_32_s3_init.hex"), metadata)
             # Existing diagnostic raw data is protected, just like baseline data.
@@ -300,24 +304,30 @@ class OfflineCliTests(unittest.TestCase):
             build.write_text("#!/usr/bin/env python3\n"
                              "import pathlib,sys\n"
                              "assert '--rx-error-diag' in sys.argv\n"
+                             "assert sys.argv[sys.argv.index('--beacon-preamble')+1] == '256'\n"
                              "pathlib.Path(__file__).with_name('build.args').write_text(' '.join(sys.argv[1:]))\n")
             build.chmod(0o755)
             capture = api / "brrs_exp4_capture.sh"
             capture.write_text("#!/usr/bin/env python3\n"
                                "import pathlib,sys,time\n"
                                "assert '--rx-error-diag' in sys.argv\n"
+                               "assert sys.argv[sys.argv.index('--beacon-preamble')+1] == '256'\n"
                                "pathlib.Path(__file__).with_name('capture.args').write_text(' '.join(sys.argv[1:]))\n"
                                "print('READY marker seen', flush=True)\n"
                                "time.sleep(1.5)\n"
                                "print('[verify] PASS: offline mock only')\n")
             capture.chmod(0o755)
             result = subprocess.run(["bash", str(api / "brrs_exp4_multi_tx.sh"), "32", "1", "1", "offline",
-                                     "--rx-error-diag", "--probe-serials", "12345"],
+                                     "--rx-error-diag", "--beacon-preamble", "256",
+                                     "--probe-serials", "12345"],
                                     text=True, capture_output=True, timeout=10)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("--rx-error-diag", (api / "build.args").read_text())
             self.assertIn("--rx-error-diag", (api / "capture.args").read_text())
             self.assertEqual(len(list((root / "logs").glob("*_rxerrdiag/*.assignments.csv"))), 1)
+            assignment = next((root / "logs").glob("*_rxerrdiag/*.assignments.csv")).read_text()
+            self.assertIn("beacon_preamble_symbols", assignment.splitlines()[0])
+            self.assertIn(",256,", assignment.splitlines()[1])
 
 
 if __name__ == "__main__":

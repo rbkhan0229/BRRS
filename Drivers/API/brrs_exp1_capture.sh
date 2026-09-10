@@ -17,6 +17,8 @@ Usage:
   $(basename "$0") <tx|rx> <32|64|128|256> <run> <environment> [distance] [options]
 
 Options:
+  --beacon-preamble <symbols>
+                       SYNC beacon preamble: 32/64/128/256/512/1024 (default: 512).
   --lead <us>          RX lead margin for Exp1 (default: 15).
   --pac <4|8>          RX PAC size for Stage0/Exp1 (default: 8, the BRRS
                         baseline; 4 is the DW3000 vendor-recommended value
@@ -64,6 +66,7 @@ LEAD_US=15
 TAIL_US=0
 PAC=8
 RX_MODE="delayed"
+BEACON_PREAMBLE=512
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -92,6 +95,9 @@ while (( $# > 0 )); do
         --rx-mode)
             (( $# >= 2 )) || { echo "--rx-mode requires a value" >&2; exit 2; }
             RX_MODE="$2"; shift 2 ;;
+        --beacon-preamble)
+            (( $# >= 2 )) || { echo "--beacon-preamble requires a value" >&2; exit 2; }
+            BEACON_PREAMBLE="$2"; shift 2 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -120,6 +126,10 @@ fi
 case "${PAC}" in
     4|8) ;;
     *) echo "pac must be 4 or 8" >&2; exit 2 ;;
+esac
+case "${BEACON_PREAMBLE}" in
+    32|64|128|256|512|1024) ;;
+    *) echo "beacon preamble must be 32, 64, 128, 256, 512, or 1024" >&2; exit 2 ;;
 esac
 case "${RX_MODE}" in
     delayed|immediate) ;;
@@ -167,10 +177,12 @@ ELF_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.elf"
 LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
 PAC_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_pac"
 RX_MODE_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_mode"
+BEACON_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_sync_preamble_symbols"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
 OUTDIR="${SDK_ROOT}/../logs/${MODE}_${ENVIRONMENT}${DISTANCE_TAG}_${DATE_TAG}"
+if (( BEACON_PREAMBLE != 512 )); then OUTDIR+="_sync${BEACON_PREAMBLE}"; fi
 if [[ -n "${BRRS_SUITE_CASE_ID:-}" ]]; then
     [[ "${BRRS_SUITE_CASE_ID}" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Invalid suite case ID" >&2; exit 2; }
     OUTDIR+="/${BRRS_SUITE_CASE_ID}"
@@ -238,6 +250,7 @@ echo "  Configuration: ${CONFIG}"
 echo "  RX lead:       ${LEAD_US} us"
 echo "  RX PAC:        ${PAC}"
 echo "  RX mode:       ${RX_MODE}"
+echo "  SYNC preamble: ${BEACON_PREAMBLE} symbols"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
@@ -246,22 +259,21 @@ echo "  Raw log:       ${RAW_LOG}"
 if (( NO_BUILD == 0 )); then
     echo "[build] ${CONFIG}"
     BUILD_ARGS=(-threadnum "${EMBUILD_THREADS:-1}")
+    DEFS="DEBUG;BRRS_SYNC_PREAMBLE_SYMBOLS=${BEACON_PREAMBLE};BRRS_TARGET_CYCLES=${EXPECTED_CYCLES}"
     if [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
         RX_MODE_DEFINE=0
         [[ "${RX_MODE}" == "immediate" ]] && RX_MODE_DEFINE=1
-        DEFS="DEBUG;BRRS_RX_TAIL_MARGIN_US=0;BRRS_TARGET_CYCLES=${EXPECTED_CYCLES}"
+        DEFS+=";BRRS_RX_TAIL_MARGIN_US=0"
         DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
         DEFS+=";BRRS_RX_PAC_SYMBOLS=${PAC}"
         DEFS+=";BRRS_RX_IMMEDIATE_CONTROL=${RX_MODE_DEFINE}"
-        BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     fi
     if [[ "${MODE}" == "stage0" && "${ROLE}" == "rx" ]]; then
-        DEFS="DEBUG;BRRS_TARGET_CYCLES=${EXPECTED_CYCLES}"
         DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
         DEFS+=";BRRS_RX_TAIL_MARGIN_US=${TAIL_US}"
         DEFS+=";BRRS_RX_PAC_SYMBOLS=${PAC}"
-        BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     fi
+    BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
     "${EMBUILD}" "${BUILD_ARGS[@]}" >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
@@ -273,9 +285,14 @@ if (( NO_BUILD == 0 )); then
     if [[ "${MODE}" == "stage0" && "${ROLE}" == "rx" ]]; then
         printf '%s\n' "${PAC}" >"${PAC_STAMP}"
     fi
+    printf '%s\n' "${BEACON_PREAMBLE}" >"${BEACON_STAMP}"
 fi
 [[ -f "${HEX_FILE}" && -f "${ELF_FILE}" ]] \
     || { echo "firmware image missing for ${CONFIG}" >&2; exit 1; }
+if (( NO_BUILD == 1 )); then
+    [[ -f "${BEACON_STAMP}" && "$(<"${BEACON_STAMP}")" == "${BEACON_PREAMBLE}" ]] \
+        || { echo "cached ${CONFIG} was not built with beacon preamble ${BEACON_PREAMBLE}" >&2; exit 1; }
+fi
 if (( NO_BUILD == 1 )) && [[ "${MODE}" == "stage0" && "${ROLE}" == "rx" ]]; then
     [[ -f "${PAC_STAMP}" && "$(<"${PAC_STAMP}")" == "${PAC}" ]] \
         || { echo "cached ${CONFIG} was not built with pac ${PAC}" >&2; exit 1; }
@@ -312,6 +329,7 @@ PYLINK_ARGS=(
 
 VERIFY_OUTPUT="$(python3 "${SCRIPT_DIR}/brrs_exp1_verify.py" "${RAW_LOG}" \
     --mode "${MODE}" --role "${ROLE}" --preamble "${PREAMBLE}" \
+    --beacon-preamble "${BEACON_PREAMBLE}" \
     --lead "${LEAD_US}" --tail "${TAIL_US}" --pac "${PAC}" \
     --rx-mode "${RX_MODE}" \
     --expected "${EXPECTED_CYCLES}")"
@@ -342,6 +360,7 @@ fi
     printf 'suite_assignment_sha256=%s\n' "${BRRS_SUITE_ASSIGNMENT_SHA256:-standalone}"
     printf 'configuration=%s\n' "${CONFIG}"
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
+    printf 'beacon_preamble_symbols=%s\n' "${BEACON_PREAMBLE}"
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'tail_us=%s\n' "${TAIL_US}"
     printf 'pac=%s\n' "${PAC}"

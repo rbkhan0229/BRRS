@@ -13,6 +13,7 @@ Usage:
   $(basename "$0") <environment> [distance] [options]
 
 Options:
+  --beacon-preamble <symbols> SYNC beacon preamble (default: 512).
   --lead <us>          RX lead margin (default: 15).
   --payload <bytes>    App payload size, 1-117 (default: 16). Sweeping this
                         across runs traces the Reed-Solomon block-boundary
@@ -56,6 +57,7 @@ CAPTURE_TIMEOUT=180
 CASE_RETRIES=5
 NO_BUILD=0
 FORCE=0
+BEACON_PREAMBLE=512
 
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
@@ -66,6 +68,7 @@ while (( $# > 0 )); do
     case "$1" in
         --lead) LEAD_US="$2"; shift 2 ;;
         --payload) PAYLOAD_BYTES="$2"; shift 2 ;;
+        --beacon-preamble) BEACON_PREAMBLE="$2"; shift 2 ;;
         --run-start) RUN_START="$2"; shift 2 ;;
         --repeats) REPEATS="$2"; shift 2 ;;
         --variants) VARIANT_SPEC="$2"; shift 2 ;;
@@ -88,6 +91,7 @@ done
     || { echo "lead must be between 0 and 1000 us" >&2; exit 2; }
 [[ "${PAYLOAD_BYTES}" =~ ^[0-9]+$ ]] && (( PAYLOAD_BYTES >= 1 && PAYLOAD_BYTES <= 117 )) \
     || { echo "payload must be between 1 and 117 bytes" >&2; exit 2; }
+case "${BEACON_PREAMBLE}" in 32|64|128|256|512|1024) ;; *) echo "beacon preamble must be 32, 64, 128, 256, 512, or 1024" >&2; exit 2 ;; esac
 for value in "${RUN_START}" "${REPEATS}" "${READY_TIMEOUT}" \
              "${CAPTURE_TIMEOUT}" "${CASE_RETRIES}"; do
     [[ "${value}" =~ ^[1-9][0-9]*$ ]] \
@@ -136,7 +140,7 @@ fi
 echo "EXP3_PAIR_ASSIGNMENT,tx=${TX_SERIAL},rx=${RX_SERIAL},lead_us=${LEAD_US}"
 
 if (( NO_BUILD == 0 )); then
-    "${SCRIPT_DIR}/brrs_exp3_build_all.sh" "${LEAD_US}" "${PAYLOAD_BYTES}"
+    "${SCRIPT_DIR}/brrs_exp3_build_all.sh" "${LEAD_US}" "${PAYLOAD_BYTES}" "${BEACON_PREAMBLE}"
 fi
 
 TX_PID=""
@@ -161,10 +165,12 @@ run_pair() {
     TX_CONSOLE="$(mktemp "${TMPDIR:-/tmp}/brrs-exp3-tx.XXXXXX")"
     tx_cmd=("${SCRIPT_DIR}/brrs_exp3_capture.sh" tx "${common[@]}"
         --lead "${LEAD_US}" --payload "${PAYLOAD_BYTES}"
+        --beacon-preamble "${BEACON_PREAMBLE}"
         --serial "${TX_SERIAL}" --no-build
         --timeout "${CAPTURE_TIMEOUT}")
     rx_cmd=("${SCRIPT_DIR}/brrs_exp3_capture.sh" rx "${common[@]}"
         --lead "${LEAD_US}" --payload "${PAYLOAD_BYTES}"
+        --beacon-preamble "${BEACON_PREAMBLE}"
         --serial "${RX_SERIAL}" --no-build
         --timeout "${CAPTURE_TIMEOUT}")
     if (( FORCE || attempt > 1 )); then

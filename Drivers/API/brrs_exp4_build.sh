@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--cycles <n>] [--sequence <digits>] [--spi-opt] [--irq] [--phy-profile] [--rx-path-profile] [--spim-start-end-profile] [--rx-error-diag] [--slotted-rx] [--phy-fast-switch] [--phy-fast-skip-pgf]"
+    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--beacon-preamble <32|64|128|256|512|1024>] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--cycles <n>] [--sequence <digits>] [--spi-opt] [--irq] [--phy-profile] [--rx-path-profile] [--spim-start-end-profile] [--rx-error-diag] [--slotted-rx] [--phy-fast-switch] [--phy-fast-skip-pgf]"
     echo "Example: $0 32 2 200 N3 15"
     echo "Example (custom slot schedule): $0 64 2 200 all 15 --sequence 2323232323232"
     echo
@@ -30,6 +30,7 @@ PHY_FAST_SKIP_PGF=0
 TARGET_CYCLES=1000
 SYNC_BUFFER_US=3000
 SYNC_PREP_US=2500
+BEACON_PREAMBLE=512
 ARGS=()
 while (( $# > 0 )); do
     case "$1" in
@@ -45,6 +46,9 @@ while (( $# > 0 )); do
         --sync-prep)
             (( $# >= 2 )) || { echo "--sync-prep requires a value" >&2; exit 2; }
             SYNC_PREP_US="$2"; shift 2 ;;
+        --beacon-preamble)
+            (( $# >= 2 )) || { echo "--beacon-preamble requires a value" >&2; exit 2; }
+            BEACON_PREAMBLE="$2"; shift 2 ;;
         --cycles)
             (( $# >= 2 )) || { echo "--cycles requires a value" >&2; exit 2; }
             TARGET_CYCLES="$2"; shift 2 ;;
@@ -79,6 +83,10 @@ lead_us="${5:-15}"
 case "${PAC}" in
     4|8) ;;
     *) echo "ERROR: pac must be 4 or 8" >&2; exit 2 ;;
+esac
+case "${BEACON_PREAMBLE}" in
+    32|64|128|256|512|1024) ;;
+    *) echo "ERROR: beacon preamble must be 32, 64, 128, 256, 512, or 1024 symbols" >&2; exit 2 ;;
 esac
 
 if [[ -n "${SEQUENCE}" ]]; then
@@ -167,6 +175,9 @@ project="${script_dir}/Build_Platforms/nRF52840-DK/dw3000_api.emProject"
 build_dir="${script_dir}/Build_Platforms/nRF52840-DK/Output/Debug/Exe"
 dest_dir="${build_dir}/exp4/plen${plen}_sensors${sensor_count}"
 dest_dir+="_sb${SYNC_BUFFER_US}_sp${SYNC_PREP_US}"
+if (( BEACON_PREAMBLE != 512 )); then
+    dest_dir+="_sync${BEACON_PREAMBLE}"
+fi
 if (( guard_us != 100 )); then
     dest_dir+="_guard${guard_us}"
 fi
@@ -273,7 +284,7 @@ build_image() {
     "${embuild}" \
         -threadnum "${EMBUILD_THREADS:-1}" \
         -sproperty "c_additional_options=-fmacro-prefix-map=/Users/songchieon/Desktop/DWM3000/DW3_QM33_SDK_1.0.2_vehicle_suite_fix_20260907=/Users/songchieon/Desktop/DWM3000/DW3_QM33_SDK_1.0.2_exp4_slotrx_ab_20260907" \
-        -sproperty "c_preprocessor_definitions=DEBUG;BRRS_EXPLICIT_PROFILE=1;BRRS_SLOT_GUARD_US=${guard_us};BRRS_RX_LEAD_MARGIN_US=${lead_us};BRRS_RX_PAC_SYMBOLS=${role_pac}${extra_defs}" \
+        -sproperty "c_preprocessor_definitions=DEBUG;BRRS_EXPLICIT_PROFILE=1;BRRS_SYNC_PREAMBLE_SYMBOLS=${BEACON_PREAMBLE};BRRS_SLOT_GUARD_US=${guard_us};BRRS_RX_LEAD_MARGIN_US=${lead_us};BRRS_RX_PAC_SYMBOLS=${role_pac}${extra_defs}" \
         -sproperty "macros=${macros}" \
         -config Debug \
         -project dw3000_api \
@@ -304,6 +315,7 @@ echo "RX lead: ${lead_us} us"
 echo "RX PAC: ${PAC}"
 echo "SYNC buffer: ${SYNC_BUFFER_US} us"
 echo "SYNC prep: ${SYNC_PREP_US} us"
+echo "SYNC beacon preamble: ${BEACON_PREAMBLE} symbols"
 echo "DATA budget: $((10000 - SYNC_BUFFER_US - SYNC_PREP_US)) us"
 echo "SPI mode: $((( SPI_OPT )) && echo persistent-burst || echo legacy-per-transaction)"
 echo "RX event: $((( IRQ_PENDING )) && echo gpio-irq-pending || echo fint-polling)"

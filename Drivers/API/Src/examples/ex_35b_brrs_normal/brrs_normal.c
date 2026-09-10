@@ -207,8 +207,25 @@ static void terminal_log_info(unsigned char *data)
 #define DATA_PAC        DWT_PAC8
 #define DATA_PAC_SYMBOLS 8U
 #endif
-#define SYNC_PLEN       DWT_PLEN_512
-#define SYNC_PREAMBLE_SYMBOLS 512
+#ifndef BRRS_SYNC_PREAMBLE_SYMBOLS
+#define BRRS_SYNC_PREAMBLE_SYMBOLS 512
+#endif
+#if BRRS_SYNC_PREAMBLE_SYMBOLS == 32
+#define SYNC_PLEN DWT_PLEN_32
+#elif BRRS_SYNC_PREAMBLE_SYMBOLS == 64
+#define SYNC_PLEN DWT_PLEN_64
+#elif BRRS_SYNC_PREAMBLE_SYMBOLS == 128
+#define SYNC_PLEN DWT_PLEN_128
+#elif BRRS_SYNC_PREAMBLE_SYMBOLS == 256
+#define SYNC_PLEN DWT_PLEN_256
+#elif BRRS_SYNC_PREAMBLE_SYMBOLS == 512
+#define SYNC_PLEN DWT_PLEN_512
+#elif BRRS_SYNC_PREAMBLE_SYMBOLS == 1024
+#define SYNC_PLEN DWT_PLEN_1024
+#else
+#error "BRRS_SYNC_PREAMBLE_SYMBOLS must be 32, 64, 128, 256, 512, or 1024"
+#endif
+#define SYNC_PREAMBLE_SYMBOLS BRRS_SYNC_PREAMBLE_SYMBOLS
 #define ENABLE_CIR      0
 #ifndef BRRS_TARGET_CYCLES
 #define BRRS_TARGET_CYCLES 1000
@@ -970,9 +987,10 @@ static void brrs_log_beacon_config(const brrs_beacon_config_t *config)
     owners[config->slot_count] = '\0';
 
     snprintf(line, sizeof(line),
-             "BRRS_BEACON_RX_CSV,version=%u,seq=%u,m=%u,data_psdu=%u,data_rate=%u,active_bitmap=0x%02X,slot_count=%u,slot_owners=%s,first_slot_rmarker_us=%u,slot_interval_us=%u,period_us=%u",
+             "BRRS_BEACON_RX_CSV,version=%u,seq=%u,sync_m=%u,m=%u,data_psdu=%u,data_rate=%u,active_bitmap=0x%02X,slot_count=%u,slot_owners=%s,first_slot_rmarker_us=%u,slot_interval_us=%u,period_us=%u",
              BRRS_PROTOCOL_VERSION, config->superframe_seq,
-             config->data_preamble_symbols, config->data_psdu_bytes,
+             SYNC_PREAMBLE_SYMBOLS, config->data_preamble_symbols,
+             config->data_psdu_bytes,
              config->data_rate, config->active_node_bitmap,
              config->slot_count, owners,
              config->first_slot_offset_us, config->slot_interval_us,
@@ -1277,9 +1295,10 @@ int brrs_normal(void)
     {
         static char cfg_msg[384];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "EXP4_TX_BOOT_CSV,%s,seq=%d,data_plen_source=beacon,default_m=%d,psdu_bytes=%d,app_payload_bytes=%d,superframe_us=%d,sync_buffer_us=%d,sync_prep_us=%d,data_budget_us=%d,sync_frame_us=%d,sync_rx_open_offset_us=%d,sync_rx_window_us=%d,final_timeout_us=%lu",
+                 "EXP4_TX_BOOT_CSV,%s,seq=%d,data_plen_source=beacon,default_m=%d,sync_plen=%d,psdu_bytes=%d,app_payload_bytes=%d,superframe_us=%d,sync_buffer_us=%d,sync_prep_us=%d,data_budget_us=%d,sync_frame_us=%d,sync_rx_open_offset_us=%d,sync_rx_window_us=%d,final_timeout_us=%lu",
                  APP_NAME, MY_NODE_SEQ,
-                 PREAMBLE_SYMBOLS, PSDU_BYTES, BRRS_APP_PAYLOAD_BYTES,
+                 PREAMBLE_SYMBOLS, SYNC_PREAMBLE_SYMBOLS,
+                 PSDU_BYTES, BRRS_APP_PAYLOAD_BYTES,
                  BRRS_SUPERFRAME_US,
                  SYNC_BUFFER_US, EXP4_SYNC_PREP_US, EXP4_SLOT_BUDGET_US,
                  SYNC_FRAME_US, BRRS_SUPERFRAME_US - SYNC_RX_EARLY_US,
@@ -1287,7 +1306,7 @@ int brrs_normal(void)
                  (unsigned long)BRRS_EXP4_FINAL_TIMEOUT_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=26,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,end_rx=immediate_wide_on_last_cycle,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,wait_budget=first_owned_delayed_tx_arm,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=27,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,end_rx=immediate_wide_on_last_cycle,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,wait_budget=first_owned_delayed_tx_arm,timing_metric=uwb_signed_slot_error");
     }
 #endif
 

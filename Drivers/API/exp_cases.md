@@ -40,7 +40,7 @@ M32만5번 연속 측정한 뒤 M256을 측정하는 시간 편향을 피할 수
 | 항목 | 현재 값 |
 |---|---|
 | 슈퍼프레임 | 10,000 us |
-| 비컨 프리앰블 | M512, 코드에 고정 |
+| 비컨 프리앰블 | 기본 M512; Stage0~Exp5 직접 실행은 `--beacon-preamble`로 M32/64/128/256/512/1024 선택 가능 |
 | DATA payload | application 16 B, 전체 PSDU 26 B |
 | DATA 프리앰블 | M32, M64, M128, M256 |
 | PAC | PAC4, PAC8 |
@@ -256,7 +256,7 @@ S6에서는 여섯 물리 TX가 모두 활성이고, 공통6슬롯과 PHY별 포
 - Stage0 후보의 Exp4 S6/K6 네트워크 확인;
 - SB 후보 탐색, SP 후보 탐색, guard 후보 탐색;
 - 사람 통행, 케이블 접촉, 수집 실패 등 명시적으로 오염된 case의 대체 측정;
-- 현재 manifest에 없는 PHY/비컨 조건.
+- 현재 manifest에 없는 PHY/비컨 조건(Exp4 직접 탐색에서는 CLI로 실행 가능).
 
 따라서999를 내일의 실행 횟수로 사용하면 안 된다. 캘리브레이션 뒤 시간 예산에 맞는
 핵심 검증 block을 사전 확정해야 한다.
@@ -267,12 +267,12 @@ S6에서는 여섯 물리 TX가 모두 활성이고, 공통6슬롯과 PHY별 포
 한 번씩 수행하고 block2로 돌아간다. 이 방식은 시간, 차량 온도, 배터리/USB 상태,
 주변 통행이 특정 조건에만 몰리는 것을 줄인다.
 
-다만 Stage0, lead 네트워크 확인, SB/SP/guard 탐색은 뒤 실험의 설정을 결정하므로
+다만 Stage0, lead 네트워크 확인, SB/SP/guard/최대 K 탐색은 뒤 실험의 설정을 결정하므로
 Exp1~Exp5와 섞지 않는다. 순서는 다음과 같다.
 
 1. 6링크 사전 점검;
 2. Stage0 및6링크 lead 확인;
-3. SB -> SP -> guard 탐색과 최종 조합 재검증;
+3. SB -> SP -> guard를 한 축씩 탐색하고, 매 결과에서 다음 K를 다시 계산하여 최대 K 확인;
 4. 최종 manifest/펌웨어 동결;
 5. Exp1~Exp5를 stage별 block 방식으로 반복.
 
@@ -287,13 +287,19 @@ Exp1~Exp5와 섞지 않는다. 순서는 다음과 같다.
 | 모드 | 용도 | 실행 방법 | 결과의 지위 |
 |---|---|---|---|
 | quick exploration | 즉흥적인 아이디어 한두 번 확인 | 기존 저수준 capture/batch 명령과 CLI 옵션 | 진단 자료, 논문 통계에 바로 합산하지 않음 |
-| screening | lead/SB/SP/guard 후보를 한 번씩 비교 | 후보 목록을 순환 실행하고 raw log 보존 | 최종 후보 선정 자료 |
+| screening | lead/SB/SP/guard/K 후보를 한 번씩 비교 | 저수준 실행기로 한 case씩 적응 실행하고 raw log 보존 | 최종 후보 선정 자료 |
 | paper validation | 확정 조건의 반복·회전 검증 | 동결 manifest와 immutable case bundle | 논문용 공식 증거 |
 
 따라서 “궁금한 조건 하나를 한 번 확인”할 때마다 완전한 paper manifest를 만들 필요는 없다.
 이미 지원되는 옵션이면 내가 저수준 실행기로 한 case만 빌드·플래시·수집·검증하면 된다.
 이때도 최소한 보드 serial 확인, 고유 로그 경로, 기존 로그 비덮어쓰기, 양쪽 설정 일치,
 raw 로그 보존은 유지한다. 이 정도는 결과 혼동과 잘못된 보드 플래시를 막기 위한 최소 절차다.
+
+차량 현장의 SB/SP/guard/K 탐색은 앞 결과가 다음 값을 결정하므로 고정 manifest를 미리
+만들지 않는다. 내가 `brrs_exp4_capture.sh`와 `brrs_exp4_multi_tx.sh`의 CLI 인자를
+case마다 명시하여 직접 실행한다. 각 실행 뒤 timing margin, 시스템 오류, 보드별 PER를
+보고 다음 값과 슬롯 sequence를 정한다. `--force`로 좋은 결과만 덮어쓰지 않고 run 번호와
+고유 로그 디렉터리를 사용한다.
 
 탐색 결과가 의미 있어 반복하거나 논문에 사용할 가능성이 생기면 그때 manifest 조건으로
 승격한다. 즉 **먼저 빠르게 탐색하고, 채택할 때 엄격하게 동결**한다.
@@ -311,9 +317,25 @@ PAC4/8, guard, SB, SP, cycles, 슬롯 수/sequence, slotted-RX, SPI 최적화 �
 CLI 인자만 바꿔 바로 실행할 수 있다. 여러 번 반복하거나 공식화할 때 manifest 값으로
 새 case를 만든다.
 
+비컨 프리앰블은 이제 Stage0~Exp5의 직접 실행기와 통합 실행기에서 정식
+`--beacon-preamble` 옵션이다. 기본값은 M512이고 M32/64/128/256/512/1024를 받을 수
+있다. INIT와 sensor에 같은 compile-time 값을 전달하고, 비컨 airtime/RX window 계산도
+그 값으로 다시 계산한다. 비기본 값은 `_sync<M>` 로그 경로로 격리되고 각 정적 이미지의
+build stamp가 `--no-build` 오사용을 막는다. `EXP_LOG_CONFIG_CSV`,
+`BRRS_BEACON_*_CSV` 및 각 verifier가 양쪽의 실제 값을 확인한다. Exp4는 조건별 이미지
+cache도 `_sync<M>`로 분리한다. 예시는 다음과 같다.
+
+```bash
+./brrs_exp4_capture.sh init 256 6 1 vehicle 0 \
+  --beacon-preamble 256 --sync-buffer 1703 --sync-prep 2002 \
+  --guard 200 --lead 15 --pac 8 --spi-opt --phy-fast-switch
+```
+
+현재 paper manifest의 공식 비컨 값은 여전히 M512다. 탐색에서 다른 값이 채택되기 전에는
+manifest case를 바꾸거나 공식 결과와 합산하지 않는다.
+
 요청한 값이 현재 case schema와 빌드 옵션에 없으면 단순히 명령 한 줄만 바꾸지 않는다.
-예를 들어 **비컨 프리앰블은 현재 INIT와 sensor 펌웨어에서 M512로 고정**되어 있고
-CLI 옵션이 없다. M256 비컨 같은 조건을 요구하면 다음을 함께 수정해야 한다.
+새 축을 추가할 때는 다음을 함께 수정한다.
 
 - INIT/sensor의 공통 비컨 PHY 설정;
 - frame airtime과 RX window/timing 계산;
@@ -321,11 +343,6 @@ CLI 옵션이 없다. M256 비컨 같은 조건을 요구하면 다음을 함께
 - manifest 조건, case ID와 hash;
 - 부팅/config 로그와 verifier;
 - 양쪽 보드가 같은 비컨 PHY를 쓰는지 확인하는 테스트.
-
-비컨 크기처럼 아직 옵션이 아닌 값을 딱 한 번 탐색하는 경우에도 canonical 기본값을
-직접 덮어쓰지는 않는다. 별도 compile-time flag/브랜치로 탐색 이미지를 만들고 로그에
-`exploratory`라고 표시한다. 같은 축을 다시 사용할 가능성이 있거나 결과를 채택하려면
-한 번 정식 `--beacon-preamble` 옵션으로 연결해 이후 실행은 빠르게 만든다.
 
 즉 현재 방식은 “항상 소스를 임시 수정해 명령을 하나씩 실행”하는 방식도 아니고,
 “모든 즉흥 실험에 논문용 절차를 강제”하는 방식도 아니다. **기존 옵션은 빠른 직접 실행,

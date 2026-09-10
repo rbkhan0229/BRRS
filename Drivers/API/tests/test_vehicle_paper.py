@@ -131,6 +131,27 @@ class PaperTests(unittest.TestCase):
         r=subprocess.run(cmd,capture_output=True,text=True)
         self.assertEqual(r.returncode,0,r.stderr);self.assertIn('--serial 1050282818',r.stdout)
 
+    def test_unified_runner_propagates_beacon_preamble_to_every_stage(self):
+        cases = {
+            'stage0': ['rx','TEST_ONLY','--leads','15'],
+            'exp1': ['rx','TEST_ONLY','--preambles','32','--pac','8'],
+            'exp2': ['rx','TEST_ONLY','--preambles','32'],
+            'exp3': ['rx','TEST_ONLY'],
+            'exp4': ['init','TEST_ONLY','--sensors','1','--preambles','32'],
+            'exp5': ['rx','TEST_ONLY'],
+        }
+        for stage, tail in cases.items():
+            with self.subTest(stage=stage):
+                cmd=['bash',str(API/'brrs_run_experiment.sh'),stage,*tail,
+                     '--beacon-preamble','256','--dry-run']
+                r=subprocess.run(cmd,capture_output=True,text=True)
+                self.assertEqual(r.returncode,0,r.stderr)
+                command_lines=[line for line in r.stdout.splitlines()
+                               if 'brrs_' in line and '_capture.sh' in line]
+                self.assertTrue(command_lines,r.stdout)
+                self.assertTrue(all('--beacon-preamble 256' in line
+                                    for line in command_lines),r.stdout)
+
     def test_all_connected_probes_checked_while_subset_active(self):
         c=copy.deepcopy(next(c for c in self.exp4 if c['conditions']['sensors']==2));c['boards']=self.m['boards']
         actual=[SimpleNamespace(SerialNumber=int(self.m['boards'][r]['serial'])) for r in ['N7','N3','N6','N2','N5','N4']]
@@ -244,6 +265,39 @@ class PaperTests(unittest.TestCase):
         bad=[line.replace(',final_timeout_us=5000000','') for line in lines]
         with self.assertRaises(exp4_verify.VerificationError):
             exp4_verify.verify_sensor(bad,32,6,2,250,3000,2500,'2345672345673')
+
+    def test_nondefault_beacon_preamble_is_runtime_verified(self):
+        init_lines=(FIXTURES/'exp4_init.txt').read_text().splitlines()
+        init_lines=[line.replace(',m=32,',',sync_m=256,m=32,')
+                    if line.startswith('BRRS_BEACON_CONFIG_CSV,') else line
+                    for line in init_lines]
+        init_detail=exp4_verify.verify_init(
+            init_lines,32,6,250,25,4,3000,2500,100,
+            '2345672345673',spi_opt=True,slotted_rx=True,
+            beacon_preamble=256)
+        self.assertIn('rx=12857/13000',init_detail)
+        with self.assertRaises(exp4_verify.VerificationError):
+            exp4_verify.verify_init(
+                init_lines,32,6,250,25,4,3000,2500,100,
+                '2345672345673',spi_opt=True,slotted_rx=True,
+                beacon_preamble=512)
+
+        lines=(FIXTURES/'exp4_N2.txt').read_text().splitlines()
+        lines=[line.replace('rev=25','rev=27') for line in lines]
+        lines=[line+',sync_plen=256,final_timeout_us=5000000'
+               if line.startswith('EXP4_TX_BOOT_CSV,') else line
+               for line in lines]
+        lines=[line.replace(',m=32,',',sync_m=256,m=32,')
+               if line.startswith('BRRS_BEACON_RX_CSV,') else line
+               for line in lines]
+        detail=exp4_verify.verify_sensor(
+            lines,32,6,2,250,3000,2500,'2345672345673',
+            beacon_preamble=256)
+        self.assertIn('beacon_loss=0/1000',detail)
+        with self.assertRaises(exp4_verify.VerificationError):
+            exp4_verify.verify_sensor(
+                lines,32,6,2,250,3000,2500,'2345672345673',
+                beacon_preamble=512)
 
     def test_missing_or_unreliable_grid_does_not_select(self):
         r=self.grid_report();r['groups'][0]['status']='INCOMPLETE'

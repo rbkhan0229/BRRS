@@ -19,6 +19,8 @@ Options:
   --pac <4|8>               Coordinator DATA RX PAC size (default: 8).
   --sync-buffer <us>        SYNC-to-first-DATA budget (default: 3000).
   --sync-prep <us>          DATA-to-next-SYNC reserve (default: 2500).
+  --beacon-preamble <symbols>
+                            SYNC beacon preamble (default: 512).
   --cycles <n>              Superframes to collect (default: 1000).
   --max-per-percent <n>     Recorded verifier PER ceiling (default: 5.0).
   --sequence <digits>       Custom per-slot owner schedule, e.g. 232323.
@@ -81,6 +83,7 @@ PHY_FAST_SKIP_PGF=0
 TARGET_CYCLES=1000
 SYNC_BUFFER_US=3000
 SYNC_PREP_US=2500
+BEACON_PREAMBLE=512
 MAX_PER_PERCENT=5.0
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
@@ -103,6 +106,9 @@ while (( $# > 0 )); do
         --sync-prep)
             (( $# >= 2 )) || { echo "--sync-prep requires a value" >&2; exit 2; }
             SYNC_PREP_US="$2"; shift 2 ;;
+        --beacon-preamble)
+            (( $# >= 2 )) || { echo "--beacon-preamble requires a value" >&2; exit 2; }
+            BEACON_PREAMBLE="$2"; shift 2 ;;
         --cycles)
             (( $# >= 2 )) || { echo "--cycles requires a value" >&2; exit 2; }
             TARGET_CYCLES="$2"; shift 2 ;;
@@ -156,6 +162,10 @@ fi
 case "${PAC}" in
     4|8) ;;
     *) echo "pac must be 4 or 8" >&2; exit 2 ;;
+esac
+case "${BEACON_PREAMBLE}" in
+    32|64|128|256|512|1024) ;;
+    *) echo "beacon preamble must be 32, 64, 128, 256, 512, or 1024" >&2; exit 2 ;;
 esac
 if [[ -n "${SEQUENCE}" ]]; then
     [[ "${SEQUENCE}" =~ ^[2-8]+$ ]] \
@@ -226,6 +236,7 @@ OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${L
 if [[ -n "${SEQUENCE}" ]]; then
     OUTDIR="${SDK_ROOT}/../logs/exp4_${ENVIRONMENT}${DISTANCE_TAG}_g${GUARD_US}_l${LEAD_US}_pac${PAC}_sb${SYNC_BUFFER_US}_sp${SYNC_PREP_US}_seq${SEQUENCE}_${DATE_TAG}"
 fi
+OUTDIR+="_sync${BEACON_PREAMBLE}"
 if (( SPI_OPT )); then
     OUTDIR+="_spiopt"
 fi
@@ -276,18 +287,18 @@ exec > >(tee -a "${ORCHESTRATOR_LOG}") 2>&1
 
 ROTATION=$(( (RUN_NUMBER - 1) % SENSOR_COUNT ))
 [[ -z "${BOARD_MAP}" ]] || ROTATION=0
-echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us / PAC ${PAC} / sync ${SYNC_BUFFER_US}+${SYNC_PREP_US} us / cycles ${TARGET_CYCLES}"
+echo "[multi-tx] Exp4 ${PREAMBLE} sym / S${SENSOR_COUNT} / run ${RUN_NUMBER} / lead ${LEAD_US} us / PAC ${PAC} / sync ${SYNC_BUFFER_US}+${SYNC_PREP_US} us / beacon M${BEACON_PREAMBLE} / cycles ${TARGET_CYCLES}"
 echo "[multi-tx] slot sequence: ${SEQUENCE:-default-round-robin}"
 echo "[multi-tx] RX error diagnostics: $((( RX_ERROR_DIAG )) && echo enabled-on-init || echo disabled)"
 echo "[multi-tx] probe source: $([[ -z "${PROBE_SERIALS}" ]] && echo auto-discovery || echo diagnostic-override)"
 echo "[multi-tx] cyclic rotation: ${ROTATION}"
-printf 'run,preamble_symbols,sensor_count,sync_buffer_us,sync_prep_us,rotation,role,serial\n' >"${ASSIGNMENT_FILE}"
+printf 'run,preamble_symbols,beacon_preamble_symbols,sensor_count,sync_buffer_us,sync_prep_us,rotation,role,serial\n' >"${ASSIGNMENT_FILE}"
 for (( index=0; index<SENSOR_COUNT; index++ )); do
     role="${ROLES[index]}"
     serial="${SERIALS[index]}"
     echo "EXP4_PROBE_ASSIGNMENT_CSV,run=${RUN_NUMBER},rotation=${ROTATION},role=${role},serial=${serial}"
-    printf '%s,%s,%s,%s,%s,%s,%s,%s\n' \
-        "${RUN_NUMBER}" "${PREAMBLE}" "${SENSOR_COUNT}" \
+    printf '%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+        "${RUN_NUMBER}" "${PREAMBLE}" "${BEACON_PREAMBLE}" "${SENSOR_COUNT}" \
         "${SYNC_BUFFER_US}" "${SYNC_PREP_US}" "${ROTATION}" \
         "${role}" "${serial}" >>"${ASSIGNMENT_FILE}"
 done
@@ -296,7 +307,7 @@ if (( NO_BUILD == 0 )); then
     echo "[build] preparing every TX role once"
     BUILD_ARGS=("${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" tx "${LEAD_US}"
         --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}"
-        --cycles "${TARGET_CYCLES}")
+        --beacon-preamble "${BEACON_PREAMBLE}" --cycles "${TARGET_CYCLES}")
     [[ -n "${SEQUENCE}" ]] && BUILD_ARGS+=(--sequence "${SEQUENCE}")
     (( SLOTTED_RX == 0 )) || BUILD_ARGS+=(--slotted-rx)
     (( SPI_OPT == 0 )) || BUILD_ARGS+=(--spi-opt)
@@ -350,6 +361,7 @@ for (( index=0; index<SENSOR_COUNT; index++ )); do
     [[ "${DISTANCE}" == "na" ]] || command+=("${DISTANCE}")
     command+=(--guard "${GUARD_US}" --lead "${LEAD_US}" --pac "${PAC}"
         --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}"
+        --beacon-preamble "${BEACON_PREAMBLE}"
         --cycles "${TARGET_CYCLES}"
         --max-per-percent "${MAX_PER_PERCENT}"
         --serial "${serial}" --timeout "${TIMEOUT}" --no-build)

@@ -39,6 +39,7 @@ Usage:
   $(basename "$0") <tx|rx> <run> <environment> [distance] [options]
 
 Options:
+  --beacon-preamble <symbols> SYNC beacon preamble (default: 512).
   --lead <us>                RX lead margin (default: 15).
   --serial <S/N>             Select a J-Link when multiple probes are attached.
   --build-only              Build/resolve images without board access.
@@ -61,11 +62,12 @@ fi
 
 ROLE="${1:?role tx|rx}"; RUN_NUMBER="${2:?run}"
 ENVIRONMENT="${3:?environment}"; shift 3
-DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="${BRRS_EXP2_CAPTURE_METHOD:-pylink}"; FORCE=0; LEAD_US=15
+DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="${BRRS_EXP2_CAPTURE_METHOD:-pylink}"; FORCE=0; LEAD_US=15; BEACON_PREAMBLE=512
 if (( $# > 0 )) && [[ "${1}" != --* ]]; then DISTANCE="$1"; shift; fi
 while (( $# > 0 )); do
     case "$1" in
         --lead)   (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }; LEAD_US="$2"; shift 2 ;;
+        --beacon-preamble) (( $# >= 2 )) || { echo "--beacon-preamble requires a value" >&2; exit 2; }; BEACON_PREAMBLE="$2"; shift 2 ;;
         --serial) (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }; SERIAL="$2"; shift 2 ;;
         --build-only) BUILD_ONLY=1; shift ;;
         --no-build) NO_BUILD=1; shift ;;
@@ -80,6 +82,7 @@ done
     || { echo "run must be a positive integer" >&2; exit 2; }
 [[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
     || { echo "lead must be between 0 and 1000 us" >&2; exit 2; }
+case "${BEACON_PREAMBLE}" in 32|64|128|256|512|1024) ;; *) echo "beacon preamble must be 32, 64, 128, 256, 512, or 1024" >&2; exit 2 ;; esac
 case "${METHOD}" in
     pylink|telnet) ;;
     *) echo "method must be pylink or telnet" >&2; exit 2 ;;
@@ -100,10 +103,12 @@ esac
 HEX_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.hex"
 ELF_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.elf"
 LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
+BEACON_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_sync_preamble_symbols"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
 OUTDIR="${SDK_ROOT}/../logs/exp5_${ENVIRONMENT}${DISTANCE_TAG}_${DATE_TAG}"
+if (( BEACON_PREAMBLE != 512 )); then OUTDIR+="_sync${BEACON_PREAMBLE}"; fi
 if [[ -n "${BRRS_SUITE_CASE_ID:-}" ]]; then
     [[ "${BRRS_SUITE_CASE_ID}" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Invalid suite case ID" >&2; exit 2; }
     OUTDIR+="/${BRRS_SUITE_CASE_ID}"
@@ -174,20 +179,26 @@ fi
 if (( NO_BUILD == 0 )); then
     echo "[build] ${CONFIG}"
     BUILD_ARGS=(-threadnum "${EMBUILD_THREADS:-1}")
+    DEFS="DEBUG;BRRS_SYNC_PREAMBLE_SYMBOLS=${BEACON_PREAMBLE}"
     if [[ "${ROLE}" == "rx" ]]; then
-        DEFS="DEBUG;BRRS_TARGET_CYCLES=${EXPECTED_SAMPLES}"
+        DEFS+=";BRRS_TARGET_CYCLES=${EXPECTED_SAMPLES}"
         DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
-        BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     fi
+    BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
     "${EMBUILD}" "${BUILD_ARGS[@]}" >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
     if [[ "${ROLE}" == "rx" ]]; then
         printf '%s\n' "${LEAD_US}" >"${LEAD_STAMP}"
     fi
+    printf '%s\n' "${BEACON_PREAMBLE}" >"${BEACON_STAMP}"
 fi
 [[ -f "${HEX_FILE}" && -f "${ELF_FILE}" ]] \
     || { echo "firmware image missing" >&2; exit 1; }
+if (( NO_BUILD == 1 )); then
+    [[ -f "${BEACON_STAMP}" && "$(<"${BEACON_STAMP}")" == "${BEACON_PREAMBLE}" ]] \
+        || { echo "cached ${CONFIG} beacon preamble mismatch" >&2; exit 1; }
+fi
 if (( NO_BUILD == 1 )) && [[ "${ROLE}" == "rx" ]]; then
     [[ -f "${LEAD_STAMP}" && "$(<"${LEAD_STAMP}")" == "${LEAD_US}" ]] \
         || { echo "cached ${CONFIG} was not built with lead ${LEAD_US} us" >&2; exit 1; }
@@ -334,7 +345,7 @@ if (( CAPTURE_RC != 0 )); then
     exit "${CAPTURE_RC}"
 fi
 if [[ "${ROLE}" == "rx" ]]; then
-    if ! grep -Fxq "EXP_LOG_CONFIG_CSV,experiment=5,plen=${PREAMBLE},lead_us=${LEAD_US},tail_us=0,target=1000,cir=1" "${RAW_LOG}"; then
+    if ! grep -Fxq "EXP_LOG_CONFIG_CSV,experiment=5,plen=${PREAMBLE},sync_plen=${BEACON_PREAMBLE},lead_us=${LEAD_US},tail_us=0,target=1000,cir=1" "${RAW_LOG}"; then
         echo "[verify] FAIL: firmware did not report requested lead ${LEAD_US} us" >&2
         exit 3
     fi
@@ -555,6 +566,7 @@ EOF
           TX_END != 1 )) ||
        [[ "${TX_COLLECTION}" != "PASS" ||
           "${TX_STATUS}" != "PASS" ||
+          "${BEACON_LINE}" != *"sync_m=${BEACON_PREAMBLE},"* ||
           "${BEACON_LINE}" != *"m=${PREAMBLE},"* ]]; then
         echo "[verify] FAIL: inconsistent EXP2 TX collection: ${TX_DONE_LINE}" >&2
         exit 3
@@ -593,6 +605,7 @@ fi
     printf 'suite_assignment_sha256=%s\n' "${BRRS_SUITE_ASSIGNMENT_SHA256:-standalone}"
     printf 'configuration=%s\n' "${CONFIG}"
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
+    printf 'beacon_preamble_symbols=%s\n' "${BEACON_PREAMBLE}"
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"

@@ -247,7 +247,7 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
                 irq_pending=False, expected_cycles=1000,
                 phy_fast=False, phy_fast_skip_pgf=False,
                 rx_path_profile=False, spim_start_end_profile=False,
-                rx_error_diag=False, slotted_rx=False):
+                rx_error_diag=False, slotted_rx=False, beacon_preamble=512):
     slot_count = len(sequence) if sequence is not None else sensors
     expected = expected_cycles * slot_count
 
@@ -293,6 +293,11 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
         lines, "coordinator", phy_fast, phy_fast_skip_pgf)
 
     beacon = key_values(last_line(lines, "BRRS_BEACON_CONFIG_CSV,"))
+    if "sync_m" in beacon:
+        require(beacon, "sync_m", beacon_preamble)
+        require(config, "sync_plen", beacon_preamble)
+    elif beacon_preamble != 512:
+        fail("non-default beacon preamble requires runtime sync_m evidence")
     require(beacon, "m", preamble)
     require(beacon, "data_psdu", 26)
     require(beacon, "period_us", 10000)
@@ -694,7 +699,8 @@ def verify_init(lines, preamble, sensors, expected_guard, expected_lead,
 def verify_sensor(lines, preamble, sensors, node, expected_guard,
                   expected_sync_buffer, expected_sync_prep,
                   sequence=None, expected_cycles=1000,
-                  phy_fast=False, phy_fast_skip_pgf=False):
+                  phy_fast=False, phy_fast_skip_pgf=False,
+                  beacon_preamble=512):
     node_slots = sequence.count(str(node)) if sequence is not None else 1
     revision = verify_revision(lines, "EXP4_TX_FIRMWARE_REV,")
     verify_phy_fast_self_test(
@@ -708,6 +714,8 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard,
             10000 - expected_sync_buffer - expected_sync_prep)
     if integer(revision, "rev") >= 26:
         require(boot, "final_timeout_us", 5000000)
+    if integer(revision, "rev") >= 27:
+        require(boot, "sync_plen", beacon_preamble)
 
     result = csv_fields(last_line(lines, "EXP4_TX_RESULT_CSV,"))
     if len(result) != 12:
@@ -750,6 +758,8 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard,
     require(done, "status", "PASS")
 
     beacon = key_values(last_line(lines, "BRRS_BEACON_RX_CSV,"))
+    if integer(revision, "rev") >= 27:
+        require(beacon, "sync_m", beacon_preamble)
     require(beacon, "m", preamble)
     require(beacon, "data_psdu", 26)
     slot_count = len(sequence) if sequence is not None else sensors
@@ -825,6 +835,9 @@ def main():
     parser.add_argument("--role", required=True, choices=("init", "sensor"))
     parser.add_argument("--preamble", required=True, type=int,
                         choices=(32, 64, 128, 256))
+    parser.add_argument("--beacon-preamble", type=int, default=512,
+                        choices=(32, 64, 128, 256, 512, 1024),
+                        help="Expected SYNC beacon preamble (default: 512).")
     parser.add_argument("--sensors", required=True, type=int,
                         choices=range(1, 8))
     parser.add_argument("--node", type=int, choices=range(2, 9))
@@ -904,13 +917,15 @@ def main():
                                  args.phy_fast_skip_pgf,
                                  args.rx_path_profile,
                                  args.spim_start_end_profile,
-                                 args.rx_error_diag, args.slotted_rx)
+                                 args.rx_error_diag, args.slotted_rx,
+                                 beacon_preamble=args.beacon_preamble)
         else:
             detail = verify_sensor(lines, args.preamble, args.sensors,
                                    args.node, args.guard, args.sync_buffer,
                                    args.sync_prep, args.sequence, args.cycles,
                                    args.phy_fast_switch,
-                                   args.phy_fast_skip_pgf)
+                                   args.phy_fast_skip_pgf,
+                                   beacon_preamble=args.beacon_preamble)
     except (OSError, ValueError, VerificationError) as exc:
         print(f"[verify] FAIL: {exc}", file=sys.stderr)
         return 3

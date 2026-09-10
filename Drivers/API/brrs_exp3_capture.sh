@@ -17,6 +17,8 @@ Usage:
   $(basename "$0") <tx|rx> <A|B|C> <run> <environment> [distance] [options]
 
 Options:
+  --beacon-preamble <symbols>
+                       SYNC beacon preamble (default: 512).
   --lead <us>          RX lead margin (default: 15).
   --payload <bytes>    App payload size, 1-117 (default: 16). Both tx and rx
                         must use the same value. Sweeping this traces the
@@ -57,6 +59,7 @@ TIMEOUT=120
 FORCE=0
 LEAD_US=15
 PAYLOAD_BYTES=16
+BEACON_PREAMBLE=512
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
     shift
@@ -65,6 +68,7 @@ while (( $# > 0 )); do
     case "$1" in
         --lead) (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }; LEAD_US="$2"; shift 2 ;;
         --payload) (( $# >= 2 )) || { echo "--payload requires a value" >&2; exit 2; }; PAYLOAD_BYTES="$2"; shift 2 ;;
+        --beacon-preamble) (( $# >= 2 )) || { echo "--beacon-preamble requires a value" >&2; exit 2; }; BEACON_PREAMBLE="$2"; shift 2 ;;
         --serial) (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }; SERIAL="$2"; shift 2 ;;
         --build-only) BUILD_ONLY=1; shift ;;
         --no-build) NO_BUILD=1; shift ;;
@@ -104,16 +108,19 @@ esac
     || { echo "timeout must be a positive integer" >&2; exit 2; }
 [[ "${LEAD_US}" =~ ^[0-9]+$ ]] && (( LEAD_US <= 1000 )) \
     || { echo "lead must be between 0 and 1000 us" >&2; exit 2; }
+case "${BEACON_PREAMBLE}" in 32|64|128|256|512|1024) ;; *) echo "beacon preamble must be 32, 64, 128, 256, 512, or 1024" >&2; exit 2 ;; esac
 
 CONFIG="Exp3_${VARIANT}_${ROLE_NAME}"
 HEX_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.hex"
 ELF_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.elf"
 LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
 PAYLOAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_app_payload_bytes"
+BEACON_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_sync_preamble_symbols"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
 OUTDIR="${SDK_ROOT}/../logs/exp3_${ENVIRONMENT}${DISTANCE_TAG}_${DATE_TAG}"
+if (( BEACON_PREAMBLE != 512 )); then OUTDIR+="_sync${BEACON_PREAMBLE}"; fi
 if [[ -n "${BRRS_SUITE_CASE_ID:-}" ]]; then
     [[ "${BRRS_SUITE_CASE_ID}" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Invalid suite case ID" >&2; exit 2; }
     OUTDIR+="/${BRRS_SUITE_CASE_ID}"
@@ -180,6 +187,7 @@ echo "[${ROLE_NAME}] Experiment 3 ${VARIANT}: SFD${SFD_SYMBOLS}, ${PHR_RATE} PHR
 echo "  Configuration: ${CONFIG}"
 echo "  RX lead:       ${LEAD_US} us"
 echo "  App payload:   ${PAYLOAD_BYTES} bytes (PSDU ${PSDU_BYTES} bytes)"
+echo "  SYNC preamble: ${BEACON_PREAMBLE} symbols"
 echo "  Run:           ${RUN_NUMBER}"
 echo "  Environment:   ${ENVIRONMENT}"
 echo "  Distance:      ${DISTANCE}"
@@ -191,7 +199,7 @@ if (( NO_BUILD == 0 )); then
     # -sproperty replaces the whole c_preprocessor_definitions value (it does
     # not append to the static per-config baseline), so every macro this
     # build needs must be listed here.
-    DEFS="DEBUG;BRRS_TARGET_CYCLES=1000;BRRS_APP_PAYLOAD_BYTES=${PAYLOAD_BYTES}"
+    DEFS="DEBUG;BRRS_TARGET_CYCLES=1000;BRRS_APP_PAYLOAD_BYTES=${PAYLOAD_BYTES};BRRS_SYNC_PREAMBLE_SYMBOLS=${BEACON_PREAMBLE}"
     if [[ "${ROLE}" == "rx" ]]; then
         DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US}"
     fi
@@ -203,6 +211,7 @@ if (( NO_BUILD == 0 )); then
         printf '%s\n' "${LEAD_US}" >"${LEAD_STAMP}"
     fi
     printf '%s\n' "${PAYLOAD_BYTES}" >"${PAYLOAD_STAMP}"
+    printf '%s\n' "${BEACON_PREAMBLE}" >"${BEACON_STAMP}"
 fi
 [[ -f "${HEX_FILE}" && -f "${ELF_FILE}" ]] \
     || { echo "firmware image missing for ${CONFIG}" >&2; exit 1; }
@@ -213,6 +222,8 @@ fi
 if (( NO_BUILD == 1 )); then
     [[ -f "${PAYLOAD_STAMP}" && "$(<"${PAYLOAD_STAMP}")" == "${PAYLOAD_BYTES}" ]] \
         || { echo "cached ${CONFIG} was not built with payload ${PAYLOAD_BYTES} bytes" >&2; exit 1; }
+    [[ -f "${BEACON_STAMP}" && "$(<"${BEACON_STAMP}")" == "${BEACON_PREAMBLE}" ]] \
+        || { echo "cached ${CONFIG} beacon preamble mismatch" >&2; exit 1; }
 fi
 
 RTT_SYMBOL="$("${ARM_NM}" -n "${ELF_FILE}" \
@@ -237,6 +248,9 @@ PYLINK_ARGS=(
 "${PYLINK_ARGS[@]}"
 
 if [[ "${ROLE}" == "tx" ]]; then
+    BEACON_LINE="$(grep 'BRRS_BEACON_RX_CSV,' "${RAW_LOG}" | tail -1 || true)"
+    [[ "${BEACON_LINE}" == *"sync_m=${BEACON_PREAMBLE},"* ]] \
+        || { echo "[verify] FAIL: TX beacon preamble mismatch" >&2; exit 3; }
     CSV_ROWS="$(grep -c '^EXP3_TX_CSV,' "${RAW_LOG}" || true)"
     RESULT_LINE="$(grep '^EXP3_TX_RESULT,' "${RAW_LOG}" | tail -1 || true)"
     DUMP_LINE="$(grep '^EXP3_TX_DUMP_DONE,' "${RAW_LOG}" | tail -1 || true)"
@@ -289,7 +303,7 @@ EOF
     fi
     DETAIL="collection=PASS; captures=${CAPTURES}/1000; variant=${VARIANT}; SFD=${SFD_SYMBOLS}; PHR=${PHR_RATE}; psdu=${PSDU_BYTES}B"
 else
-    if ! grep -Fxq "EXP_LOG_CONFIG_CSV,experiment=3,plen=32,lead_us=${LEAD_US},tail_us=0,target=1000,cir=0" "${RAW_LOG}"; then
+    if ! grep -Fxq "EXP_LOG_CONFIG_CSV,experiment=3,plen=32,sync_plen=${BEACON_PREAMBLE},lead_us=${LEAD_US},tail_us=0,target=1000,cir=0" "${RAW_LOG}"; then
         echo "[verify] FAIL: firmware did not report requested lead ${LEAD_US} us" >&2
         exit 3
     fi
@@ -362,6 +376,7 @@ fi
     printf 'phr_rate=%s\n' "${PHR_RATE}"
     printf 'app_payload_bytes=%s\n' "${PAYLOAD_BYTES}"
     printf 'psdu_bytes=%s\n' "${PSDU_BYTES}"
+    printf 'beacon_preamble_symbols=%s\n' "${BEACON_PREAMBLE}"
     printf 'lead_us=%s\n' "${LEAD_US}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"

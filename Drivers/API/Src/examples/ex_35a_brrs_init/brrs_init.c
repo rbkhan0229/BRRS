@@ -179,8 +179,25 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define DATA_PAC        DWT_PAC8
 #define DATA_PAC_SYMBOLS 8U
 #endif
-#define SYNC_PLEN       DWT_PLEN_512
-#define SYNC_PREAMBLE_SYMBOLS 512
+#ifndef BRRS_SYNC_PREAMBLE_SYMBOLS
+#define BRRS_SYNC_PREAMBLE_SYMBOLS 512
+#endif
+#if BRRS_SYNC_PREAMBLE_SYMBOLS == 32
+#define SYNC_PLEN DWT_PLEN_32
+#elif BRRS_SYNC_PREAMBLE_SYMBOLS == 64
+#define SYNC_PLEN DWT_PLEN_64
+#elif BRRS_SYNC_PREAMBLE_SYMBOLS == 128
+#define SYNC_PLEN DWT_PLEN_128
+#elif BRRS_SYNC_PREAMBLE_SYMBOLS == 256
+#define SYNC_PLEN DWT_PLEN_256
+#elif BRRS_SYNC_PREAMBLE_SYMBOLS == 512
+#define SYNC_PLEN DWT_PLEN_512
+#elif BRRS_SYNC_PREAMBLE_SYMBOLS == 1024
+#define SYNC_PLEN DWT_PLEN_1024
+#else
+#error "BRRS_SYNC_PREAMBLE_SYMBOLS must be 32, 64, 128, 256, 512, or 1024"
+#endif
+#define SYNC_PREAMBLE_SYMBOLS BRRS_SYNC_PREAMBLE_SYMBOLS
 
 /* Experiment 2 is the CIR acquisition (preamble-length sweep) run.
  * Experiment 5 is the standalone Npre=1024 channel-characterization pilot;
@@ -3705,10 +3722,10 @@ int brrs_init(void)
     cir_rtt_init();
     cir_log_info("EXP_LOG_READY,channel=1");
     {
-        static char exp_log_cfg[180];
+        static char exp_log_cfg[200];
         snprintf(exp_log_cfg, sizeof(exp_log_cfg),
-                 "EXP_LOG_CONFIG_CSV,experiment=%d,plen=%d,lead_us=%d,tail_us=%d,target=%d,cir=%d",
-                 BRRS_EXPERIMENT, PREAMBLE_SYMBOLS,
+                 "EXP_LOG_CONFIG_CSV,experiment=%d,plen=%d,sync_plen=%d,lead_us=%d,tail_us=%d,target=%d,cir=%d",
+                 BRRS_EXPERIMENT, PREAMBLE_SYMBOLS, SYNC_PREAMBLE_SYMBOLS,
                  RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US,
                  TARGET_CYCLES, ENABLE_CIR);
         cir_log_info(exp_log_cfg);
@@ -3862,8 +3879,9 @@ int brrs_init(void)
     {
         static char cfg_msg[240];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "BRRS v2.11: EXP=%d SYNC_PLEN=%d DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus PAC=%u RX_MODE=%s SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
-                 BRRS_EXPERIMENT, SYNC_PLEN, DATA_PLEN, PREAMBLE_SYMBOLS,
+                 "BRRS v2.12: EXP=%d SYNC_PLEN=%d(%dsym) DATA_PLEN=%d(%dsym) PRE_US=%d SLOT=%dus RX_WIN=%dus LEAD=%dus TAIL=%dus PAC=%u RX_MODE=%s SUPERFRAME=%dus PERIODS=%d TARGET=%d CIR=%d",
+                 BRRS_EXPERIMENT, SYNC_PLEN, SYNC_PREAMBLE_SYMBOLS,
+                 DATA_PLEN, PREAMBLE_SYMBOLS,
                  PREAMBLE_US, SLOT_INTERVAL_US, RX_WINDOW_US,
                  RX_LEAD_MARGIN_US, RX_TAIL_MARGIN_US,
                  (unsigned)DATA_PAC_SYMBOLS, BRRS_RX_MODE_NAME, PERIOD_US,
@@ -3873,9 +3891,9 @@ int brrs_init(void)
     {
         static char beacon_cfg_msg[240];
         snprintf(beacon_cfg_msg, sizeof(beacon_cfg_msg),
-                 "BRRS_BEACON_CONFIG_CSV,version=%u,beacon_psdu=%u,m=%u,data_psdu=%u,data_rate=%u,active_bitmap=0x%02X,first_slot_rmarker_us=%u,slot_interval_us=%u,period_us=%u",
+                 "BRRS_BEACON_CONFIG_CSV,version=%u,beacon_psdu=%u,sync_m=%u,m=%u,data_psdu=%u,data_rate=%u,active_bitmap=0x%02X,first_slot_rmarker_us=%u,slot_interval_us=%u,period_us=%u",
                  BRRS_PROTOCOL_VERSION, BRRS_BEACON_PSDU_BYTES,
-                 PREAMBLE_SYMBOLS, PSDU_BYTES, DWT_BR_6M8,
+                 SYNC_PREAMBLE_SYMBOLS, PREAMBLE_SYMBOLS, PSDU_BYTES, DWT_BR_6M8,
                  brrs_configured_sensor_bitmap(), SYNC_BUFFER_US,
                  SLOT_INTERVAL_US, PERIOD_US);
         test_run_info((unsigned char *)beacon_cfg_msg);
