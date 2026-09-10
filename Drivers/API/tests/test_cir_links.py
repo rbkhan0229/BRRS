@@ -214,9 +214,27 @@ class LinkTests(unittest.TestCase):
     def test_campaign_dry_plan_has_no_processes(self):
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/'m.json';p.write_text(json.dumps(frozen()))
-            args=type('Args',(),dict(manifest=p,stage='exp5',profile='preparation',confirmation=False,capacity_candidates=False,cases=None,dry_run=True))()
+            args=type('Args',(),dict(manifest=p,stage='exp5',profile='preparation',confirmation=False,capacity_candidates=False,blocks=None,cases=None,dry_run=True))()
             with patch.object(subprocess,'run',side_effect=AssertionError('no hardware/process')),patch('sys.stdout',new_callable=io.StringIO) as out:
                 campaign.make_campaign(args)
             d=json.loads(out.getvalue());self.assertEqual(len(d['case_ids']),6);self.assertFalse(d['rf_execution_performed'])
+
+    def test_full_block_slice_is_not_a_new_profile(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/'m.json';p.write_text(json.dumps(frozen()))
+            base=dict(manifest=p,stage='exp4',profile='full',confirmation=False,
+                      capacity_candidates=False,cases=None,dry_run=True)
+            for profile,count in [('full',58),('essential',8),('lite',8)]:
+                args=type('Args',(),{**base,'profile':profile,'blocks':[1]})()
+                with patch.object(subprocess,'run',side_effect=AssertionError('no hardware/process')),patch('sys.stdout',new_callable=io.StringIO) as out:
+                    campaign.make_campaign(args)
+                data=json.loads(out.getvalue())
+                self.assertEqual(data['profile'],profile)
+                self.assertEqual(data['selected_case_count'],count)
+                self.assertTrue(all(case_id.startswith(profile+'_') and case_id.endswith('_b01')
+                                    for case_id in data['case_ids']))
+                self.assertEqual(data['profile_slice'],profile!='lite')
+            args=type('Args',(),{**base,'blocks':[13]})()
+            with self.assertRaises(ValueError):campaign.make_campaign(args)
 
 if __name__=='__main__':unittest.main(verbosity=2)

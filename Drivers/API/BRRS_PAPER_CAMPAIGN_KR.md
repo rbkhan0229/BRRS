@@ -36,6 +36,17 @@ python3 brrs_suite_campaign.py prepare --manifest nlos_manifest.json \
 
 `prepare`에서 `--dry-run`을 빼면 로컬에서 이미지와 독립 case bundle만 준비한다. 설정이 일치하는 캐시는 먼저 확인해 재사용하며, 맞지 않으면 source build를 한다. `--reuse`는 새 빌드를 허용하지 않고 정확한 캐시가 없으면 실패한다. 전체 조건을 준비하기 전에 `--cases <case-ID ...>`로 원하는 조건만 선택할 수 있다. 실패한 준비 폴더를 덮어쓰지 않는다.
 
+한 profile을 round별로 끊어 실행하려면 case ID를 손으로 나열하지 않고 `--blocks 1`처럼
+사전 선언된 block 번호를 선택할 수 있다. 이는 새 profile이 아니라 선택한 profile의 실행
+slice다. 다음 block은 `--blocks 2`와 새 root에 준비한다. Slice 결과는 완료된 case로
+보존되지만 전체 profile 반복 완료로 표시되지 않는다.
+
+```bash
+python3 brrs_suite_campaign.py prepare --manifest nlos_frozen.json \
+  --stage exp4 --profile full --blocks 1 \
+  --root /private/tmp/vehicle_full_round01_exp4 --dry-run
+```
+
 ```bash
 # 아래 ID의 숫자는 예시다. 실제 선정 lead와 planner가 출력한 ID를 사용한다.
 python3 brrs_suite_case.py prepare --manifest nlos_manifest.json --stage exp4 \

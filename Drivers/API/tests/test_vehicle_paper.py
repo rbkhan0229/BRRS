@@ -392,6 +392,9 @@ class PaperTests(unittest.TestCase):
                 campaign.run_campaign(SimpleNamespace(root=root,host=None,dry_run=True))
             r=json.loads(stdout.getvalue());self.assertEqual(r['actions'][0]['action'],'SKIP_COMPLETED')
             self.assertFalse(r['rf_execution_performed'])
+            self.assertTrue(r['profile_slice'])
+            self.assertFalse(r['groups'][0]['full_repetitions_complete'])
+            self.assertFalse(r['full_stage_profile_complete'])
 
     def test_other_environment_cannot_be_pooled(self):
         with tempfile.TemporaryDirectory() as td:
