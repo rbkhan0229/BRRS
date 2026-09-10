@@ -27,6 +27,27 @@ def real_raw(stage):
     return {'init':(FIXTURES/(stage+'_init.txt')).read_text(),
             'N2':(FIXTURES/(stage+'_tx.txt')).read_text()}
 
+def synthetic_single_link_raw(p):
+    """TEST ONLY: exercise standard evidence export and validators together."""
+    n=p['cycles'];m=p['preamble'];lead=p['lead_us'];pac=p['rx_pac']
+    ready='EXP_LOG_READY,channel=1\n'
+    if p['stage'] in ['stage0','exp1']:
+        rx=(f'BRRS_BEACON_CONFIG_CSV,sync_m=512\nEXP_LOG_CONFIG_CSV,sync_plen=512\n'
+            f'EXP1_DONE,plen={m},lead_us={lead},tail_us=0,pac={pac},rx_mode=delayed,expected={n},rx={n},delayed_late=0,data_config_errors=0,end_tx=3,per_x1000=0,collection=PASS,status=PASS,link=PASS\n'
+            f'N2: rx={n} expected={n} miss=0 PER=0.000% err=0\n')
+        tx=(f'BRRS_BEACON_RX_CSV,m={m},sync_m=512\n'
+            f'EXP1_TX_DONE,plen={m},expected={n},attempts={n},success={n},delayed_late=0,beacon_config_errors=0,data_config_errors=0,end=1,collection=PASS,status=PASS,link=PASS\n'
+            f'My TX: success={n} attempts={n} delayed_late=0\n')
+    else:
+        v=p['variant'];sfd=16 if v=='B' else 8;phr='DTA' if v=='C' else 'STD'
+        rx=(f'EXP_LOG_CONFIG_CSV,experiment=3,plen=32,lead_us={lead},tail_us=0,target={n},cir=0\n'
+            f'EXP3_RX_DONE,variant={v},expected={n},rx={n},per_x1000=0,end_tx=3,status=PASS\n'
+            f'EXP3_RX_RESULT_CSV,{v},{sfd},{phr},26,{n},{n},0,0,100,PASS\n')
+        tx=(f'EXP3_TX_RESULT,variant={v},attempts={n},success={n},captures={n},end=1,status=PASS\n'
+            f'EXP3_TX_DUMP_DONE,variant={v},expected={n},count={n},status=PASS\n'+
+            ''.join(f'EXP3_TX_CSV,{i},{v},{sfd},{phr},26,1600,100000\n' for i in range(1,n+1)))
+    return {'init':ready+rx,'N2':ready+tx}
+
 def selected(m,stage,role,profile='paper'):
     return next(c for c in manifest.plan(m,stage,profile=profile)
                 if c['conditions']['link_tx_role']==role and
@@ -148,12 +169,14 @@ class LinkTests(unittest.TestCase):
     def test_single_host_complete_cir_flow_and_failed_inactive_halt(self):
         # Exercise real run/export/assessment with synthetic control callbacks.
         # No J-Link/SSH/flash calls are allowed in this offline test.
-        for stage in ['exp2','exp5']:
+        for stage in ['stage0','exp1','exp2','exp3','exp5']:
             for halt_failed in [False,True]:
                 with self.subTest(stage=stage,halt_failed=halt_failed),tempfile.TemporaryDirectory() as td:
                     root=Path(td).resolve();m=frozen()
                     for b in m['boards'].values():b['host']='local'
-                    c=selected(m,stage,'N7');fake_bundle(root,m,c,real_raw(stage))
+                    c=selected(m,stage,'N7') if stage in ['exp2','exp5'] else manifest.plan(m,stage,profile='lite')[0]
+                    raw=real_raw(stage) if stage in ['exp2','exp5'] else synthetic_single_link_raw(c['conditions'])
+                    fake_bundle(root,m,c,raw)
                     c=json.loads((root/'case.json').read_text());paths={}
                     for j in c['jobs']:
                         role=j['physical_role'];side='local' if role=='init' else 'remote'
@@ -182,7 +205,8 @@ class LinkTests(unittest.TestCase):
                     self.assertEqual(summary['verdict'],'INVALID' if halt_failed else 'PASS')
                     self.assertEqual(summary['rf_runs_started'],1)
                     if halt_failed:self.assertFalse((root/'results/ASSESSMENT.json').exists())
-                    else:self.assertEqual(summary['stage_metrics']['physical_link']['tx_role'],'N7')
+                    elif stage in ['exp2','exp5']:self.assertEqual(summary['stage_metrics']['physical_link']['tx_role'],'N7')
+                    else:self.assertEqual(set(summary['nodes_by_serial']),{m['boards']['N4']['serial']})
 
     def test_dispatch_local_and_remote_failure_without_retry(self):
         with tempfile.TemporaryDirectory() as td:

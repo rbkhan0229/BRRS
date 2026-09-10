@@ -95,7 +95,7 @@ def assess(root):
         txjob=next(j for j in c['jobs'] if j['logical_node']!=1)
         rx=raw['init'];tx=raw[txjob['physical_role']];extra={}
         if p['stage'] in ['stage0','exp1']:
-            args=SimpleNamespace(preamble=p['preamble'],lead=p['lead_us'],tail=p['tail_us'],pac=p['rx_pac'],rx_mode='delayed',expected=p['cycles'])
+            args=SimpleNamespace(preamble=p['preamble'],lead=p['lead_us'],tail=p['tail_us'],pac=p['rx_pac'],rx_mode='delayed',expected=p['cycles'],beacon_preamble=p.get('beacon_preamble_symbols',512))
             validate_rx('\n'.join(rx),args);validate_tx('\n'.join(tx),args)
             received=int(marker(rx,'EXP1_DONE,')['rx']);sent=int(marker(tx,'EXP1_TX_DONE,')['success'])
             if not 0<=received<=sent<=p['cycles']:raise ValueError('RX/TX mismatch')

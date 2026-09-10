@@ -85,7 +85,7 @@ def prepare(a):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(API / p, target)
     for job in c['jobs']:
-        env = dict(os.environ, **job['environment'], ARM_NM=NM, EMBUILD_THREADS='8')
+        env = dict(os.environ, **job['environment'], ARM_NM=NM, EMBUILD_THREADS=os.environ.get('EMBUILD_THREADS','8'))
         # Validate an exact cached image before rebuilding. Cached mismatch is
         # allowed to trigger a source build only without explicit --reuse.
         cmd = job['build_only_argv'] + ['--no-build']
@@ -314,10 +314,10 @@ def side(a):
     return result
 
 def run_single_host(a,c):
-    """Dispatch an Exp2/Exp5 single-host case and copy its standard evidence."""
+    """Dispatch one single-host case and copy its standard evidence."""
     root=a.bundle.resolve();host=next(iter({b['host'] for b in c['boards'].values()}))
-    if c['conditions']['stage'] not in ['exp2','exp5']:
-        raise ValueError('suite single-host dispatch supports Exp2/Exp5; use the existing Exp4 single-host entry point')
+    if c['conditions']['stage'] not in ['stage0','exp1','exp2','exp3','exp4','exp5']:
+        raise ValueError('unknown single-host stage')
     if (root/'results').exists():raise ValueError('case already has results; assess/resume the campaign, never rerun in place')
     index=sha(root/'payload_hashes.json')
     if host=='local':

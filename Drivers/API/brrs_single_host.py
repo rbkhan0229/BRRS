@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One Exp4 or single-link CIR capture, all probes on one host; no RF retries.
+"""One Stage0..Exp5 capture, all probes on one host; no RF retries.
 
 check is read-only; park halts/readbacks without reset; start performs one RF run.
 Existing capture scripts and exact HEX files are reused without firmware edits.
@@ -19,7 +19,8 @@ import time
 
 from brrs_suite_case import checked, halt, link, NM, now, readback, save, sha, stop_workers
 
-PROCESS_TOKENS = ('rtt_capture.py', 'brrs_exp4_capture.sh', 'brrs_exp2_capture',
+PROCESS_TOKENS = ('rtt_capture.py', 'brrs_stage0_capture.sh', 'brrs_exp1_capture.sh',
+                  'brrs_exp2_capture', 'brrs_exp3_capture.sh', 'brrs_exp4_capture.sh',
                   'brrs_exp5_capture.sh', 'JLinkExe', 'JLinkRTT')
 
 # Retain the shared Mac lock; Linux has no /private/tmp directory.
@@ -30,16 +31,16 @@ def detached_command(command):
 
 def layout(c):
     stage=c['conditions']['stage']
-    if stage not in ['exp2','exp4','exp5']:
-        raise ValueError('single-host runner supports Exp2, Exp4 and Exp5')
+    if stage not in ['stage0','exp1','exp2','exp3','exp4','exp5']:
+        raise ValueError('single-host runner supports Stage0 through Exp5')
     if len({b['host'] for b in c['boards'].values()}) != 1:
         raise ValueError('all boards must name the same physical host')
     rx = [j for j in c['jobs'] if j['logical_node'] == 1]
     tx = [j for j in c['jobs'] if j['logical_node'] != 1]
     if len(rx) != 1 or not tx:
         raise ValueError('exactly one RX and at least one TX required')
-    if stage in ['exp2','exp5'] and (len(tx)!=1 or tx[0]['logical_node']!=2):
-        raise ValueError('CIR capture requires exactly one active TX as logical N2')
+    if stage!='exp4' and (len(tx)!=1 or tx[0]['logical_node']!=2):
+        raise ValueError('single-link capture requires exactly one active TX as logical N2')
     if len({j['physical_role'] for j in c['jobs']}) != len(c['jobs']):
         raise ValueError('duplicate role')
     for j in c['jobs']:
@@ -196,7 +197,7 @@ def supervise(root, c, state, spawn, ready_timeout=55, capture_timeout=200):
         persist()
 
 def summarize(root, c, state):
-    if c['conditions']['stage'] in ['exp2','exp5']:
+    if c['conditions']['stage']!='exp4':
         # Standard assessment independently checks CIR rows/END and the physical
         # link binding. Never interpret logical N2 as the physical N2 board.
         p=root/'results/ASSESSMENT.json'
@@ -310,7 +311,7 @@ def run(root, c, index):
             good_recovery = len(state.get('recovery',{}))==len(c['jobs']) and all(x.get('halted') and x.get('readback',{}).get('status')=='PASS' for x in state.get('recovery',{}).values())
             state['status'] = 'COLLECTION_AND_READBACK_PASS' if good_workers and good_recovery and not state.get('halt_errors') and 'error' not in state else 'FAIL'
             state['finished_at'] = now(); save(out/'status.json', state)
-            if c['conditions']['stage'] in ['exp2','exp5'] and state['status']=='COLLECTION_AND_READBACK_PASS':
+            if state['status']=='COLLECTION_AND_READBACK_PASS':
                 try:
                     export_cir_evidence(root,c,state)
                     from brrs_suite_results import assess
