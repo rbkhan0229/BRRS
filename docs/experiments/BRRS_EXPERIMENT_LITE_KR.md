@@ -37,6 +37,7 @@ Lite는 essential과 같은 기본 조건을 각각 한 block만 실행하는 �
 
 Stage0 이후 Exp1~Exp5 한 바퀴는 49 case다. 이 지점에서 lite가 완료된다.
 사람 통행이나 수집 오류가 없는 한 같은 조건을 즉시 반복해 좋은 결과만 고르지 않는다.
+현장 RF는 `run --one-case`로 한 case씩 실행한다.
 
 ## 증거 범위와 확장
 

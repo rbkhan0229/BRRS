@@ -59,6 +59,8 @@ Stage0 92 case를 끝내 lead를 동결한 뒤 Exp1~Exp5를 round 단위로 실�
 Round 1이 끝난 뒤 쉬어도 된다. 새 `full-1` profile은 만들지 않고 각 stage를
 `--profile full --blocks 1`로 실행한다. Round 2는 `--blocks 2`를 사용한다.
 Full 완료 판정은 선택한 일부 slice가 아니라 999 case 전체가 유효할 때만 가능하다.
+실제 RF는 campaign `run --one-case`로 한 case씩 진행한다. 사람이 지나가면 그 case만
+오염 표시하고 새 bundle로 대체하므로 나머지 full 순서와 회전 index는 바뀌지 않는다.
 
 ## Full을 선택할 때
 

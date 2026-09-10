@@ -122,15 +122,22 @@ def run_campaign(a):
     if spec.get('profile_case_count',len(planned))!=len(planned):
         raise ValueError('campaign full profile count mismatch')
     profile_slice=actual_profile_slice
+    one_case=bool(getattr(a,'one_case',False));new_cases_started=0
     observations={};actions=[]
-    for cid,item in campaign['bundles'].items():
+    bundle_items=list(campaign['bundles'].items())
+    for position,(cid,item) in enumerate(bundle_items):
         bundle=Path(item['path']);c=checked(bundle)
         if c['id']!=cid or c['conditions']!=planned[cid]['conditions'] or sha(bundle/'payload_hashes.json')!=item['payload_index_sha256']:raise ValueError('campaign payload changed')
         if (bundle/'results').exists():
             observations[cid]=assess(bundle)  # failed/incomplete capture stops; no silent rerun
             actions.append({'case_id':cid,'action':'SKIP_COMPLETED','verdict':observations[cid]['verdict']})
             continue
+        if one_case and new_cases_started==1:
+            actions.append({'action':'PAUSED_AT_OPERATOR_LIMIT',
+                            'next_case_id':cid,'remaining_case_count':len(bundle_items)-position})
+            break
         actions.append({'case_id':cid,'action':'DEPLOY_THEN_RUN'})
+        new_cases_started+=1
         if a.dry_run:continue
         deployed=deploy(bundle,a.host);save(root/(cid+'.deployment.json'),deployed)
         command=[sys.executable,str(bundle/'sdk/Drivers/API/brrs_suite_case.py'),'run','--bundle',str(bundle)]
@@ -149,6 +156,7 @@ def run_campaign(a):
     report={'actions':actions,'groups':groups,'profile':spec['profile'],'stage':spec['stage'],
             'blocks':spec.get('blocks'),'profile_slice':profile_slice,
             'selected_case_count':len(spec['case_ids']),'profile_case_count':spec.get('profile_case_count',len(planned)),
+            'operator_paced':one_case,'new_cases_started':new_cases_started,
             'selected_slice_complete':bool(groups) and all(g['status'] in ['PASS','FAIL_PER'] for g in groups),
             'full_stage_profile_complete':not profile_slice and spec['profile'] in ['full','paper'] and bool(groups) and all(g['status']=='PASS' for g in groups),
             'rf_execution_performed':not a.dry_run and any(x['action']=='DEPLOY_THEN_RUN' for x in actions)}
@@ -163,6 +171,7 @@ def main():
     p.add_argument('--cases',nargs='+');p.add_argument('--root',type=Path,required=True);p.add_argument('--reuse',action='store_true');p.add_argument('--dry-run',action='store_true')
     p=sub.add_parser('deploy');p.add_argument('--bundle',type=Path,required=True);p.add_argument('--host');p.add_argument('--dry-run',action='store_true')
     p=sub.add_parser('run');p.add_argument('--root',type=Path,required=True);p.add_argument('--host');p.add_argument('--dry-run',action='store_true')
+    p.add_argument('--one-case',action='store_true',help='run only the next incomplete case, then return control to the operator')
     a=ap.parse_args()
     if a.command=='prepare':make_campaign(a)
     elif a.command=='deploy':print(json.dumps(deploy(a.bundle,a.host,a.dry_run),indent=2))

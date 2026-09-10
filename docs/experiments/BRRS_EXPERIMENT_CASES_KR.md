@@ -58,8 +58,12 @@ python3 brrs_suite_campaign.py prepare --manifest vehicle_frozen.json \
 
 ```bash
 python3 brrs_suite_campaign.py run \
-  --root /private/tmp/vehicle_full_round01_exp4
+  --root /private/tmp/vehicle_full_round01_exp4 --one-case
 ```
+
+`--one-case`는 이미 완료된 case를 검증해 건너뛴 뒤 **다음 미완료 case 하나만** RF로
+실행하고 제어권을 돌려준다. 같은 명령을 다시 호출하면 다음 case로 진행한다. 차량
+현장에서는 이 옵션을 기본으로 사용하며, 옵션을 빼야만 root에 남은 case가 연속 실행된다.
 
 Exp1~Exp5의 block 1을 각각 별도 root로 준비·실행하면 full round 1이 된다. 다음에는
 `--blocks 2`와 새 root를 사용한다. 한 root의 campaign 명세는 생성 후 바꾸지 않는다.
@@ -68,6 +72,17 @@ Exp1~Exp5의 block 1을 각각 별도 root로 준비·실행하면 full round 1�
 
 안전하게 쉬는 시점은 **한 case가 끝난 직후 또는 stage/round 경계**다. case 도중 강제
 중단하면 해당 수집은 실패 자료로 보존되고 자동 재실행되지 않는다.
+
+## 사람이나 차량이 지나간 경우
+
+- case 사이에 지나가면 다음 `--one-case` 명령을 시작하지 않고 기다린다.
+- 약 10초 RF 측정 도중 지나가면 현재 case ID와 교란 시각을 알리고, 가능하면 case가
+  정상 종료되도록 둔다.
+- 해당 raw와 metadata는 삭제하거나 덮어쓰지 않고 오염 실행으로 표시한다.
+- 같은 case는 새 root/bundle에서 나중에 다시 측정하며, 기존 bundle은 이유와 hash가
+  적힌 exclusions 기록으로 최종 통계에서 제외한다.
+- 사람/차량 통행 때문에 전체 round나 campaign 순서가 꼬이지 않으며 그 case 하나만
+  대체하면 된다.
 
 ## 어떤 profile로 시작할지
 

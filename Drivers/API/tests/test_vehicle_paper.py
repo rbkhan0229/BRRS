@@ -396,6 +396,30 @@ class PaperTests(unittest.TestCase):
             self.assertFalse(r['groups'][0]['full_repetitions_complete'])
             self.assertFalse(r['full_stage_profile_complete'])
 
+    def test_operator_paced_campaign_selects_only_next_incomplete_case(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);mp=root/'manifest.json';mp.write_text(json.dumps(self.m))
+            selected=[c for c in self.exp4 if c['conditions']['run']==1][:2]
+            raw={'init':(FIXTURES/'exp4_init.txt').read_text()}
+            raw.update({f'N{i}':(FIXTURES/f'exp4_N{i}.txt').read_text() for i in range(2,8)})
+            bundles={}
+            for c in selected:
+                bundle=root/c['id'];bundle.mkdir();fake_bundle(bundle,self.m,c,raw)
+                shutil.rmtree(bundle/'results')
+                bundles[c['id']]={'path':str(bundle),'payload_index_sha256':case.sha(bundle/'payload_hashes.json')}
+            spec={'manifest':str(mp),'manifest_sha256':case.sha(mp),'profile':'paper','stage':'exp4',
+                  'confirmation':False,'capacity_candidates':False,'blocks':[1],
+                  'profile_case_count':696,'profile_slice':True,'case_ids':[c['id'] for c in selected]}
+            (root/'campaign.json').write_text(json.dumps({'spec':spec,'bundles':bundles}))
+            with patch.object(subprocess,'run',side_effect=AssertionError('RF/network/process forbidden')),patch('sys.stdout',new_callable=io.StringIO) as stdout:
+                campaign.run_campaign(SimpleNamespace(root=root,host=None,dry_run=True,one_case=True))
+            report=json.loads(stdout.getvalue())
+            self.assertEqual(report['new_cases_started'],1)
+            self.assertTrue(report['operator_paced'])
+            self.assertEqual(report['actions'][0],{'case_id':selected[0]['id'],'action':'DEPLOY_THEN_RUN'})
+            self.assertEqual(report['actions'][1]['action'],'PAUSED_AT_OPERATOR_LIMIT')
+            self.assertEqual(report['actions'][1]['next_case_id'],selected[1]['id'])
+
     def test_other_environment_cannot_be_pooled(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);c=self.rotated_fixture(root);m=copy.deepcopy(self.m);m['environment']='different_environment'

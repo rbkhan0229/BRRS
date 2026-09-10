@@ -41,6 +41,7 @@ Stage0 92 case와 lead 동결을 먼저 끝낸다.
 `--profile essential --blocks 1`로 준비한다. 다음 round는 새 root에서
 `--blocks 2`를 사용한다. Essential의 여섯 Exp4 blocks는 완전히 같은 보드 배정의
 복제가 아니라 모든 물리 링크가 논리 슬롯 역할을 경험하도록 만든 한 회전 주기다.
+현장 RF는 `run --one-case`로 진행하여 매 case 뒤 통행·차량 상태를 확인한다.
 
 ## Lite와의 관계
 

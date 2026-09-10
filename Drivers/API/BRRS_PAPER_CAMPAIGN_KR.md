@@ -62,9 +62,15 @@ python3 brrs_suite_case.py prepare --manifest nlos_manifest.json --stage exp4 \
 # dry-run은 SSH/J-Link를 호출하지 않는다.
 python3 brrs_suite_campaign.py run --root /private/tmp/nlos_stage0 --dry-run
 
-# 실제 실험할 때 실행: case별 동일 파일 배포 → probe set → TX READY → RX → 수집/검증/집계
-python3 brrs_suite_campaign.py run --root /private/tmp/nlos_stage0
+# 차량 현장 기본: 다음 미완료 case 하나만 배포 → TX READY → RX → 수집/검증 후 종료
+python3 brrs_suite_campaign.py run --root /private/tmp/nlos_stage0 --one-case
 ```
+
+`--one-case`를 반복 호출하면 완료 case를 검증해 건너뛰고 다음 미완료 case 하나만
+실행한다. 사람·차량 통행을 매 case 뒤 확인할 수 있으므로 현장에서는 이 방식을 사용한다.
+옵션을 생략하면 남은 case를 연속 실행하므로 통제가 가능한 실내 자동 실행에서만 사용한다.
+RF 도중 교란이 보고된 case는 끝까지 raw를 보존하고 exclusions에 이유와 payload hash를
+기록한 뒤 새 root에서 같은 case를 대체 측정한다.
 
 기본 SSH 주소는 manifest의 `s-macbook-air`다. 별칭 접속이 안 되면 `--host 100.115.225.85`로 같은 경로를 사용할 수 있다. 어떤 주소로 접속하든 실제 probe serial 집합은 정확히 대조한다. 배포는 새 목적지에만 쓰거나 기존의 완전히 동일한 payload를 확인한다. 다른 파일을 덮어쓰거나 삭제하지 않는다. 원격 파일 전체 hash 확인 후에만 board 실행으로 넘어간다.
 
