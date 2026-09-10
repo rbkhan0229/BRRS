@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One Exp4 or single-link CIR capture, all probes on one Mac; no RF retries.
+"""One Exp4 or single-link CIR capture, all probes on one host; no RF retries.
 
 check is read-only; park halts/readbacks without reset; start performs one RF run.
 Existing capture scripts and exact HEX files are reused without firmware edits.
@@ -21,6 +21,12 @@ from brrs_suite_case import checked, halt, link, NM, now, readback, save, sha, s
 
 PROCESS_TOKENS = ('rtt_capture.py', 'brrs_exp4_capture.sh', 'brrs_exp2_capture',
                   'brrs_exp5_capture.sh', 'JLinkExe', 'JLinkRTT')
+
+# Retain the shared Mac lock; Linux has no /private/tmp directory.
+LOCK_PATH = '/private/tmp/brrs-single-host-jlink.lock' if platform.system() == 'Darwin' else '/tmp/brrs-single-host-jlink.lock'
+
+def detached_command(command):
+    return ['/usr/bin/caffeinate', '-i', *command] if platform.system() == 'Darwin' else command
 
 def layout(c):
     stage=c['conditions']['stage']
@@ -210,9 +216,9 @@ def summarize(root, c, state):
     complete = f'Superframes: total={n}' in rx and '===== END STATS =====' in rx
     config = next((s for s in rx.splitlines() if s.startswith('EXP4_CONFIG_CSV,')), '')
     cfg = dict(x.split('=',1) for x in config.split(',') if '=' in x)
-    expected_cfg = {'sync_plen':str(c['conditions']['beacon_preamble_symbols']),
+    expected_cfg = {'sync_plen':str(c['conditions'].get('beacon_preamble_symbols',512)),
         'data_plen':str(c['conditions']['preamble']), 'data_pac':str(c['conditions']['rx_pac']),
-        'lead_us':str(c['conditions']['lead_us']), 'data_slots':str(c['conditions']['max_slots'])}
+        'lead_us':str(c['conditions']['lead_us']), 'data_slots':str(len(c['conditions']['slot_owners']))}
     config_valid = all(cfg.get(k)==v for k,v in expected_cfg.items())
     rows = []
     for j in c['jobs']:
@@ -267,7 +273,7 @@ def export_cir_evidence(root,c,state):
 
 def run(root, c, index):
     # Machine-wide lock; never kill or adopt another experiment's processes.
-    with open('/private/tmp/brrs-single-host-jlink.lock','a') as lock:
+    with open(LOCK_PATH,'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         info = preflight(root,c)
         out = root/'results'; out.mkdir(exist_ok=False)
@@ -330,7 +336,7 @@ def main():
     a=ap.parse_args(); root=a.bundle.resolve(); c=load_bundle(root,a.expected_index)
     if a.action=='check': print(json.dumps(preflight(root,c),indent=2)); return 0
     if a.action=='park':
-        with open('/private/tmp/brrs-single-host-jlink.lock','a') as lock:
+        with open(LOCK_PATH,'a') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
             info=preflight(root,c)
             info.update(halt_errors=park_all(c),recovery=snapshot(root,c),rf_started=False,reset_performed=False)
@@ -347,7 +353,7 @@ def main():
         log=root/'transport-test.log'; done=root/'transport-test-done.json'
         code='import time,json,pathlib,os;time.sleep(3);pathlib.Path('+repr(str(done))+').write_text(json.dumps({"pid":os.getpid(),"ssh_detached":True,"rf_started":False}))'
         with log.open('x') as f:
-            p=subprocess.Popen(['/usr/bin/caffeinate','-i',sys.executable,'-c',code],stdin=subprocess.DEVNULL,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
+            p=subprocess.Popen(detached_command([sys.executable,'-c',code]),stdin=subprocess.DEVNULL,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
         print(json.dumps({'pid':p.pid,'proof':str(done),'rf_started':False})); return 0
     if a.action=='start':
         preflight(root,c)
@@ -355,7 +361,7 @@ def main():
         with (root/'launch.json').open('x') as f:
             # Popen has no inherited SSH stdio or session. No network is used by run.
             with (root/'supervisor.log').open('x') as log:
-                cmd=['/usr/bin/caffeinate','-i',sys.executable,str(Path(__file__).resolve()),'run','--bundle',str(root),'--expected-index',a.expected_index]
+                cmd=detached_command([sys.executable,str(Path(__file__).resolve()),'run','--bundle',str(root),'--expected-index',a.expected_index])
                 p=subprocess.Popen(cmd,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
             json.dump({'pid':p.pid,'started_at':now(),'command':cmd,'payload_index_sha256':a.expected_index},f,indent=2)
         print((root/'launch.json').read_text()); return 0

@@ -19,7 +19,7 @@ import sys
 import time
 
 API = Path(__file__).resolve().parent
-NM = '/Applications/SEGGER/SEGGER Embedded Studio 8.28/gcc/arm-none-eabi/bin/nm'
+NM = os.environ.get('ARM_NM') or shutil.which('arm-none-eabi-nm') or '/Applications/SEGGER/SEGGER Embedded Studio 8.28/gcc/arm-none-eabi/bin/nm'
 
 def now(): return datetime.now(timezone.utc).isoformat()
 def sha(path): return hashlib.sha256(Path(path).read_bytes()).hexdigest()
