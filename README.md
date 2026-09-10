@@ -8,7 +8,8 @@ Current BRRS development (2026-09-09):
     under archive/* branches; no additional full SDK copy is needed.
 
     Start with docs/BRRS_WORKSPACE_KR.md and
-    Drivers/API/BRRS_CIR_LINKS_KR.md. Historical experiment scripts under
+    Drivers/API/BRRS_CIR_LINKS_KR.md. The exact Stage0-Exp5 case matrix and
+    runner behavior are documented in Drivers/API/exp_cases.md. Historical experiment scripts under
     experiments/legacy are provenance, not the current execution entry point.
 
     Offline checks (no SSH, flash, or RF):
