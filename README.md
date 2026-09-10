@@ -4,10 +4,10 @@ Current BRRS development (2026-09-09):
 
     Use branch vehicle-experiments in this repository. It contains the latest
     vehicle firmware, Stage0-Exp5 campaign tools, and sequential Exp2/Exp5
-    measurements of physical links N2-N7. Earlier source copies are preserved
-    under archive/* branches; no additional full SDK copy is needed.
+    measurements of physical links N2-N7. Earlier source checkpoints are
+    preserved as Git tags; no additional full SDK copy is needed.
 
-    Start with docs/BRRS_WORKSPACE_KR.md and
+    Start with docs/BRRS_WORKSPACE_KR.md, docs/BRRS_DATA_CATALOG_KR.md, and
     Drivers/API/BRRS_CIR_LINKS_KR.md. The exact Stage0-Exp5 case matrix and
     runner behavior are documented in Drivers/API/exp_cases.md. Historical experiment scripts under
     experiments/legacy are provenance, not the current execution entry point.
