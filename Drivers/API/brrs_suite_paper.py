@@ -89,4 +89,7 @@ def confirmation_leads(m,pac):
     candidate=m['lead_candidates_us_by_pac'].get(str(pac))
     if type(candidate) is not int or candidate not in m['stage0']['leads_us']:
         raise ValueError('candidate must be a measured Stage0 grid lead')
-    return [v for v in [candidate-1,candidate,candidate+1] if v in m['stage0']['leads_us']]
+    # A PAC/acquisition boundary can make the integer-lead response
+    # non-monotonic.  Reliability is established by independent repetitions
+    # of the selected point; the full grid preserves its neighbouring shape.
+    return [candidate]

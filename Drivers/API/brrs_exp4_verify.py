@@ -61,6 +61,7 @@ def verify_revision(lines, prefix):
     if integer(revision, "rev") < 24:
         fail(f"firmware revision {revision.get('rev')} is older than 24")
     require(revision, "beacon_protocol", 3)
+    return revision
 
 
 def expected_owners(sensors, sequence=None):
@@ -695,7 +696,7 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard,
                   sequence=None, expected_cycles=1000,
                   phy_fast=False, phy_fast_skip_pgf=False):
     node_slots = sequence.count(str(node)) if sequence is not None else 1
-    verify_revision(lines, "EXP4_TX_FIRMWARE_REV,")
+    revision = verify_revision(lines, "EXP4_TX_FIRMWARE_REV,")
     verify_phy_fast_self_test(
         lines, "sensor", phy_fast, phy_fast_skip_pgf, node)
 
@@ -705,6 +706,8 @@ def verify_sensor(lines, preamble, sensors, node, expected_guard,
     require(boot, "sync_prep_us", expected_sync_prep)
     require(boot, "data_budget_us",
             10000 - expected_sync_buffer - expected_sync_prep)
+    if integer(revision, "rev") >= 26:
+        require(boot, "final_timeout_us", 5000000)
 
     result = csv_fields(last_line(lines, "EXP4_TX_RESULT_CSV,"))
     if len(result) != 12:

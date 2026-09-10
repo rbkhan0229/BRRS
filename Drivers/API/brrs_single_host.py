@@ -240,7 +240,7 @@ def summarize(root, c, state):
             'collection_status':state['status'],
             'limitations':['Missing/early TX END remains a collection failure.',
                           'Offered PER includes transmissions missed due to beacon loss.',
-                          'Existing firmware has 100ms timeout after losing an acquired beacon.']}
+                          'Exp4 TX keeps beacon reacquisition active for up to 5s after the last acquired beacon.']}
 
 def export_cir_evidence(root,c,state):
     """Write the same evidence layout as split-host capture, with real proofs."""

@@ -21,6 +21,7 @@ import brrs_suite_case as case
 import brrs_suite_results as results
 import brrs_suite_leads as leads
 import brrs_suite_campaign as campaign
+import brrs_exp4_verify as exp4_verify
 from brrs_suite_evidence import read_evidence
 
 def frozen():
@@ -66,6 +67,16 @@ class PaperTests(unittest.TestCase):
             c=manifest.plan(self.m,stage,profile='paper')
             self.assertEqual(len(c),n);self.assertEqual(len({x['id'] for x in c}),n)
         self.assertEqual(len(manifest.plan(self.m,'exp4')),16)
+
+    def test_each_stage_completes_one_condition_block_before_repeating(self):
+        for stage in ['exp1','exp2','exp3','exp4','exp5']:
+            planned=manifest.plan(self.m,stage,profile='paper')
+            runs=[c['conditions']['run'] for c in planned]
+            self.assertEqual(runs,sorted(runs))
+            per_run=defaultdict(list)
+            for c in planned:per_run[c['conditions']['run']].append(c['condition_id'])
+            self.assertTrue(all(len(v)==len(set(v)) for v in per_run.values()))
+            self.assertEqual(len({len(v) for v in per_run.values()}),1)
 
     def test_all_sensors_balanced_logical_roles_and_s1_n4(self):
         for sensors in range(1,7):
@@ -211,9 +222,28 @@ class PaperTests(unittest.TestCase):
     def test_distinct_pac_candidates_and_confirmation_plan(self):
         self.assertEqual(leads.candidates(self.m,self.grid_report()),{'4':17,'8':25})
         m=copy.deepcopy(self.m);m['lead_candidates_us_by_pac']={'4':17,'8':25}
-        c=manifest.plan(m,'stage0',profile='paper',confirmation=True);self.assertEqual(len(c),30)
-        self.assertEqual({x['conditions']['lead_us'] for x in c if x['conditions']['rx_pac']==4},{16,17,18})
+        c=manifest.plan(m,'stage0',profile='paper',confirmation=True);self.assertEqual(len(c),10)
+        self.assertEqual({x['conditions']['lead_us'] for x in c if x['conditions']['rx_pac']==4},{17})
         self.assertEqual({x['conditions']['run'] for x in c},{1,2,3,4,5})
+
+    def test_isolated_periodic_candidate_does_not_require_adjacent_passes(self):
+        r=self.grid_report()
+        for pac in [4,8]:
+            for v in r['observations'].values():
+                if v['conditions']['rx_pac']==pac:v['worst_node_per_percent']=2
+        for pac,lead in [(4,17),(8,25)]:
+            r['observations'][f'{pac}:{lead}']['worst_node_per_percent']=0
+        self.assertEqual(leads.candidates(self.m,r),{'4':17,'8':25})
+
+    def test_rev26_sensor_log_records_five_second_reacquisition_grace(self):
+        lines=(FIXTURES/'exp4_N2.txt').read_text().splitlines()
+        lines=[line.replace('rev=25','rev=26') for line in lines]
+        lines=[line+',final_timeout_us=5000000' if line.startswith('EXP4_TX_BOOT_CSV,') else line for line in lines]
+        detail=exp4_verify.verify_sensor(lines,32,6,2,250,3000,2500,'2345672345673')
+        self.assertIn('beacon_loss=0/1000',detail)
+        bad=[line.replace(',final_timeout_us=5000000','') for line in lines]
+        with self.assertRaises(exp4_verify.VerificationError):
+            exp4_verify.verify_sensor(bad,32,6,2,250,3000,2500,'2345672345673')
 
     def test_missing_or_unreliable_grid_does_not_select(self):
         r=self.grid_report();r['groups'][0]['status']='INCOMPLETE'

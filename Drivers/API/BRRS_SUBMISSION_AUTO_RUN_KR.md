@@ -55,14 +55,15 @@ python3 -m pip install pylink-square
 ./brrs_run_experiment.sh stage0 rx iron_door_nlos 6.9
 ```
 
-기본 실행은 전이 구간과 주기성을 함께 확인하는 41조건 전수 탐색이다. 탐색 결과로 정한 후보와 양옆 lead를
-5회씩 확인할 때는 두 노트북에서 같은 목록을 사용한다.
+기본 실행은 전이 구간과 주기성을 함께 확인하는 41조건 전수 탐색이다. `lead±1us`의
+통과는 필수 조건이 아니다. 전수 grid에서 선정한 lead 자체를5회 독립 확인할 때는
+두 노트북에서 같은 값을 사용한다. 양옆 값은 필요하면 민감도 분석용으로 별도 측정한다.
 
 ```bash
 ./brrs_run_experiment.sh stage0 tx iron_door_nlos 6.9 \
-  --leads 14,15,16 --repeats 5
+  --leads 15 --repeats 5
 ./brrs_run_experiment.sh stage0 rx iron_door_nlos 6.9 \
-  --leads 14,15,16 --repeats 5
+  --leads 15 --repeats 5
 ```
 
 Stage0의 최종 후보는 첫 탐색 데이터에서 정해지므로 이 확인 목록만큼은 자동으로

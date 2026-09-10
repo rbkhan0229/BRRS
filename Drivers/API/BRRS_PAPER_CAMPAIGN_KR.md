@@ -10,7 +10,9 @@
 
 ## 반복과 활성 집합
 
-`paper.repeats_by_stage`에 Stage0=1, Exp1=5, Exp2=3, Exp3=3, Exp4=12, Exp5=3을 설정했다. Exp4=12는6회전×2주기, Exp5=3은 이번 실행 기본값으로 채택한 구성값이며 변경 가능하다. Exp4 반복은 균형을 위해6의 배수로 제한한다. Stage0 후보와 양옆 lead 확인은 `stage0_confirmation_repeats=5`다. 준비 모드의 기존1회 정책은 유지한다.
+`paper.repeats_by_stage`에 Stage0=1, Exp1=5, Exp2=3, Exp3=3, Exp4=12, Exp5=3을 설정했다. Exp4=12는6회전×2주기, Exp5=3은 이번 실행 기본값으로 채택한 구성값이며 변경 가능하다. Exp4 반복은 균형을 위해6의 배수로 제한한다. Stage0 선정 lead의 독립 확인은 `stage0_confirmation_repeats=5`다. 준비 모드의 기존1회 정책은 유지한다.
+
+반복은 같은 조건을 연달아 소진하지 않는다. 각 stage에서 block 1의 모든 조건을 한 번씩 실행한 뒤 block 2로 돌아가며, block마다 조건 순서를 순환하고 정·역 교대한다. 이렇게 시간대, 차량 온도, 주변 통행 변화가 특정 PHY 조건에만 몰리는 것을 줄인다. Stage0은 뒤 단계의 lead를 결정하므로 Exp1~Exp5와 섞지 않고 먼저 완료·동결한다.
 
 - Exp2: M 4개 × PAC 2개 × 물리 링크 6개 = 준비 모드 48 case, 논문 모드 3회씩 144 case. Exp5: 물리 링크 6개 = 준비 모드 6 case, 논문 모드 3회씩 18 case. 준비 순서는 각 PHY 조건에서 N2→N7이며 논문 모드는 반복별 조건 순서를 순환·정역 교대한다. case ID의 `_txN2`~`_txN7`과 metadata의 실제 serial로 구분한다.
 - Exp4 S1: N4만 활성, 모든 반복에서 논리 N2.
@@ -77,9 +79,9 @@ python3 brrs_suite_leads.py freeze nlos_candidates.json \
   --bundles <Stage0-confirmation-bundle들> --output-manifest nlos_frozen.json
 ```
 
-후보 선택은 PAC별 전체0~40us grid가 완전하고 유효해야 한다. 자신과 양옆 lead에서 모두 PER<1%인 후보 중 주변 최악 PER, 주변 합산 PER 순으로 고르며 동률은20us와 가까운 값, 작은 lead 순이다. 후보·양옆을 각5회 확인한 뒤 모든 run이 PER<1%이고 각 조건의 합산 Wilson95 상한도1% 미만일 때만 새 manifest를 동결한다. 기준 미달·누락·수집 실패를 임의 lead로 대체하지 않는다. RX0인 Stage0 지점은 전이 자료로 남지만 PASS가 아니다.
+후보 선택은 PAC별 전체0~40us grid가 완전하고 유효해야 한다. lead 응답은 PAC/acquisition 경계에서 양자화되거나 비단조적일 수 있으므로 숫자상 양옆 `lead±1us`의 통과를 필수 조건으로 두지 않는다. 측정된 lead 자체의 최악 노드 PER가1% 미만이면 고립된 점도 후보가 된다. 다만 연속 통과 구간이 있으면 그 폭이 넓은 구간의 중앙, 해당 lead의 PER,20us와의 거리, 작은 lead 순으로 우선한다. 전체 grid의 양옆 모양과 반복되는 성공 구간은 민감도·주기성 자료로 보존한다. 선정 lead 자체를5회 독립 확인한 뒤 모든 run이 PER<1%이고 합산 Wilson95 상한도1% 미만일 때만 새 manifest를 동결한다. 기준 미달·누락·수집 실패를 임의 lead로 대체하지 않는다. RX0인 Stage0 지점은 전이 자료로 남지만 PASS가 아니다.
 
-이 선택 규칙은 이번 구현의 명시적 기본 정책이다. packet-level Wilson 구간은 손실 상관을 반영한 독립 run 분석을 대체하지 않으므로 run별 결과를 함께 남긴다. NLOS에서 고른 lead를 차량의 검증된 최적값으로 취급하지 않는다. 동결 이후 Exp1~Exp5는 PAC별 값을 자동 전달한다. Exp5는 고유 M1024/PAC32를 유지하며 lead만 PAC8 선정값을 참조한다.
+이 선택 규칙은 이번 구현의 명시적 기본 정책이다. 고립된 성공점도 자동 배제하지 않지만, 전체 grid와 독립 반복에서 불안정하면 동결하지 않는다. 정확한 주기는 미리 가정하지 않고 차량 데이터로만 추정한다. packet-level Wilson 구간은 손실 상관을 반영한 독립 run 분석을 대체하지 않으므로 run별 결과를 함께 남긴다. NLOS에서 고른 lead를 차량의 검증된 최적값으로 취급하지 않는다. 동결 이후 Exp1~Exp5는 PAC별 값을 자동 전달한다. Exp5는 고유 M1024/PAC32를 유지하며 lead만 PAC8 선정값을 참조한다.
 
 ## 집계와 용량
 

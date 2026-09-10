@@ -215,6 +215,13 @@ static void terminal_log_info(unsigned char *data)
 #endif
 #define TARGET_CYCLES   BRRS_TARGET_CYCLES
 
+/* Do not turn a short vehicle-channel beacon fade into an early experiment
+ * termination.  The node keeps reacquisition active during this grace time;
+ * missing beacons still remain explicit offered-packet losses. */
+#ifndef BRRS_EXP4_FINAL_TIMEOUT_US
+#define BRRS_EXP4_FINAL_TIMEOUT_US 5000000UL
+#endif
+
 #if BRRS_EXPERIMENT == 1 || BRRS_EXPERIMENT == 2 || BRRS_EXPERIMENT == 3
 #define TOTAL_NODES         2
 #define TOTAL_SLOTS         2
@@ -1268,18 +1275,19 @@ int brrs_normal(void)
 #endif
 #if BRRS_EXPERIMENT == 4
     {
-        static char cfg_msg[320];
+        static char cfg_msg[384];
         snprintf(cfg_msg, sizeof(cfg_msg),
-                 "EXP4_TX_BOOT_CSV,%s,seq=%d,data_plen_source=beacon,default_m=%d,psdu_bytes=%d,app_payload_bytes=%d,superframe_us=%d,sync_buffer_us=%d,sync_prep_us=%d,data_budget_us=%d,sync_frame_us=%d,sync_rx_open_offset_us=%d,sync_rx_window_us=%d",
+                 "EXP4_TX_BOOT_CSV,%s,seq=%d,data_plen_source=beacon,default_m=%d,psdu_bytes=%d,app_payload_bytes=%d,superframe_us=%d,sync_buffer_us=%d,sync_prep_us=%d,data_budget_us=%d,sync_frame_us=%d,sync_rx_open_offset_us=%d,sync_rx_window_us=%d,final_timeout_us=%lu",
                  APP_NAME, MY_NODE_SEQ,
                  PREAMBLE_SYMBOLS, PSDU_BYTES, BRRS_APP_PAYLOAD_BYTES,
                  BRRS_SUPERFRAME_US,
                  SYNC_BUFFER_US, EXP4_SYNC_PREP_US, EXP4_SLOT_BUDGET_US,
                  SYNC_FRAME_US, BRRS_SUPERFRAME_US - SYNC_RX_EARLY_US,
-                 SYNC_RX_WINDOW_US);
+                 SYNC_RX_WINDOW_US,
+                 (unsigned long)BRRS_EXP4_FINAL_TIMEOUT_US);
         final_log_info(cfg_msg);
         test_run_info((unsigned char *)
-            "EXP4_TX_FIRMWARE_REV,rev=25,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,end_rx=immediate_wide_on_last_cycle,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,wait_budget=first_owned_delayed_tx_arm,timing_metric=uwb_signed_slot_error");
+            "EXP4_TX_FIRMWARE_REV,rev=26,beacon_protocol=3,data_header_bytes=8,slot_identity=coordinator_rx_rmarker,data_phy=from_beacon,slot_owner_schedule=1,sync_rx=delayed_after_data,end_rx=immediate_wide_on_last_cycle,data_config=fail_closed,tx_slot_diag=actual_tx_rmarker,wait_budget=first_owned_delayed_tx_arm,timing_metric=uwb_signed_slot_error");
     }
 #endif
 
@@ -1343,7 +1351,8 @@ int brrs_normal(void)
     uint32_t config_switch_cycles = us_to_cpu_cycles(CONFIG_SWITCH_US);
     uint32_t sync_timeout_cycles = us_to_cpu_cycles(27000);
 #if BRRS_EXPERIMENT == 4
-    uint32_t final_timeout_cycles = us_to_cpu_cycles(100000);
+    uint32_t final_timeout_cycles =
+        us_to_cpu_cycles(BRRS_EXP4_FINAL_TIMEOUT_US);
 #else
     uint32_t final_timeout_cycles = us_to_cpu_cycles(5000000);
 #endif

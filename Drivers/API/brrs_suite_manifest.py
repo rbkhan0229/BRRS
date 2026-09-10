@@ -218,7 +218,7 @@ def main():
     ap.add_argument('--physical-tx-role',choices=ROLES[1:],help='explicit Exp2/Exp5 TX for serial lookup')
     ap.add_argument('--sensors',type=int,choices=range(1,7),help='serial lookup: selected Exp4 physical TX count')
     ap.add_argument('--profile',choices=['preparation','paper'],default='preparation')
-    ap.add_argument('--confirmation',action='store_true',help='Stage0 candidate and adjacent-lead repetitions')
+    ap.add_argument('--confirmation',action='store_true',help='Stage0 selected-lead repetitions after the complete grid')
     ap.add_argument('--capacity-candidates', action='store_true',
                     help='Exp4 only: include conditional descending-load candidates; does not execute them')
     a=ap.parse_args()
