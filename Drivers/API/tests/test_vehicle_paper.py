@@ -27,6 +27,7 @@ from brrs_suite_evidence import read_evidence
 def frozen():
     m=manifest.load(API/'brrs_vehicle_manifest.json')
     m['lead_selection']={'frozen':True,'lead_us_by_pac':{'4':25,'8':25},'evidence':'TEST ONLY, not field selected'}
+    m['lead_candidates_us_by_pac']={'4':25,'8':25}
     return m
 
 def fake_bundle(root,m,c,raw):
@@ -67,6 +68,56 @@ class PaperTests(unittest.TestCase):
             c=manifest.plan(self.m,stage,profile='paper')
             self.assertEqual(len(c),n);self.assertEqual(len({x['id'] for x in c}),n)
         self.assertEqual(len(manifest.plan(self.m,'exp4')),16)
+
+    def test_named_profiles_have_declared_scope_and_counts(self):
+        expected={
+            'essential':({'stage0':82,'exp1':40,'exp2':72,'exp3':9,'exp4':48,'exp5':18},10),
+            'lite':({'stage0':82,'exp1':8,'exp2':24,'exp3':3,'exp4':8,'exp5':6},2),
+            'full':({'stage0':82,'exp1':40,'exp2':144,'exp3':9,'exp4':696,'exp5':18},10),
+        }
+        for profile,(counts,confirmation) in expected.items():
+            with self.subTest(profile=profile):
+                planned={stage:manifest.plan(self.m,stage,profile=profile) for stage in counts}
+                self.assertEqual({stage:len(cases) for stage,cases in planned.items()},counts)
+                self.assertEqual(len(manifest.plan(self.m,'stage0',profile=profile,confirmation=True)),confirmation)
+                self.assertTrue(all(c['id'].startswith(profile+'_') for cases in planned.values() for c in cases))
+                self.assertTrue(all(c['conditions']['profile']==profile for cases in planned.values() for c in cases))
+        essential=manifest.plan(self.m,'exp4',profile='essential')
+        self.assertEqual({c['conditions']['sensors'] for c in essential},{6})
+        self.assertEqual({c['conditions']['preamble'] for c in essential},{32,256})
+        self.assertEqual({c['conditions']['rotation_index'] for c in essential},set(range(6)))
+        self.assertEqual({len(c['conditions']['slot_owners']) for c in essential},{6,8,13})
+        lite=manifest.plan(self.m,'exp4',profile='lite')
+        self.assertEqual({c['conditions']['run'] for c in lite},{1})
+        self.assertEqual({c['conditions']['rotation_index'] for c in lite},{0})
+        for stage in ['stage0','exp1','exp2','exp3','exp4','exp5']:
+            essential_conditions={c['condition_id'] for c in manifest.plan(self.m,stage,profile='essential')}
+            lite_conditions={c['condition_id'] for c in manifest.plan(self.m,stage,profile='lite')}
+            self.assertEqual(lite_conditions,essential_conditions)
+        essential_confirmation={c['condition_id'] for c in manifest.plan(
+            self.m,'stage0',profile='essential',confirmation=True)}
+        lite_confirmation={c['condition_id'] for c in manifest.plan(
+            self.m,'stage0',profile='lite',confirmation=True)}
+        self.assertEqual(lite_confirmation,essential_confirmation)
+
+    def test_legacy_paper_manifest_and_ids_remain_reproducible(self):
+        legacy=copy.deepcopy(self.m)
+        legacy['paper']=legacy.pop('profiles')['full']
+        cases=manifest.plan(legacy,'exp4',profile='paper')
+        self.assertEqual(len(cases),696)
+        self.assertTrue(all(c['id'].startswith('paper_') for c in cases))
+        self.assertEqual({c['conditions']['profile'] for c in cases},{'paper'})
+
+    def test_profile_hierarchy_is_fail_closed(self):
+        changed=copy.deepcopy(self.m)
+        changed['profiles']['lite']['stage_filters']['exp2']['preambles'].append(64)
+        with self.assertRaises(ValueError):paper.validate(changed)
+        changed=copy.deepcopy(self.m)
+        changed['profiles']['lite']['repeats_by_stage']['exp1']=2
+        with self.assertRaises(ValueError):paper.validate(changed)
+        changed=copy.deepcopy(self.m)
+        changed['profiles']['full']['s6_slot_counts_by_preamble']['32'].remove(13)
+        with self.assertRaises(ValueError):paper.validate(changed)
 
     def test_each_stage_completes_one_condition_block_before_repeating(self):
         for stage in ['exp1','exp2','exp3','exp4','exp5']:
@@ -114,7 +165,7 @@ class PaperTests(unittest.TestCase):
                     if stage in ['exp2','exp5'] and j['logical_node']==2:self.assertEqual(j['physical_role'],p['link_tx_role'])
 
     def test_incomplete_rotation_cycle_rejected(self):
-        m=copy.deepcopy(self.m);m['paper']['repeats_by_stage']['exp4']=10
+        m=copy.deepcopy(self.m);m['profiles']['full']['repeats_by_stage']['exp4']=10
         with self.assertRaises(ValueError):paper.validate(m)
 
     def test_preparation_s1_also_keeps_designated_n4(self):

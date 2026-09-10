@@ -1,8 +1,17 @@
 # BRRS 실험 case 목록과 실행 방식
 
 이 문서는 `brrs_vehicle_manifest.json`과 현재 자동 실행기의 실제 동작을 기준으로 한다.
-아래의 `999 case`는 **현재 논문용 전수 profile을 끝까지 수행할 때의 수**다.
-내일 차량에서 반드시 모두 실행해야 하는 횟수도 아니고, 연결된 보드 수를 곱한 수도 아니다.
+실행기는 `full`, `essential`, `lite` 세 profile을 제공한다. 기존 `paper` 이름은 과거
+manifest와 bundle을 읽기 위한 호환 별칭이며, 새 전수 실행의 이름은 `full`이다.
+
+| profile | 범위 | confirmation 포함 전체 case | 용도 |
+|---|---|---:|---|
+| `full` | 기존 조건·반복·Exp4 논리 슬롯 회전 전부 | **999** | 시간이 허용될 때의 최종 전수 검증 |
+| `essential` | 핵심 조건만, 논문에 필요한 반복 유지 | **279** | 우선 확보할 핵심 논문 증거 |
+| `lite` | essential과 같은 조건을 각각 1 block만 | **133** | 빠른 1회 지도와 현장 이상 확인 |
+
+999 case는 `full`을 끝까지 수행할 때의 수다. 차량에서 반드시 모두 실행해야 하는
+횟수도 아니고, 연결된 보드 수를 곱한 수도 아니다.
 
 ## 1. case 한 개의 의미
 
@@ -14,7 +23,7 @@ case 한 개는 다음이 모두 고정된 한 번의 무선 실행이다.
 - 반복 block 번호;
 - 정확한 펌웨어 HEX/ELF와 source/manifest/조건 hash.
 
-예를 들어 `paper_exp4_m32_pac8_l25_k13_s6_b01`은 M32, PAC8,
+예를 들어 `full_exp4_m32_pac8_l25_k13_s6_b01`은 M32, PAC8,
 lead25 us, 물리 TX6대, DATA 슬롯13개, block1인 **한 case**다. 이 case에는
 INIT 1대와 TX6대의 실행 job이 들어가지만 case 수는7이 아니라1이다.
 
@@ -79,28 +88,30 @@ M32만5번 연속 측정한 뒤 M256을 측정하는 시간 편향을 피할 수
 `20, 0, 40, 10, 30, 5, 25, 15, 35, 2, 22, 12, 32, 7, 27, 17, 37, 4, 24, 14, 34, 9, 29, 19, 39, 1, 21, 11, 31, 6, 26, 16, 36, 3, 23, 13, 33, 8, 28, 18, 38`
 
 계산은 `41 leads x 2 PAC = 82 case`다. ID 예시는
-`paper_stage0_m32_pac4_l20_b01`이다.
+`full_stage0_m32_pac4_l20_b01`이다.
 
-Stage0은 단일 링크 측정이다. 따라서 여기서 고른 lead를6링크 전체의 검증값으로
-바로 동결하면 안 된다. 최종 후보는 Exp4 S6/K6에서 모든 물리 링크로 다시 확인한다.
-이 S6 lead 확인은 현재999개 전수 행렬에 별도 항목으로 포함되어 있지 않은
-차량 캘리브레이션이다.
+Stage0은 단일 링크 측정이므로 다른 물리 송신기의 timing·채널 차이를 직접 측정하지는
+않는다. Exp4 S6/K6에서 후보들을 다시 비교하면 공통 lead의 네트워크 적용성을 더 강하게
+확인할 수 있지만 필수 profile에는 넣지 않는다. `full`, `essential`, `lite`는 Stage0에서
+선정·확인한 lead를 그대로 사용한다. S6 lead 후보 비교는 시간이 남을 때 수행하는 선택적
+차량 캘리브레이션이며, 노드 수가 lead를 직접 증가시킨다는 뜻이 아니다.
 
-## 4. Stage0 선정 lead 확인 — 10 case
+## 4. Stage0 선정 lead 확인 — full/essential 10, lite 2 case
 
 전체 grid 뒤 PAC4 후보1개와 PAC8 후보1개를 고른다.
 
 - `lead-1`, `lead+1` 통과는 필수 조건이 아니다;
 - 연속 통과 구간이 있으면 넓은 구간의 중앙을 우선한다;
 - 고립된 성공점도 후보가 될 수 있으나 반복 결과가 불안정하면 동결하지 않는다;
-- 선정 lead 자체를 PAC별5회 반복한다;
+- 선정 lead 자체를 full/essential에서는 PAC별5회, lite에서는 PAC별1회 측정한다;
 - 모든 run의 PER가1% 미만이고 pooled Wilson95 상한도1% 미만이어야 한다.
 
-계산은 `2 PAC x 1 selected lead x 5 blocks = 10 case`다. ID 예시는
-`paper_stage0_m32_pac8_l25_confirmation_b03`이다. 같은 값을5회 연속 소진하지
+full/essential 계산은 `2 PAC x 1 selected lead x 5 blocks = 10 case`, lite는
+`2 PAC x 1 selected lead x 1 block = 2 case`다. ID 예시는
+`full_stage0_m32_pac8_l25_confirmation_b03`이다. 같은 값을5회 연속 소진하지
 않고 PAC4/PAC8 조건을 한 번씩 수행한 뒤 다음 confirmation block으로 넘어간다.
 
-## 5. Exp1: 프리앰블별 PER — 40 case
+## 5. Exp1: 프리앰블별 PER — full/essential 40, lite 8 case
 
 목적은 같은 단일 링크에서 DATA 프리앰블 축소가 신뢰성에 미치는 영향을 비교하는 것이다.
 
@@ -108,7 +119,7 @@ Stage0은 단일 링크 측정이다. 따라서 여기서 고른 lead를6링크 
 - M32, M64, M128, M256;
 - PAC4는 선정 PAC4 lead, PAC8은 선정 PAC8 lead;
 - 조건당 2,000 전송 기회;
-- 논문 profile 5 blocks.
+- full/essential profile 5 blocks, lite 1 block.
 
 block당 조합은 다음8개다.
 
@@ -117,10 +128,11 @@ block당 조합은 다음8개다.
 | 4 | 32, 64, 128, 256 |
 | 8 | 32, 64, 128, 256 |
 
-계산은 `4 M x 2 PAC x 5 blocks = 40 case`다. ID 예시는
-`paper_exp1_m32_pac8_l25_b01`이다.
+full/essential 계산은 `4 M x 2 PAC x 5 blocks = 40 case`, lite는
+`4 M x 2 PAC x 1 block = 8 case`다. ID 예시는
+`full_exp1_m32_pac8_l25_b01`이다.
 
-## 6. Exp2: 링크별 CIR 품질 — 144 case
+## 6. Exp2: 링크별 CIR 품질 — full 144, essential 72, lite 24 case
 
 목적은 축소 프리앰블에서 CIR 진단값, 누산 심볼, first-path 관련 품질과 PER를
 각 차량 위치 링크별로 측정하는 것이다.
@@ -129,17 +141,19 @@ block당 조합은 다음8개다.
 - N2, N3, N4, N5, N6, N7을 순서대로 선택;
 - 활성 물리 TX는 단일 링크 펌웨어의 논리 N2 역할을 맡음;
 - 나머지 TX5대는 halt 상태를 확인;
-- M32, M64, M128, M256;
+- full은 M32, M64, M128, M256;
+- essential/lite는 끝점 비교인 M32와 M256;
 - PAC4와 PAC8 및 각 PAC의 선정 lead;
 - 조건당1,000 전송 기회와 성공 프레임별 CIR 요약;
-- 논문 profile 3 blocks.
+- full/essential profile 3 blocks, lite 1 block.
 
-block당 `4 M x 2 PAC x 6 physical links = 48 case`, 전체는
-`48 x 3 = 144 case`다. ID 예시는
-`paper_exp2_m32_pac8_l25_txN3_b02`다. 여기서 `txN3`은 실제 물리 위치/serial이며,
+full은 block당 `4 M x 2 PAC x 6 physical links = 48 case`, 전체
+`48 x 3 = 144 case`다. Essential은 `2 M x 2 PAC x 6 links x 3 = 72 case`,
+lite는 같은 조건의 1 block이므로 24 case다. ID 예시는
+`full_exp2_m32_pac8_l25_txN3_b02`다. 여기서 `txN3`은 실제 물리 위치/serial이며,
 무선 프레임의 논리 source는 N2다.
 
-## 7. Exp3: SFD/PHR airtime 분해 — 9 case
+## 7. Exp3: SFD/PHR airtime 분해 — full/essential 9, lite 3 case
 
 목적은 PHY 구성요소별 airtime과 수신 성공을 비교하는 것이다.
 
@@ -149,12 +163,13 @@ block당 `4 M x 2 PAC x 6 physical links = 48 case`, 전체는
 - B: SFD16 + standard-rate PHR;
 - C: SFD8 + data-rate PHR;
 - 조건당1,000회 EXTTXE/수신 측정;
-- 논문 profile 3 blocks.
+- full/essential profile 3 blocks, lite 1 block.
 
-계산은 `3 variants x 3 blocks = 9 case`다. ID 예시는
-`paper_exp3_m32_pac8_l25_A_b01`이다.
+full/essential 계산은 `3 variants x 3 blocks = 9 case`, lite는
+`3 variants x 1 block = 3 case`다. ID 예시는
+`full_exp3_m32_pac8_l25_A_b01`이다.
 
-## 8. Exp4: 다중 노드와 포화 용량 — 696 case
+## 8. Exp4: 다중 노드와 포화 용량 — full 696, essential 48, lite 8 case
 
 목적은 물리 TX 수 확장성과 10 ms 슈퍼프레임 안의 보고서 처리 용량을 검증하는 것이다.
 모든 case는1,000 슈퍼프레임이다.
@@ -223,7 +238,7 @@ S6에서는 여섯 물리 TX가 모두 활성이고, 공통6슬롯과 PHY별 포
 - 각 block 안에서는58조건을 한 번씩 수행한 뒤 다음 block으로 이동;
 - 조건 순서는 block마다 회전하고 짝수 block에서는 역순으로 실행.
 
-## 9. Exp5: 차량 링크별 원시 CIR — 18 case
+## 9. Exp5: 차량 링크별 원시 CIR — full/essential 18, lite 6 case
 
 목적은 같은 PHY로 각 차량 위치 링크의 원시 CIR/PDP 구조를 기록하는 것이다.
 
@@ -232,12 +247,15 @@ S6에서는 여섯 물리 TX가 모두 활성이고, 공통6슬롯과 PHY별 포
 - N2~N7을 한 대씩 활성화하고 나머지5대는 halt;
 - 링크당1,000 전송 기회;
 - 성공 프레임 중 최대30프레임에 대해 프레임당300 raw CIR samples 저장;
-- 논문 profile 3 blocks.
+- full/essential profile 3 blocks, lite 1 block.
 
-계산은 `6 physical links x 3 blocks = 18 case`다. ID 예시는
-`paper_exp5_m1024_pac32_l25_txN6_b03`이다.
+full/essential 계산은 `6 physical links x 3 blocks = 18 case`, lite는
+`6 physical links x 1 block = 6 case`다. ID 예시는
+`full_exp5_m1024_pac32_l25_txN6_b03`이다.
 
-## 10. 999 case 계산
+## 10. profile별 case 계산
+
+### Full — 999 case
 
 | 구분 | 계산 | case |
 |---|---:|---:|
@@ -250,6 +268,41 @@ S6에서는 여섯 물리 TX가 모두 활성이고, 공통6슬롯과 PHY별 포
 | Exp5 | 6 links x 3 | 18 |
 | **합계** |  | **999** |
 
+### Essential — 279 case
+
+`essential`은 lead와 단일 링크 프리앰블 비교의 반복은 유지하면서 다중 노드 조건을
+논문의 핵심인 실제 6TX와 M32/M256 끝점으로 좁힌다.
+
+| 구분 | essential 범위 | case |
+|---|---:|---:|
+| Stage0 grid | 41 lead x 2 PAC | 82 |
+| Stage0 confirmation | 2 PAC x 1 lead x 5 | 10 |
+| Exp1 | 4 M x 2 PAC x 5 | 40 |
+| Exp2 | M32/M256 x 2 PAC x 6 links x 3 | 72 |
+| Exp3 | 3 variants x 3 | 9 |
+| Exp4 | S6 x M32/M256 x 2 K x 2 PAC x 6 logical rotations | 48 |
+| Exp5 | 6 links x 3 | 18 |
+| **합계** |  | **279** |
+
+Exp4는 물리 하드웨어 위치를 바꾸지 않고 논리 슬롯만6 blocks 동안 회전한다. S1~S5,
+M64/M128 Exp4, full의 두 번째 회전 주기, 별도 S6 lead 후보 sweep은 제외한다.
+
+### Lite — 133 case
+
+`lite`는 essential과 **조건 집합이 같고 반복 수만 1 block**이다. 물리 장착과 논리
+역할은 원래 설치표 그대로 유지한다.
+
+| 구분 | lite 범위 | case |
+|---|---:|---:|
+| Stage0 grid | 41 lead x 2 PAC | 82 |
+| Stage0 confirmation | 2 PAC x 1 lead x 1 | 2 |
+| Exp1 | 4 M x 2 PAC x 1 | 8 |
+| Exp2 | M32/M256 x 2 PAC x 6 links x 1 | 24 |
+| Exp3 | 3 variants x 1 | 3 |
+| Exp4 | S6 x M32/M256 x 2 K x 2 PAC x 1 | 8 |
+| Exp5 | 6 links x 1 | 6 |
+| **합계** |  | **133** |
+
 다음은999에 포함되지 않는다.
 
 - 차량 장착 직후 M256/K6 및 M32/K6의6링크 사전 점검;
@@ -258,8 +311,8 @@ S6에서는 여섯 물리 TX가 모두 활성이고, 공통6슬롯과 PHY별 포
 - 사람 통행, 케이블 접촉, 수집 실패 등 명시적으로 오염된 case의 대체 측정;
 - 현재 manifest에 없는 PHY/비컨 조건(Exp4 직접 탐색에서는 CLI로 실행 가능).
 
-따라서999를 내일의 실행 횟수로 사용하면 안 된다. 캘리브레이션 뒤 시간 예산에 맞는
-핵심 검증 block을 사전 확정해야 한다.
+따라서 999를 차량 실험의 기본 실행 횟수로 사용하면 안 된다. 먼저 lite로 전체 경로를
+확인하고 essential을 우선 완료한 뒤, 남는 시간에 full의 추가 조건과 반복으로 확장한다.
 
 ## 11. 반복 실행 원칙
 
@@ -271,7 +324,7 @@ S6에서는 여섯 물리 TX가 모두 활성이고, 공통6슬롯과 PHY별 포
 Exp1~Exp5와 섞지 않는다. 순서는 다음과 같다.
 
 1. 6링크 사전 점검;
-2. Stage0 및6링크 lead 확인;
+2. Stage0 및 선정 lead 확인; 시간 여유가 있을 때만 S6 lead 후보 비교;
 3. SB -> SP -> guard를 한 축씩 탐색하고, 매 결과에서 다음 K를 다시 계산하여 최대 K 확인;
 4. 최종 manifest/펌웨어 동결;
 5. Exp1~Exp5를 stage별 block 방식으로 반복.
@@ -288,9 +341,9 @@ Exp1~Exp5와 섞지 않는다. 순서는 다음과 같다.
 |---|---|---|---|
 | quick exploration | 즉흥적인 아이디어 한두 번 확인 | 기존 저수준 capture/batch 명령과 CLI 옵션 | 진단 자료, 논문 통계에 바로 합산하지 않음 |
 | screening | lead/SB/SP/guard/K 후보를 한 번씩 비교 | 저수준 실행기로 한 case씩 적응 실행하고 raw log 보존 | 최종 후보 선정 자료 |
-| paper validation | 확정 조건의 반복·회전 검증 | 동결 manifest와 immutable case bundle | 논문용 공식 증거 |
+| profile validation | essential/lite/full 확정 조건 검증 | 동결 manifest와 immutable case bundle | 범위가 명시된 논문 증거 |
 
-따라서 “궁금한 조건 하나를 한 번 확인”할 때마다 완전한 paper manifest를 만들 필요는 없다.
+따라서 “궁금한 조건 하나를 한 번 확인”할 때마다 완전한 full manifest를 만들 필요는 없다.
 이미 지원되는 옵션이면 내가 저수준 실행기로 한 case만 빌드·플래시·수집·검증하면 된다.
 이때도 최소한 보드 serial 확인, 고유 로그 경로, 기존 로그 비덮어쓰기, 양쪽 설정 일치,
 raw 로그 보존은 유지한다. 이 정도는 결과 혼동과 잘못된 보드 플래시를 막기 위한 최소 절차다.
@@ -331,7 +384,7 @@ cache도 `_sync<M>`로 분리한다. 예시는 다음과 같다.
   --guard 200 --lead 15 --pac 8 --spi-opt --phy-fast-switch
 ```
 
-현재 paper manifest의 공식 비컨 값은 여전히 M512다. 탐색에서 다른 값이 채택되기 전에는
+현재 profile manifest의 공식 비컨 값은 여전히 M512다. 탐색에서 다른 값이 채택되기 전에는
 manifest case를 바꾸거나 공식 결과와 합산하지 않는다.
 
 요청한 값이 현재 case schema와 빌드 옵션에 없으면 단순히 명령 한 줄만 바꾸지 않는다.

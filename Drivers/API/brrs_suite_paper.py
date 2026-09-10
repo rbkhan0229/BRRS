@@ -1,95 +1,289 @@
 #!/usr/bin/env python3
-"""Paper repetitions and balanced physical-board assignments. No hardware I/O."""
+"""Full, essential, lite, and legacy paper publication experiment profiles.
+
+This planner performs no hardware I/O. ``paper`` is retained only as a
+backward-compatible profile name for existing manifests and bundles; new
+campaigns use ``full`` for the former 999-case plan.
+"""
 import copy
 import hashlib
 import json
 
-STAGES=['stage0','exp1','exp2','exp3','exp4','exp5']
+STAGES = ['stage0', 'exp1', 'exp2', 'exp3', 'exp4', 'exp5']
+PUBLICATION_PROFILES = ('full', 'essential', 'lite', 'paper')
+PROFILE_CHOICES = ('preparation', *PUBLICATION_PROFILES)
+
 
 def digest(value):
-    return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(value, sort_keys=True,
+                                     separators=(',', ':')).encode()).hexdigest()
+
+
+def is_publication_profile(profile):
+    return profile in PUBLICATION_PROFILES
+
+
+def _default_filters(m):
+    links = m.get('cir_link_tx_roles', [m['single_link_tx_role']])
+    return {
+        'stage0': {'pacs': list(m['pacs'])},
+        'exp1': {'preambles': list(m['exp1']['preambles']), 'pacs': list(m['pacs'])},
+        'exp2': {'preambles': list(m['exp2']['preambles']), 'pacs': list(m['pacs']),
+                 'links': list(links)},
+        'exp3': {'variants': list(m['exp3']['variants'])},
+        'exp4': {'preambles': list(m['exp4']['preambles']), 'pacs': list(m['pacs'])},
+        'exp5': {'links': list(links)},
+    }
+
+
+def profile_config(m, profile):
+    """Return one configured profile without mutating historical manifests."""
+    if profile not in PUBLICATION_PROFILES:
+        raise ValueError('unknown publication profile: ' + str(profile))
+    if profile == 'paper':
+        if 'paper' in m:
+            return m['paper']
+        profiles = m.get('profiles', {})
+        if 'full' in profiles:
+            return profiles['full']
+        raise ValueError('legacy paper/full profile configuration missing')
+    profiles = m.get('profiles')
+    if profiles and profile in profiles:
+        return profiles[profile]
+    if profile == 'full' and 'paper' in m:
+        return m['paper']
+    raise ValueError(f'{profile} profile configuration missing')
+
+
+def profile_filters(m, config):
+    defaults = _default_filters(m)
+    supplied = config.get('stage_filters', {})
+    return {stage: copy.deepcopy(supplied.get(stage, defaults[stage])) for stage in STAGES}
+
+
+def _validate_profile(m, name, config):
+    from brrs_suite_manifest import max_slots
+
+    counts = config['repeats_by_stage']
+    if set(counts) != set(STAGES) or any(type(x) is not int or not 1 <= x <= 100
+                                        for x in counts.values()):
+        raise ValueError(f'{name} repeats must specify every stage, 1..100')
+    if counts['stage0'] != 1:
+        raise ValueError(f'{name} Stage0 grid must run exactly once')
+    if type(config['stage0_confirmation_repeats']) is not int or not 1 <= config['stage0_confirmation_repeats'] <= 100:
+        raise ValueError(f'invalid {name} Stage0 confirmation repetitions')
+
+    active = config['active_tx_counts']
+    if (not isinstance(active, list) or not active or len(set(active)) != len(active) or
+            any(type(x) is not int or not 1 <= x <= 6 for x in active) or 6 not in active):
+        raise ValueError(f'{name} active TX counts must be unique values in 1..6 and include S6')
+    assignment = config['exp4_assignment']
+    if assignment not in ['installation_cyclic', 'installation_fixed']:
+        raise ValueError(f'unsupported {name} Exp4 assignment')
+    if assignment == 'installation_cyclic' and counts['exp4'] % 6:
+        raise ValueError(f'{name} cyclic Exp4 repeats must be complete six-block cycles')
+    if config['condition_order'] not in ['alternating_rotated', 'as_listed']:
+        raise ValueError(f'unsupported {name} condition order')
+
+    filters = profile_filters(m, config)
+    if set(config.get('stage_filters', filters)) != set(STAGES):
+        raise ValueError(f'{name} stage filters must specify every stage')
+    allowed_pacs = set(m['pacs'])
+    links = set(m.get('cir_link_tx_roles', [m['single_link_tx_role']]))
+    for stage in ['stage0', 'exp1', 'exp2', 'exp4']:
+        pacs = filters[stage]['pacs']
+        if not pacs or len(set(pacs)) != len(pacs) or not set(pacs) <= allowed_pacs:
+            raise ValueError(f'invalid {name} {stage} PAC filter')
+    for stage in ['exp1', 'exp2']:
+        preambles = filters[stage]['preambles']
+        if not preambles or len(set(preambles)) != len(preambles) or not set(preambles) <= set(m[stage]['preambles']):
+            raise ValueError(f'invalid {name} {stage} preamble filter')
+    variants = filters['exp3']['variants']
+    if not variants or len(set(variants)) != len(variants) or not set(variants) <= set(m['exp3']['variants']):
+        raise ValueError(f'invalid {name} Exp3 variant filter')
+    for stage in ['exp2', 'exp5']:
+        selected_links = filters[stage]['links']
+        if not selected_links or len(set(selected_links)) != len(selected_links) or not set(selected_links) <= links:
+            raise ValueError(f'invalid {name} {stage} link filter')
+    exp4_preambles = filters['exp4']['preambles']
+    if (not exp4_preambles or len(set(exp4_preambles)) != len(exp4_preambles) or
+            not set(exp4_preambles) <= set(m['exp4']['preambles'])):
+        raise ValueError(f'invalid {name} Exp4 preamble filter')
+    slot_counts = config['s6_slot_counts_by_preamble']
+    if set(slot_counts) != {str(x) for x in exp4_preambles}:
+        raise ValueError(f'{name} S6 slot-count keys must match its Exp4 preambles')
+    for plen in exp4_preambles:
+        values = slot_counts[str(plen)]
+        if (not values or len(set(values)) != len(values) or
+                any(type(k) is not int or not 6 <= k <= max_slots(m['exp4'], plen)
+                    for k in values) or 6 not in values):
+            raise ValueError(f'invalid {name} M{plen} S6 slot counts')
+
 
 def validate(m):
-    p=m.get('paper')
-    if p is None: return
-    counts=p['repeats_by_stage']
-    if set(counts)!=set(STAGES) or any(type(x) is not int or not 1<=x<=100 for x in counts.values()):
-        raise ValueError('paper repeats must specify every stage, 1..100')
-    if counts['stage0']!=1 or counts['exp4']%6:
-        raise ValueError('Stage0 grid is once; paper Exp4 repeats must be complete six-block cycles')
-    if p['active_tx_counts']!=[1,2,3,4,5,6] or p['exp4_assignment']!='installation_cyclic':
-        raise ValueError('paper requires S1..S6 and installation-based cyclic assignments')
-    if p['condition_order']!='alternating_rotated': raise ValueError('unsupported condition order')
-    if type(p['stage0_confirmation_repeats']) is not int or not 1<=p['stage0_confirmation_repeats']<=100:
-        raise ValueError('invalid confirmation repetitions')
-    from brrs_suite_manifest import max_slots
-    for plen in m['exp4']['preambles']:
-        ks=p['s6_slot_counts_by_preamble'][str(plen)]
-        if not ks or len(set(ks))!=len(ks) or any(type(k) is not int or not 6<=k<=max_slots(m['exp4'],plen) for k in ks):
-            raise ValueError('invalid paper S6 load plan')
+    profiles = m.get('profiles')
+    if profiles is not None:
+        if set(profiles) != {'full', 'lite', 'essential'}:
+            raise ValueError('profiles must contain exactly full, essential, and lite')
+        for name, config in profiles.items():
+            _validate_profile(m, name, config)
+        full = profiles['full']
+        essential = profiles['essential']
+        lite = profiles['lite']
+        full_filters = profile_filters(m, full)
+        essential_filters = profile_filters(m, essential)
+        lite_filters = profile_filters(m, lite)
+        if (lite_filters != essential_filters or
+                lite['active_tx_counts'] != essential['active_tx_counts'] or
+                lite['s6_slot_counts_by_preamble'] != essential['s6_slot_counts_by_preamble']):
+            raise ValueError('lite must use exactly the essential condition set')
+        if (set(lite['repeats_by_stage'].values()) != {1} or
+                lite['stage0_confirmation_repeats'] != 1 or
+                lite['exp4_assignment'] != 'installation_fixed'):
+            raise ValueError('lite must run exactly one fixed-installation block')
+        if full['exp4_assignment'] != 'installation_cyclic' or essential['exp4_assignment'] != 'installation_cyclic':
+            raise ValueError('full and essential require complete logical-slot rotations')
+        if any(not set(essential_filters[stage][field]).issubset(full_filters[stage][field])
+               for stage, fields in {
+                   'stage0': ['pacs'], 'exp1': ['preambles', 'pacs'],
+                   'exp2': ['preambles', 'pacs', 'links'], 'exp3': ['variants'],
+                   'exp4': ['preambles', 'pacs'], 'exp5': ['links']}.items()
+               for field in fields):
+            raise ValueError('essential conditions must be a subset of full')
+        if not set(essential['active_tx_counts']).issubset(full['active_tx_counts']):
+            raise ValueError('essential active TX counts must be a subset of full')
+        for preamble, counts in essential['s6_slot_counts_by_preamble'].items():
+            if not set(counts).issubset(full['s6_slot_counts_by_preamble'][preamble]):
+                raise ValueError('essential S6 loads must be a subset of full')
+        if any(not (full['repeats_by_stage'][stage] >= essential['repeats_by_stage'][stage] >= 1)
+               for stage in STAGES):
+            raise ValueError('profile repetitions must follow full >= essential >= lite')
+        if full['stage0_confirmation_repeats'] < essential['stage0_confirmation_repeats']:
+            raise ValueError('full confirmation repetitions must cover essential')
+    if 'paper' in m:
+        _validate_profile(m, 'paper', m['paper'])
 
-def assignments(m, sensors, block):
-    """Each logical role visits every physical board once in six blocks."""
-    roles=['N2','N3','N4','N5','N6','N7']
-    if sensors==1: return [m['single_link_tx_role']]
-    return [roles[(i+block-1)%6] for i in range(sensors)]
 
-def plan(m, stage, capacity_candidates=False, confirmation=False):
+def assignments(m, sensors, block, mode='installation_cyclic'):
+    """Map fixed installed boards to logical roles; never move hardware."""
+    roles = ['N2', 'N3', 'N4', 'N5', 'N6', 'N7']
+    if sensors == 1:
+        return [m['single_link_tx_role']]
+    if mode == 'installation_fixed':
+        return roles[:sensors]
+    return [roles[(i + block - 1) % 6] for i in range(sensors)]
+
+
+def _selected(m, stage, case, filters):
+    p = case['conditions']
+    selected = filters[stage]
+    if stage == 'stage0':
+        return p['rx_pac'] in selected['pacs']
+    if stage == 'exp1':
+        return p['preamble'] in selected['preambles'] and p['rx_pac'] in selected['pacs']
+    if stage == 'exp2':
+        link = p.get('link_tx_role', m['single_link_tx_role'])
+        return (p['preamble'] in selected['preambles'] and p['rx_pac'] in selected['pacs']
+                and link in selected['links'])
+    if stage == 'exp3':
+        return p['variant'] in selected['variants']
+    if stage == 'exp4':
+        return p['preamble'] in selected['preambles'] and p['rx_pac'] in selected['pacs']
+    if stage == 'exp5':
+        return p.get('link_tx_role', m['single_link_tx_role']) in selected['links']
+    raise ValueError('unknown stage')
+
+
+def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'):
     from brrs_suite_manifest import plan as base_plan, capacity_counts
+
     validate(m)
-    if 'paper' not in m: raise ValueError('paper configuration missing')
-    if capacity_candidates and stage!='exp4':raise ValueError('capacity candidates are Exp4 only')
-    if confirmation and stage!='stage0': raise ValueError('confirmation is Stage0 only')
-    if confirmation and not m.get('lead_candidates_us_by_pac'):
-        raise ValueError('Stage0 candidates missing; assess grid before planning confirmations')
-    paper=m['paper']; result=[]
-    repeats=paper['stage0_confirmation_repeats'] if confirmation else paper['repeats_by_stage'][stage]
-    for block in range(1,repeats+1):
-        batch=[]
-        for sensors in (paper['active_tx_counts'] if stage=='exp4' else [m['exp4']['sensors']]):
-            t=copy.deepcopy(m)
-            if stage=='exp4':
-                e=t['exp4'];e['sensors']=sensors;e.pop('capacity_search',None)
-                e['slot_counts_by_preamble']={str(plen):([sensors] if sensors<6 else
-                    capacity_counts({**m['exp4'],'sensors':6},plen) if capacity_candidates else paper['s6_slot_counts_by_preamble'][str(plen)]) for plen in e['preambles']}
-                if sensors<6:e['sequences_by_preamble_slotcount']={}
-                physical=assignments(m,sensors,block)
-                for i,role in enumerate(physical,2): t['boards'][f'N{i}']=copy.deepcopy(m['boards'][role])
-            raw=base_plan(t,stage)
+    config = profile_config(m, profile)
+    filters = profile_filters(m, config)
+    result = []
+    repeats = config['stage0_confirmation_repeats'] if confirmation else config['repeats_by_stage'][stage]
+    for block in range(1, repeats + 1):
+        batch = []
+        sensors_to_run = config['active_tx_counts'] if stage == 'exp4' else [m['exp4']['sensors']]
+        for sensors in sensors_to_run:
+            configured = copy.deepcopy(m)
+            if stage == 'exp4':
+                exp4 = configured['exp4']
+                exp4['sensors'] = sensors
+                exp4.pop('capacity_search', None)
+                exp4_preambles = filters['exp4']['preambles']
+                exp4['preambles'] = list(exp4_preambles)
+                configured['pacs'] = list(filters['exp4']['pacs'])
+                exp4['slot_counts_by_preamble'] = {
+                    str(plen): ([sensors] if sensors < 6 else
+                                capacity_counts({**m['exp4'], 'sensors': 6}, plen)
+                                if capacity_candidates else
+                                config['s6_slot_counts_by_preamble'][str(plen)])
+                    for plen in exp4_preambles
+                }
+                if sensors < 6:
+                    exp4['sequences_by_preamble_slotcount'] = {}
+                physical = assignments(m, sensors, block, config['exp4_assignment'])
+                for logical, role in enumerate(physical, 2):
+                    configured['boards'][f'N{logical}'] = copy.deepcopy(m['boards'][role])
+            raw = [case for case in base_plan(configured, stage)
+                   if _selected(m, stage, case, filters)]
             if confirmation:
-                raw=[c for c in raw if c['conditions']['lead_us'] in confirmation_leads(m,c['conditions']['rx_pac'])]
-            for c in raw:
-                p=c['conditions'];p.update(run=block,profile='paper',rotation_index=(block-1)%6 if stage=='exp4' and sensors>1 else 0,
-                    phase='confirmation' if confirmation else 'main')
-                c['condition_id']=c['id']+(f'_s{sensors}' if stage=='exp4' else '')+('_confirmation' if confirmation else '')
-                c['id']='paper_'+c['condition_id']+f'_b{block:02d}'
-                for j in c['jobs']:
-                    # Capture role/HEX is logical; serial and output key are physical.
-                    role=next(r for r,b in m['boards'].items() if b['serial']==j['serial'])
-                    j['physical_role']=role;j['location']=m['boards'][role]['location']
-                    idx=5 if stage=='exp4' else 3 if stage=='exp5' else 4
-                    j['argv'][idx]=str(block);j['build_only_argv'][idx]=str(block)
-                p['active_physical_roles']=[j['physical_role'] for j in c['jobs'] if j['logical_node']!=1]
-                c['conditions_sha256']=hashlib.sha256(json.dumps(p,sort_keys=True).encode()).hexdigest()
-                c['inactive_tx_roles']=[r for r in ['N2','N3','N4','N5','N6','N7'] if r not in p['active_physical_roles']]
-                c['assignment_sha256']=digest([(j['physical_role'],j['logical_node'],j['serial'],j['location']) for j in c['jobs']])
-                for j in c['jobs']:
-                    j['environment'].update(BRRS_SUITE_MANIFEST_SHA256=digest(m),BRRS_SUITE_CONDITIONS_SHA256=c['conditions_sha256'],
-                        BRRS_SUITE_CASE_ID=c['id'],BRRS_SUITE_PHYSICAL_ROLE=j['physical_role'],BRRS_SUITE_LOGICAL_NODE=str(j['logical_node']),
-                        BRRS_SUITE_PROFILE='paper',BRRS_SUITE_BLOCK=str(block),BRRS_SUITE_ROTATION_INDEX=str(p['rotation_index']),
-                        BRRS_SUITE_LOCATION=j['location'],BRRS_SUITE_ASSIGNMENT_SHA256=c['assignment_sha256'])
-                batch.append(c)
-        # Counterbalance condition order independently of role rotation.
-        offset=(block-1)%len(batch);batch=batch[offset:]+batch[:offset]
-        if block%2==0:batch.reverse()
+                raw = [case for case in raw
+                       if case['conditions']['lead_us'] in
+                       confirmation_leads(m, case['conditions']['rx_pac'])]
+            for case in raw:
+                conditions = case['conditions']
+                rotation = ((block - 1) % 6 if stage == 'exp4' and sensors > 1 and
+                            config['exp4_assignment'] == 'installation_cyclic' else 0)
+                conditions.update(run=block, profile=profile, rotation_index=rotation,
+                                  phase='confirmation' if confirmation else 'main')
+                case['condition_id'] = case['id'] + (f'_s{sensors}' if stage == 'exp4' else '') + ('_confirmation' if confirmation else '')
+                case['id'] = f'{profile}_' + case['condition_id'] + f'_b{block:02d}'
+                for job in case['jobs']:
+                    physical_role = next(role for role, board in m['boards'].items()
+                                         if board['serial'] == job['serial'])
+                    job['physical_role'] = physical_role
+                    job['location'] = m['boards'][physical_role]['location']
+                    index = 5 if stage == 'exp4' else 3 if stage == 'exp5' else 4
+                    job['argv'][index] = str(block)
+                    job['build_only_argv'][index] = str(block)
+                conditions['active_physical_roles'] = [job['physical_role'] for job in case['jobs']
+                                                       if job['logical_node'] != 1]
+                case['conditions_sha256'] = hashlib.sha256(
+                    json.dumps(conditions, sort_keys=True).encode()).hexdigest()
+                case['inactive_tx_roles'] = [role for role in ['N2', 'N3', 'N4', 'N5', 'N6', 'N7']
+                                             if role not in conditions['active_physical_roles']]
+                case['assignment_sha256'] = digest([
+                    (job['physical_role'], job['logical_node'], job['serial'], job['location'])
+                    for job in case['jobs']])
+                for job in case['jobs']:
+                    job['environment'].update(
+                        BRRS_SUITE_MANIFEST_SHA256=digest(m),
+                        BRRS_SUITE_CONDITIONS_SHA256=case['conditions_sha256'],
+                        BRRS_SUITE_CASE_ID=case['id'],
+                        BRRS_SUITE_PHYSICAL_ROLE=job['physical_role'],
+                        BRRS_SUITE_LOGICAL_NODE=str(job['logical_node']),
+                        BRRS_SUITE_PROFILE=profile,
+                        BRRS_SUITE_BLOCK=str(block),
+                        BRRS_SUITE_ROTATION_INDEX=str(rotation),
+                        BRRS_SUITE_LOCATION=job['location'],
+                        BRRS_SUITE_ASSIGNMENT_SHA256=case['assignment_sha256'])
+                batch.append(case)
+        if config['condition_order'] == 'alternating_rotated':
+            offset = (block - 1) % len(batch)
+            batch = batch[offset:] + batch[:offset]
+            if block % 2 == 0:
+                batch.reverse()
         result.extend(batch)
     return result
 
-def confirmation_leads(m,pac):
-    candidate=m['lead_candidates_us_by_pac'].get(str(pac))
+
+def confirmation_leads(m, pac):
+    candidate = m['lead_candidates_us_by_pac'].get(str(pac))
     if type(candidate) is not int or candidate not in m['stage0']['leads_us']:
         raise ValueError('candidate must be a measured Stage0 grid lead')
     # A PAC/acquisition boundary can make the integer-lead response
-    # non-monotonic.  Reliability is established by independent repetitions
-    # of the selected point; the full grid preserves its neighbouring shape.
+    # non-monotonic. Reliability comes from repeats of the selected point;
+    # the complete grid retains the neighbouring sensitivity shape.
     return [candidate]

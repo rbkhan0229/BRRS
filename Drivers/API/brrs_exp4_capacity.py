@@ -90,17 +90,17 @@ def next_case(cases, observations):
         if c in pending: return {'status':'NEXT','case_id':c['id'],'purpose':'largest unmeasured candidate'}
         if observations[c['id']]['verdict']=='PASS':
             return {'status':'SCREENING_MAX_FOUND','case_id':c['id'],'slots':len(c['conditions']['slot_owners']),
-                    'paper_capacity_validated':False,'reason':'timing maximum reached or all higher candidates failed PER; paper repetitions/rotation still required'}
+                    'paper_capacity_validated':False,'reason':'timing maximum reached or all higher candidates failed PER; selected profile repetitions still required'}
     return {'status':'NO_PASS_IN_CONFIGURED_RANGE','paper_capacity_validated':False,
             'reason':'does not establish a smaller physical-node capacity'}
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('manifest',type=Path); ap.add_argument('--bundles',type=Path,nargs='*',default=[])
-    ap.add_argument('--profile',choices=['preparation','paper'],default='preparation')
+    ap.add_argument('--profile',choices=['preparation','full','essential','lite','paper'],default='preparation')
     ap.add_argument('--exclusions',type=Path)
     args=ap.parse_args()
-    if args.profile=='paper':return paper_capacity(args)
+    if args.profile!='preparation':return profile_capacity(args)
     m=load(args.manifest); cases=plan(m,'exp4',capacity_candidates=True)
     by_id={c['id']:c for c in cases}; observations={}; rejected=[]
     for root in args.bundles:
@@ -124,25 +124,27 @@ def main():
                       'physical_tx_limit':m['exp4']['sensors'],'paper_repetition_rotation_validated':False},indent=2))
     return 2 if rejected or any(o['verdict']=='INVALID' for o in observations.values()) else 0
 
-def paper_capacity(args):
+def profile_capacity(args):
     from brrs_suite_results import collect
     m=load(args.manifest)
-    cases=[c for c in plan(m,'exp4',profile='paper',capacity_candidates=True) if c['conditions']['sensors']==6]
+    cases=[c for c in plan(m,'exp4',profile=args.profile,capacity_candidates=True) if c['conditions']['sensors']==6]
     report=collect(m,cases,args.bundles,json.loads(args.exclusions.read_text()) if args.exclusions else None)
     aggregates={g['condition_id']:g for g in report['groups']};groups=[]
-    for pac in m['pacs']:
-        for plen in m['exp4']['preambles']:
-            subset=[c for c in cases if c['conditions']['rx_pac']==pac and c['conditions']['preamble']==plen]
-            representatives={c['condition_id']:{'id':c['condition_id'],'conditions':c['conditions']} for c in subset}
-            seen={cid:{'verdict':g['status']} for cid,g in aggregates.items() if cid in representatives and g['status']!='INCOMPLETE'}
-            decision={'status':'STOP_INVALID_INPUT'} if report['rejected'] else next_case(list(representatives.values()),seen)
-            if decision['status']=='NEXT':
-                g=aggregates[decision['case_id']];decision['condition_id']=decision['case_id'];decision['case_id']=g['missing_case_ids'][0]
-                decision['purpose']='complete predeclared repetitions at this load'
-            elif decision['status']=='SCREENING_MAX_FOUND':
-                decision.update(status='PAPER_OBSERVED_MAX_FOUND',paper_capacity_validated=True,
-                    reason='complete planned rotations; every observed run and physical TX PER<1%; scope limited to measured campaign')
-            groups.append({'preamble':plen,'pac':pac,'decision':decision})
+    combinations=sorted({(c['conditions']['rx_pac'],c['conditions']['preamble']) for c in cases})
+    for pac,plen in combinations:
+        subset=[c for c in cases if c['conditions']['rx_pac']==pac and c['conditions']['preamble']==plen]
+        representatives={c['condition_id']:{'id':c['condition_id'],'conditions':c['conditions']} for c in subset}
+        seen={cid:{'verdict':g['status']} for cid,g in aggregates.items() if cid in representatives and g['status']!='INCOMPLETE'}
+        decision={'status':'STOP_INVALID_INPUT'} if report['rejected'] else next_case(list(representatives.values()),seen)
+        if decision['status']=='NEXT':
+            g=aggregates[decision['case_id']];decision['condition_id']=decision['case_id'];decision['case_id']=g['missing_case_ids'][0]
+            decision['purpose']='complete predeclared repetitions at this load'
+        elif decision['status']=='SCREENING_MAX_FOUND':
+            is_full=args.profile in ['full','paper']
+            decision.update(status='FULL_OBSERVED_MAX_FOUND' if is_full else 'PROFILE_OBSERVED_MAX_FOUND',
+                profile_capacity_validated=True,paper_capacity_validated=is_full,full_capacity_validated=is_full,
+                reason='complete selected-profile cases; every observed run and physical TX PER<1%; scope limited to measured campaign')
+        groups.append({'preamble':plen,'pac':pac,'decision':decision})
     report['capacity_decisions']=groups
     print(json.dumps(report,indent=2))
     return 2 if report['rejected'] or any(g['status']=='INVALID' for g in report['groups']) else 0

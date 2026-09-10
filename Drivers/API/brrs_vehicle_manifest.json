@@ -173,44 +173,231 @@
   },
   "goal_per_node_percent_strictly_below": 1.0,
   "repeat_each_condition": 1,
-  "paper": {
-    "repeats_by_stage": {
-      "stage0": 1,
-      "exp1": 5,
-      "exp2": 3,
-      "exp3": 3,
-      "exp4": 12,
-      "exp5": 3
+  "profiles": {
+    "full": {
+      "description": "Former 999-case paper profile with complete repetitions and Exp4 logical-slot rotation",
+      "repeats_by_stage": {
+        "stage0": 1,
+        "exp1": 5,
+        "exp2": 3,
+        "exp3": 3,
+        "exp4": 12,
+        "exp5": 3
+      },
+      "stage0_confirmation_repeats": 5,
+      "active_tx_counts": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "exp4_assignment": "installation_cyclic",
+      "condition_order": "alternating_rotated",
+      "s6_slot_counts_by_preamble": {
+        "32": [
+          6,
+          12,
+          13
+        ],
+        "64": [
+          6,
+          12
+        ],
+        "128": [
+          6,
+          10
+        ],
+        "256": [
+          6,
+          8
+        ]
+      }
     },
-    "stage0_confirmation_repeats": 5,
-    "active_tx_counts": [
-      1,
-      2,
-      3,
-      4,
-      5,
-      6
-    ],
-    "exp4_assignment": "installation_cyclic",
-    "condition_order": "alternating_rotated",
-    "s6_slot_counts_by_preamble": {
-      "32": [
-        6,
-        12,
-        13
+    "lite": {
+      "description": "Essential condition coverage with exactly one fixed-installation block per stage",
+      "repeats_by_stage": {
+        "stage0": 1,
+        "exp1": 1,
+        "exp2": 1,
+        "exp3": 1,
+        "exp4": 1,
+        "exp5": 1
+      },
+      "stage0_confirmation_repeats": 1,
+      "active_tx_counts": [
+        6
       ],
-      "64": [
-        6,
-        12
+      "exp4_assignment": "installation_fixed",
+      "condition_order": "as_listed",
+      "stage_filters": {
+        "stage0": {
+          "pacs": [
+            4,
+            8
+          ]
+        },
+        "exp1": {
+          "preambles": [
+            32,
+            64,
+            128,
+            256
+          ],
+          "pacs": [
+            4,
+            8
+          ]
+        },
+        "exp2": {
+          "preambles": [
+            32,
+            256
+          ],
+          "pacs": [
+            4,
+            8
+          ],
+          "links": [
+            "N2",
+            "N3",
+            "N4",
+            "N5",
+            "N6",
+            "N7"
+          ]
+        },
+        "exp3": {
+          "variants": [
+            "A",
+            "B",
+            "C"
+          ]
+        },
+        "exp4": {
+          "preambles": [
+            32,
+            256
+          ],
+          "pacs": [
+            4,
+            8
+          ]
+        },
+        "exp5": {
+          "links": [
+            "N2",
+            "N3",
+            "N4",
+            "N5",
+            "N6",
+            "N7"
+          ]
+        }
+      },
+      "s6_slot_counts_by_preamble": {
+        "32": [
+          6,
+          13
+        ],
+        "256": [
+          6,
+          8
+        ]
+      }
+    },
+    "essential": {
+      "description": "Repeated core paper evidence without S1-S5 or an S6 lead-candidate sweep",
+      "repeats_by_stage": {
+        "stage0": 1,
+        "exp1": 5,
+        "exp2": 3,
+        "exp3": 3,
+        "exp4": 6,
+        "exp5": 3
+      },
+      "stage0_confirmation_repeats": 5,
+      "active_tx_counts": [
+        6
       ],
-      "128": [
-        6,
-        10
-      ],
-      "256": [
-        6,
-        8
-      ]
+      "exp4_assignment": "installation_cyclic",
+      "condition_order": "alternating_rotated",
+      "stage_filters": {
+        "stage0": {
+          "pacs": [
+            4,
+            8
+          ]
+        },
+        "exp1": {
+          "preambles": [
+            32,
+            64,
+            128,
+            256
+          ],
+          "pacs": [
+            4,
+            8
+          ]
+        },
+        "exp2": {
+          "preambles": [
+            32,
+            256
+          ],
+          "pacs": [
+            4,
+            8
+          ],
+          "links": [
+            "N2",
+            "N3",
+            "N4",
+            "N5",
+            "N6",
+            "N7"
+          ]
+        },
+        "exp3": {
+          "variants": [
+            "A",
+            "B",
+            "C"
+          ]
+        },
+        "exp4": {
+          "preambles": [
+            32,
+            256
+          ],
+          "pacs": [
+            4,
+            8
+          ]
+        },
+        "exp5": {
+          "links": [
+            "N2",
+            "N3",
+            "N4",
+            "N5",
+            "N6",
+            "N7"
+          ]
+        }
+      },
+      "s6_slot_counts_by_preamble": {
+        "32": [
+          6,
+          13
+        ],
+        "256": [
+          6,
+          8
+        ]
+      }
     }
   },
   "lead_candidates_us_by_pac": {

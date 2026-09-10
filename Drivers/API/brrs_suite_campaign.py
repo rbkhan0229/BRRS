@@ -125,7 +125,7 @@ def run_campaign(a):
 def main():
     ap=argparse.ArgumentParser(description=__doc__);sub=ap.add_subparsers(dest='command',required=True)
     p=sub.add_parser('prepare');p.add_argument('--manifest',type=Path,required=True);p.add_argument('--stage',required=True)
-    p.add_argument('--profile',choices=['preparation','paper'],default='paper');p.add_argument('--confirmation',action='store_true');p.add_argument('--capacity-candidates',action='store_true')
+    p.add_argument('--profile',choices=['preparation','full','essential','lite','paper'],default='essential');p.add_argument('--confirmation',action='store_true');p.add_argument('--capacity-candidates',action='store_true')
     p.add_argument('--cases',nargs='+');p.add_argument('--root',type=Path,required=True);p.add_argument('--reuse',action='store_true');p.add_argument('--dry-run',action='store_true')
     p=sub.add_parser('deploy');p.add_argument('--bundle',type=Path,required=True);p.add_argument('--host');p.add_argument('--dry-run',action='store_true')
     p=sub.add_parser('run');p.add_argument('--root',type=Path,required=True);p.add_argument('--host');p.add_argument('--dry-run',action='store_true')

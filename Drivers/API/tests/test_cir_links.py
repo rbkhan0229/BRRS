@@ -52,6 +52,10 @@ class LinkTests(unittest.TestCase):
 
     def test_old_manifest_ids_and_single_n4_remain_compatible(self):
         m=frozen();m.pop('cir_link_tx_roles')
+        # Reconstruct the pre-profile manifest shape as well.  Current
+        # essential/lite filters intentionally name all six physical links,
+        # whereas old manifests had only the implicit N4 link.
+        m['paper']=m.pop('profiles')['full']
         for stage,count in [('exp2',24),('exp5',3)]:
             cs=manifest.plan(m,stage,profile='paper');self.assertEqual(len(cs),count)
             self.assertTrue(all('_txN' not in c['id'] and 'link_tx_role' not in c['conditions'] for c in cs))

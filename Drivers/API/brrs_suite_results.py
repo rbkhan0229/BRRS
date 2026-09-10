@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 from brrs_suite_case import checked,sha
 from brrs_suite_manifest import load,plan
-from brrs_suite_paper import digest
+from brrs_suite_paper import digest,is_publication_profile
 from brrs_suite_evidence import read_evidence
 from brrs_exp1_verify import validate_rx,validate_tx,parse_kv_marker
 from brrs_wilson_ci import wilson_interval
@@ -147,7 +147,9 @@ def aggregate(cases,observations):
         output.append({'condition_id':cid,'status':status,'expected_runs':len(expected),'valid_runs':len(valid),'missing_case_ids':missing,
             'invalid_case_ids':invalid,'failed_per_case_ids':[r['case_id'] for r in valid if r['verdict']=='FAIL_PER'],
             'nodes_by_serial':pooled,'planned_runs_complete':not missing and not invalid,
-            'paper_repetitions_complete':all(c['conditions'].get('profile')=='paper' for c in expected) and not missing and not invalid,
+            'profile_runs_complete':all(is_publication_profile(c['conditions'].get('profile')) for c in expected) and not missing and not invalid,
+            'full_repetitions_complete':all(c['conditions'].get('profile') in ['full','paper'] for c in expected) and not missing and not invalid,
+            'paper_repetitions_complete':all(c['conditions'].get('profile') in ['full','paper'] for c in expected) and not missing and not invalid,
             'confidence_interval_scope':'packet-level Wilson; correlated/burst losses can reduce effective sample size; per-run results retained'})
     return output
 
@@ -176,14 +178,17 @@ def collect(m,cases,bundles,exclusions=None):
     status=('INVALID' if rejected or any(g['status']=='INVALID' for g in groups) else
             'INCOMPLETE' if any(g['status']=='INCOMPLETE' for g in groups) else
             'FAIL_PER' if any(g['status']=='FAIL_PER' for g in groups) else 'PASS')
+    publication=bool(cases) and all(is_publication_profile(c['conditions'].get('profile')) for c in cases)
+    full=bool(cases) and all(c['conditions'].get('profile') in ['full','paper'] for c in cases)
     return {'observations':observations,'rejected':rejected,'excluded':excluded,'groups':groups,
-            'campaign_status':status,'paper_protocol_pass':bool(cases) and status=='PASS' and all(c['conditions'].get('profile')=='paper' for c in cases),
+            'campaign_status':status,'selected_profile_protocol_pass':publication and status=='PASS',
+            'full_protocol_pass':full and status=='PASS','paper_protocol_pass':full and status=='PASS',
             'rf_execution_performed':False}
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('manifest',type=Path);ap.add_argument('--stage',required=True,choices=['stage0','exp1','exp2','exp3','exp4','exp5'])
-    ap.add_argument('--profile',default='paper',choices=['preparation','paper']);ap.add_argument('--confirmation',action='store_true')
+    ap.add_argument('--profile',default='essential',choices=['preparation','full','essential','lite','paper']);ap.add_argument('--confirmation',action='store_true')
     ap.add_argument('--capacity-candidates',action='store_true');ap.add_argument('--bundles',nargs='*',type=Path,default=[]);ap.add_argument('--exclusions',type=Path)
     a=ap.parse_args();m=load(a.manifest);cases=plan(m,a.stage,profile=a.profile,confirmation=a.confirmation,capacity_candidates=a.capacity_candidates)
     r=collect(m,cases,a.bundles,json.loads(a.exclusions.read_text()) if a.exclusions else None)

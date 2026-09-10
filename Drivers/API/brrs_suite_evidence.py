@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 from brrs_suite_case import checked, sha
+from brrs_suite_paper import is_publication_profile
 
 
 def capture_lines(text,stage,is_rx):
@@ -45,10 +46,10 @@ def read_evidence(root,expected_case):
                   'suite_case_id':c['id'],'suite_conditions_sha256':c['conditions_sha256'],
                   'suite_manifest_sha256':expected_case['jobs'][0]['environment']['BRRS_SUITE_MANIFEST_SHA256'],
                   'firmware_sha256':job['hex_sha256'],'raw_sha256':sha(raw),'collection_status':'PASS'}
-        if p.get('profile')=='paper':
-            expected.update(suite_profile='paper',suite_block=str(p['run']),suite_rotation_index=str(p['rotation_index']),
+        if is_publication_profile(p.get('profile')):
+            expected.update(suite_profile=p['profile'],suite_block=str(p['run']),suite_rotation_index=str(p['rotation_index']),
                 physical_location=job['location'],suite_assignment_sha256=expected_case['assignment_sha256'],run_number=str(p['run']))
-        if p.get('profile')=='paper' or 'link_tx_role' in p:
+        if is_publication_profile(p.get('profile')) or 'link_tx_role' in p:
             if state['case_id']!=c['id']: raise ValueError('side case identity mismatch')
             if job['logical_node']==1 and not orchestration['all_tx_ready_at']<=worker['started_at']:
                 raise ValueError('RX started before all TX READY')

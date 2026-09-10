@@ -51,10 +51,11 @@ def freeze(m,report):
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('action',choices=['candidates','freeze']);ap.add_argument('manifest',type=Path)
+    ap.add_argument('--profile',choices=['full','essential','lite','paper'],default='essential')
     ap.add_argument('--bundles',nargs='+',type=Path,required=True);ap.add_argument('--output-manifest',type=Path,required=True)
     ap.add_argument('--exclusions',type=Path)
     a=ap.parse_args();m=load(a.manifest)
-    c=plan(m,'stage0',profile='paper',confirmation=a.action=='freeze')
+    c=plan(m,'stage0',profile=a.profile,confirmation=a.action=='freeze')
     report=collect(m,c,a.bundles,json.loads(a.exclusions.read_text()) if a.exclusions else None)
     result=copy.deepcopy(m)
     if a.action=='candidates':
@@ -62,7 +63,8 @@ def main():
         result['lead_selection']={'frozen':False,'lead_us_by_pac':{'4':None,'8':None},'evidence':None}
     else:
         values=freeze(m,report)
-        result['lead_selection']={'frozen':True,'lead_us_by_pac':values,'evidence':{'method':'complete 0..40 us grid; repeated selected-lead confirmations; every run PER<1%; pooled Wilson95 upper<1%; adjacent leads are sensitivity evidence, not pass requirements',
+        result['lead_selection']={'frozen':True,'lead_us_by_pac':values,'evidence':{'method':'complete 0..40 us grid; selected-profile candidate confirmations; every run PER<1%; pooled Wilson95 upper<1%; adjacent leads are sensitivity evidence, not pass requirements',
+            'profile':a.profile,
             'report_sha256':digest(report),'input_manifest_sha256':sha(a.manifest),
             'bundles':{str(p.resolve()):sha(p/'payload_hashes.json') for p in a.bundles}}}
     target=a.output_manifest.resolve();evidence=target.with_suffix('.stage0_evidence.json')

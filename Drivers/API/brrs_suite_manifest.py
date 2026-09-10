@@ -126,11 +126,12 @@ def capacity_counts(e, plen):
     return [e['sensors'], *range(max_slots(e,plen),e['sensors'],-1)]
 
 def plan(m, stage, *, capacity_candidates=False, profile='preparation', confirmation=False):
-    if profile == 'paper':
-        from brrs_suite_paper import plan as paper_plan
-        return paper_plan(m,stage,capacity_candidates,confirmation)
+    if profile in ['full', 'essential', 'lite', 'paper']:
+        from brrs_suite_paper import plan as publication_plan
+        return publication_plan(m, stage, capacity_candidates, confirmation,
+                                profile=profile)
     if profile != 'preparation' or confirmation:
-        raise ValueError('confirmation requires paper profile')
+        raise ValueError('confirmation requires essential, lite, full, or legacy paper profile')
     if capacity_candidates and stage != 'exp4':
         raise ValueError('capacity candidates are only supported for Exp4')
     cases = []
@@ -217,7 +218,8 @@ def main():
     ap.add_argument('--role')
     ap.add_argument('--physical-tx-role',choices=ROLES[1:],help='explicit Exp2/Exp5 TX for serial lookup')
     ap.add_argument('--sensors',type=int,choices=range(1,7),help='serial lookup: selected Exp4 physical TX count')
-    ap.add_argument('--profile',choices=['preparation','paper'],default='preparation')
+    ap.add_argument('--profile',choices=['preparation','full','essential','lite','paper'],default='preparation',
+                    help='paper is a backward-compatible alias; use full for new complete campaigns')
     ap.add_argument('--confirmation',action='store_true',help='Stage0 selected-lead repetitions after the complete grid')
     ap.add_argument('--capacity-candidates', action='store_true',
                     help='Exp4 only: include conditional descending-load candidates; does not execute them')
