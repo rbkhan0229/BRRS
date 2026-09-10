@@ -19,6 +19,32 @@
 
 실험과 데이터의 위치·펌웨어 연결 방법은 [BRRS 실험 데이터 카탈로그](BRRS_DATA_CATALOG_KR.md)를 따른다.
 
+## 최종 작업공간 구조
+
+차량 실험이 끝난 뒤의 목표 구조는 다음과 같다. 실행 중인 스크립트가 현재 경로를 참조하므로 최종 차량 실험 전에는 대규모 이동을 하지 않는다.
+
+```text
+DWM3000/
+├── README.md
+├── DW3_QM33_SDK_1.0.2/   # 유일한 Git 저장소: 펌웨어·실행기·검증기·분석기·문서
+├── logs/                  # 변경하지 않는 원시 로그와 실행 bundle, 역할별 HEX/ELF
+│   └── archive/           # 논문에서 직접 쓰지 않는 과거·진단 실험
+├── results/               # 선별된 논문 결과와 재생 가능한 분석 산출물
+│   ├── curated/
+│   ├── analysis/
+│   └── legacy/
+├── paper/                 # 논문 초안·보고서·초안용 데이터 스냅샷
+│   ├── drafts/
+│   ├── reports/
+│   └── source_data/
+├── references/            # 벤더 매뉴얼·관련 논문·프로젝트 설명 자료
+└── tmp/                   # 언제든 다시 만들거나 지울 수 있는 임시 파일
+```
+
+현재의 `paper_results_*`, `experiment_analysis_*`, `result3`는 나중에 `results/` 아래로, `draft`, `reports`, `data_for_draft`는 `paper/` 아래로, `manual`, `reference_for_paper`, `info`는 `references/` 아래로 옮긴다. 이동 전후 SHA-256 manifest를 만들고 문서·스크립트의 경로 참조를 함께 갱신한 뒤 오프라인 검증을 통과해야 한다. 원시 `logs/` 실행 폴더는 이름을 바꾸지 않는다.
+
+저장소 내부의 현재 `Drivers/API/brrs_*` 실행·검증·분석 도구는 차량 실험이 끝날 때까지 경로를 유지한다. 이후 필요하면 한 commit에서 `tools/experiments`, `tools/verification`, `tools/analysis`로 이동하고 import·상대경로·테스트를 동시에 수정한다. 도구를 SDK 밖으로 복사해 별도 원본을 만들지는 않는다.
+
 ## 커밋 시점
 
 키 입력마다 commit하지 않는다. 다음 경계에서 작은 논리 단위로 commit한다.
@@ -29,6 +55,41 @@
 4. 유효한 실험 결과를 반영하는 문서·분석을 마쳤을 때
 
 실제 RF 실험은 반드시 `git status --short`가 빈 clean commit에서 시작한다. 실험 도중 임시 수정이 필요하면 먼저 현재 결과를 닫고 새 commit으로 구분한다. 현장 실험 직전과 하루 종료 시점에는 원격 `vehicle-experiments`에 push한다.
+
+## AI 작업 도구 기록
+
+Git author는 실제 연구 책임자인 사용자 계정을 유지한다. Codex나 Claude Code가 구현, 분석, 검증 또는 문서 작성에 참여한 커밋은 commit 본문 마지막에 다음 Git trailer를 남긴다.
+
+```text
+AI-Assisted-By: Codex
+```
+
+```text
+AI-Assisted-By: Claude Code
+```
+
+두 도구가 같은 commit의 내용에 실질적으로 참여했으면 두 줄을 모두 기록한다. 한 도구가 내용을 만들지 않고 검토만 했다면 다음과 같이 구분한다.
+
+```text
+AI-Reviewed-By: Claude Code
+```
+
+- 단순 질문이나 명령 실행만으로 commit 내용이 바뀌지 않았으면 trailer를 붙이지 않는다.
+- AI가 만들었더라도 사용자가 검토·채택하지 않은 결과는 정식 실험 commit에 넣지 않는다.
+- 기존 commit에는 기억에 의존해 소급 표기하지 않고, 2026-09-10 이후 새 commit부터 적용한다.
+- commit 제목은 변경 목적을 쓰고, AI 도구명만으로 제목을 만들지 않는다.
+
+예시는 다음과 같다.
+
+```text
+exp4: record per-node RX error causes
+
+Preserve bounded DW3000 RX error counters in the experiment bundle and
+make verification fail closed when diagnostic records are incomplete.
+
+AI-Assisted-By: Codex
+AI-Reviewed-By: Claude Code
+```
 
 ## 과거 SDK 사본의 복원
 
