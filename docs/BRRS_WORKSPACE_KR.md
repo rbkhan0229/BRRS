@@ -140,8 +140,8 @@ python3 tools/verify_experiment_archive.py
 
 - [차량 설정·보드 역할](../Drivers/API/BRRS_VEHICLE_MANIFEST_KR.md)
 - [Stage0~Exp5 논문 반복·회전](../Drivers/API/BRRS_PAPER_CAMPAIGN_KR.md)
-- [Full 999 case와 실행 방식](experiments/BRRS_EXPERIMENT_FULL_KR.md)
-- [Standard 305 case와 실행 방식](experiments/BRRS_EXPERIMENT_STANDARD_KR.md)
-- [Essential 279 case와 실행 방식](experiments/BRRS_EXPERIMENT_ESSENTIAL_KR.md)
-- [Lite 133 case와 실행 방식](experiments/BRRS_EXPERIMENT_LITE_KR.md)
+- [Full 1045 case와 실행 방식](experiments/BRRS_EXPERIMENT_FULL_KR.md)
+- [Standard 489 case와 실행 방식](experiments/BRRS_EXPERIMENT_STANDARD_KR.md)
+- [Essential 325 case와 실행 방식](experiments/BRRS_EXPERIMENT_ESSENTIAL_KR.md)
+- [Lite 175 case와 실행 방식](experiments/BRRS_EXPERIMENT_LITE_KR.md)
 - [Exp2·Exp5 물리 링크 순회](../Drivers/API/BRRS_CIR_LINKS_KR.md)

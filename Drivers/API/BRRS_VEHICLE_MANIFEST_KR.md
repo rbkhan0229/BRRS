@@ -13,7 +13,11 @@ python3 brrs_suite_manifest.py plan brrs_vehicle_manifest.json --stage stage0
 
 `plan`은 JSON 명령 계획만 출력한다. 보드에 접속하거나 플래시하지 않는다. 각 case에는 조건 hash, 각 보드의 serial/물리 역할/논리 ID, 실제 캡처 명령 `argv`, `build_only_argv`, 실행 시 함께 적용할 `environment`, 비참여 TX 목록이 있다. `environment`의 case/manifest 식별자는 캡처 metadata에 기록된다. 조건 hash는 보드 flash readback의 대체물이 아니다.
 
-Stage0는 원래 lead 0~40us의 41점 순서와 PAC4/8을 유지한다. `lead_selection`은 아직 미선정 상태다. Stage0 결과를 근거로 `lead_us_by_pac`와 `evidence`를 채우고 `frozen`을 true로 바꾼 뒤에야 나머지 단계의 계획이 생성된다. 본 실험용 lead를 임의로 정하지 않는다.
+Stage0는 lead 0~40us의 41점 순서로 M32/PAC4, M32/PAC8,
+M1024/PAC32를 각각 측정한다. `lead_selection`은 아직 미선정 상태다. Stage0
+결과를 근거로 `lead_us_by_config`와 `evidence`를 채우고 `frozen`을 true로
+바꾼 뒤에야 나머지 단계의 계획이 생성된다. 본 실험용 lead를 임의로 정하지
+않는다.
 
 - Exp1/Exp2: 각각 PAC4+lead4와 PAC8+lead8, M32/64/128/256.
 - Exp2/Exp5: 각 조건에서 RX와 선택 TX 한 대만 실행하고 나머지 5대 정지를 검증한다. 실제 serial·위치·링크별 case ID를 보존한다. [자동 링크 순회 사용법](BRRS_CIR_LINKS_KR.md).
@@ -21,7 +25,10 @@ Stage0는 원래 lead 0~40us의 41점 순서와 PAC4/8을 유지한다. `lead_se
 - Exp3: A/B/C의 SFD·PHR 차이를 유지하고 PAC8, lead는 동결된 PAC8 값을 사용한다.
 - Exp4: M32/64/128/256을 비교하며 물리 TX6과 논리 슬롯 수를 별도로 둔다. G250/SB3000/SP2500/SF10ms에서 모델상 최대는 M32=13, M64=12, M128=10, M256=8이다. 기본 계획은 각 M·PAC의 6슬롯과 해당 상한, 총16조건이다. 이것은 최대 부하 RF 검증 완료를 뜻하지 않는다. M32 13슬롯 배정은 기존 `2345672345673`을 유지한다.
 - Exp4: 슬롯별 bounded delayed-RX·SPI 최적화를 빌드와 검증에 함께 전달한다. PAC 비교는 INIT DATA RX에만 적용하며 TX DATA PAC 정의는 8로 고정하여 PAC 조건 사이 TX 이미지가 달라지지 않게 했다.
-- Exp5: M1024/PAC32를 유지한다. lead 참조는 Stage0의 동결 PAC8 값이며, 이를 PAC32의 최적 lead를 측정했다는 뜻으로 해석하지 않는다.
+- Exp5: M1024/PAC32를 유지하고 Stage0에서 독립적으로 동결한
+  M1024/PAC32 lead를 사용한다. Exp5의 CIR 결과는 Exp4 성능을 해석하는
+  링크별 채널 문맥이며, 독립 기준 채널 보정 없이는 절대 K-factor나 순수
+  delay spread 또는 이용률의 직접 예측값으로 주장하지 않는다.
 
 ## 빌드만 확인
 
@@ -55,7 +62,7 @@ RTT 수집기는 READY/END 각 1개를 요구한다. Exp4 검증기는 슬롯별
 
 ## Exp4 심볼별 용량 탐색
 
-현재 고정 역할·조건당1회 준비 점검에 사용하는 절차다. PAC별 lead를 선정·동결한 동일 manifest와 완료된 case bundle을 사용한다. PHY·위치·역할·guard·SB/SP를 바꾸지 않고 슬롯 부하만 낮춘다.
+현재 고정 역할·조건당1회 준비 점검에 사용하는 절차다. PHY 설정별 lead를 선정·동결한 동일 manifest와 완료된 case bundle을 사용한다. PHY·위치·역할·guard·SB/SP를 바꾸지 않고 슬롯 부하만 낮춘다.
 
 | M | 공통 기준 슬롯 | 계산상 최대 슬롯/SF | 최대 offered reports/s | 무손실 app goodput 상한 |
 |---:|---:|---:|---:|---:|
@@ -84,4 +91,4 @@ python3 brrs_exp4_capacity.py brrs_vehicle_manifest.json --bundles <완료-bundl
 
 용량 도구는 보드에 접속하지 않는다. bundle/payload hash, 실행 상태, serial·역할·조건·manifest·HEX·raw metadata, READY/END, 기존 INIT/TX 검증과 송신 분모를 다시 확인한다. 각 물리 serial의 offered/RX/PER 및 TX beacon/attempt/success, 전체 전송률·app goodput을 출력한다. offered에는 beacon 미수신으로 송신하지 못한 기회도 포함한다. 어느 보드든 PER≥1%면 FAIL_PER, 전체 수신0·수집/제어 오류·증거 불일치는 INVALID로 중단한다. 동일 case의 여러 실행을 넣어 좋은 결과만 고르는 것도 거부한다.
 
-`SCREENING_MAX_FOUND`는 이 고정 배치에서 조건당1회로 확인한 **준비 점검 상한**이다. 준비 모드의 단일 실행 값은 논문용 최종 용량이 아니다. `brrs_exp4_capacity.py --profile full|standard|essential|lite`는 선택한 profile의 완료 여부와 노드별 결과를 합쳐 별도로 판정한다. `full`은 S1~S6 전수 조건과12회 반복, `standard`는 PAC4를 M32에만 적용한 S1 전 M·S2~S6 끝점 M과6회 물리/논리 회전, `essential`은 핵심 S6 조건의6회 논리 슬롯 회전, `lite`는 essential과 같은 조건의 고정 배치1회다. [논문용 실행 안내](BRRS_PAPER_CAMPAIGN_KR.md)를 따른다. PAC별 lead 미선정 상태도 유지한다. M128의 lead25·10슬롯 PAC4/PAC8 이미지와 준비/캡처 build-only 경로를 오프라인으로 검증했으며, 그 진단값을 최적 lead로 선정하거나 새 RF 결과로 사용하지 않는다. 근거는 `logs/vehicle_capacity_fix_20260907/RESULTS.md`다.
+`SCREENING_MAX_FOUND`는 이 고정 배치에서 조건당1회로 확인한 **준비 점검 상한**이다. 준비 모드의 단일 실행 값은 논문용 최종 용량이 아니다. `brrs_exp4_capacity.py --profile full|standard|essential|lite`는 선택한 profile의 완료 여부와 노드별 결과를 합쳐 별도로 판정한다. `full`은 S1~S6 전수 조건과12회 반복, `standard`는 PAC4를 M32에만 적용한 S1 전 M·S2~S6 끝점 M과12회 물리/논리 회전, `essential`은 핵심 S6 조건의6회 논리 슬롯 회전, `lite`는 essential과 같은 조건의 고정 배치1회다. [논문용 실행 안내](BRRS_PAPER_CAMPAIGN_KR.md)를 따른다. PHY 설정별 lead 미선정 상태도 유지한다. M128의 lead25·10슬롯 PAC4/PAC8 이미지와 준비/캡처 build-only 경로를 오프라인으로 검증했으며, 그 진단값을 최적 lead로 선정하거나 새 RF 결과로 사용하지 않는다. 근거는 `logs/vehicle_capacity_fix_20260907/RESULTS.md`다.

@@ -1,9 +1,9 @@
-# BRRS Standard profile — 305 case
+# BRRS Standard profile — 489 case
 
 이 문서는 다른 profile 문서를 읽지 않아도 Standard 차량 실험을 이해하고 운영할 수
 있도록 범위, 보드 역할, 반복·회전, 실행·재개와 통행 오염 처리를 설명한다.
 
-Standard는 실제 차량 논문의 기본 profile이다. Full의 999 case보다 시간을 줄이되,
+Standard는 실제 차량 논문의 기본 profile이다. Full의 1045 case보다 시간을 줄이되,
 Essential에 없는 S1~S5 노드 수 그래프와 여섯 물리 링크의 반복 근거를 유지한다.
 별도 Exp1은 실행하지 않는다. 같은 최종 TDMA 송수신 경로를 사용하는 Exp4 S1에서
 M32/PAC4·PAC8 및 M64/128/256/PAC8을 측정하고, block마다 송신 보드를 바꾸어 프리앰블 비교와
@@ -55,33 +55,35 @@ Stage0과 Exp3의 단일 TX는 물리 N4를 사용한다. Exp2와 Exp5는 N2~N7�
 | 목표 | 모든 물리 노드의 각 run PER < 1%, 시스템 오류 0 |
 
 환경, 거리, 위치, 유전원 허브·어댑터·포트·케이블과 차량 상태를 차량용 manifest에
-기록하고 실험 도중 바꾸지 않는다. Lead는 차량 Stage0 결과로 PAC별 선정·동결하기
+기록하고 실험 도중 바꾸지 않는다. Lead는 차량 Stage0 결과로 PHY 설정별 선정·동결하기
 전까지 Exp2~Exp5에 임의 적용하지 않는다.
 
 ## 전체 case 수
 
 | 구분 | 조건과 반복 | case |
 |---|---:|---:|
-| Stage0 grid | 41 leads × 2 PAC | 82 |
-| Stage0 confirmation | 2 PAC × 선정 lead × 5 blocks | 10 |
+| Stage0 grid | 41 leads × 3 PHY 설정 | 123 |
+| Stage0 confirmation | 3 PHY 설정 × 선정 lead × 5 blocks | 15 |
 | Exp1 | Exp4 S1에 흡수 | 0 |
 | Exp2 | (M32 × PAC4/8 + M256 × PAC8) × 6 links × 3 blocks | 54 |
 | Exp3 | 3 variants × 1 block | 3 |
-| Exp4 | 23조건 × 6 blocks | 138 |
+| Exp4 | 23조건 × 12 blocks | 276 |
 | Exp5 | 6 links × 3 blocks | 18 |
-| **합계** |  | **305** |
+| **합계** |  | **489** |
 
 한 조건만 여러 번 연속 실행하지 않는다. 각 stage에서 block 1의 모든 조건을 마친 뒤
 block 2로 돌아가며, block마다 조건 시작 위치를 순환시키고 짝수 block은 역순으로
 실행한다. 정상 결과라면 다음 case로 계속 진행한다. 비정상 PER, 시스템 오류 또는
 사용자가 통행·환경 변화를 알린 경우에만 현재 case 뒤에서 멈추고 확인한다.
 
-## Stage0 — PAC별 lead 선정
+## Stage0 — PHY 설정별 lead 선정
 
-물리 N4→INIT 단일 링크에서 M32/tail0으로 PAC4와 PAC8 각각 lead 0~40 us의
-41개 정수점을 측정한다. Lead당 2,000 전송 기회이며 grid는 총 82 case다.
+물리 N4→INIT 단일 링크에서 M32/PAC4, M32/PAC8, M1024/PAC32 각각 lead
+0~40 us의 41개 정수점을 측정한다. Lead당 2,000 전송 기회이며 grid는 총
+123 case다. M1024/PAC32 branch는 Exp5의 scheduled delayed-RX lead를 PAC8에서
+빌리지 않고 독립적으로 정하기 위한 것이다.
 전체 grid가 유효해야 후보를 고른다. `lead-1`과 `lead+1`이 반드시 통과할 필요는 없다.
-선정 lead 자체를 PAC별 5회 확인하고, 모든 run의 PER가 1% 미만이며 합산 Wilson 95%
+선정 lead 자체를 PHY 설정별 5회, 총 15 case 확인하고, 모든 run의 PER가 1% 미만이며 합산 Wilson 95%
 상한도 1% 미만일 때만 manifest에 동결한다.
 
 Stage0은 뒤 단계의 설정을 결정하므로 round마다 반복하지 않는다. 차량 배치나 전원·
@@ -95,7 +97,7 @@ TDMA 데이터 경로를 그대로 사용한다. 따라서 Standard는 Exp4 S1�
 
 다만 두 결과가 완전히 같은 실험이라는 뜻은 아니다. Exp1은 단일 링크 PHY 회귀 시험이고
 Exp4 S1은 최종 시스템 경로 시험이다. 펌웨어 디버깅이나 과거 데이터와의 직접 비교가
-필요하면 profile 밖 진단으로 Exp1을 실행하되 Standard 377 case에 합산하지 않는다.
+필요하면 profile 밖 진단으로 Exp1을 실행하되 Standard 489 case에 합산하지 않는다.
 
 ## Exp2 — 여섯 링크의 CIR 요약
 
@@ -128,28 +130,33 @@ PAC8로 고정한 M32~M256은 순수 프리앰블 길이 비교 곡선을 만들
 제조사 권장 짧은 프리앰블 조합과 PAC8을 직접 비교한다. M64 이상에는 PAC4를 적용하지
 않는다. S2~S6은 M32와 M256 끝점만 사용해
 노드 수에 따른 이용률·PER 변화를 보여준다. S6/K13과 S6/K8은 각 PHY의 포화 처리량을
-검증한다. Block 1~6에서 설치표를 한 칸씩 순환하므로 S1은 모든 물리 링크를 한 번씩,
-S2~S6은 가능한 논리 슬롯 역할을 한 바퀴 경험한다. 총 23 × 6 = 138 case다.
+검증한다. Block 1~6에서 설치표를 한 칸씩 순환하고 block 7~12에서 같은 회전을 한 번 더
+반복한다. 따라서 S1은 모든 물리 링크를 두 번씩, S2~S6은 가능한 논리 슬롯 역할을
+두 주기 경험한다. 총 23 × 12 = 276 case다.
 
 ## Exp5 — 차량 링크별 raw CIR
 
-N2~N7을 한 대씩 활성화해 M1024/PAC32로 측정한다. Lead는 PAC8 Stage0 선정값을
-전달하지만 PAC32 최적값을 측정했다는 뜻은 아니다. 링크당 1,000 전송 기회를 주고
+N2~N7을 한 대씩 활성화해 M1024/PAC32로 측정한다. Lead는 Stage0의
+M1024/PAC32 grid와 confirmation에서 독립적으로 선정한 값을 사용한다. 링크당 1,000 전송 기회를 주고
 성공 프레임 중 최대 30프레임, 프레임당 300 raw CIR samples를 보존한다. Block당
 6 case, 3 blocks로 총 18 case다.
 
+차량별 실현 가능한 이용률은 Exp4의 최소 신뢰 프리앰블과 용량 결과로 정한다. Exp5는
+링크별 CIR을 제공해 그 차이를 채널 관점에서 해석하지만, Exp5만으로 이용률을 직접
+예측하거나 보정된 K-factor·순수 지연 확산을 주장하지 않는다.
+
 ## Round별 실행과 예상 시간
 
-Stage0 92 case를 끝내 lead를 동결한 뒤 다음 순서로 진행한다.
+Stage0 138 case를 끝내 lead를 동결한 뒤 다음 순서로 진행한다.
 
 | round | 실행 stage/block | case |
 |---:|---|---:|
 | 1 | Exp2 18 + Exp3 3 + Exp4 23 + Exp5 6 | 50 |
 | 2~3 | Exp2 18 + Exp4 23 + Exp5 6 | 각 47 |
-| 4~6 | Exp4 23 | 각 23 |
+| 4~12 | Exp4 23 | 각 23 |
 
-Case당 준비·flash·READY·약 10초 RF·수집 검증을 합쳐 평균 1분 정도면 약 5시간,
-현장 중단과 재측정을 포함하면 **약 6~7시간**을 예상한다. 시간은 장비·빌드 캐시 상태에
+Case당 준비·flash·READY·약 10초 RF·수집 검증을 합쳐 평균 1분 정도면 약 8시간,
+현장 중단과 재측정을 포함하면 **약 9~11시간**을 예상한다. 시간은 장비·빌드 캐시 상태에
 따라 달라진다. 한 번에 끝낼 필요는 없으며 case, stage 또는 round 경계에서 중단한다.
 
 ## 계획·실행·재개
@@ -194,5 +201,5 @@ python3 brrs_exp4_capacity.py vehicle_frozen.json \
 ```
 
 차량 장착 직후 6링크 점검, SB/SP/guard/K 탐색, 비기본 비컨 프리앰블과 오염 case
-대체 실행은 305 case에 포함되지 않는다. 탐색은 고유 로그 경로에서 수행하고 채택한
+대체 실행은 489 case에 포함되지 않는다. 탐색은 고유 로그 경로에서 수행하고 채택한
 조건만 새 manifest에 동결한다. 이 로그는 진단 자료이며 Standard 통계에 자동 합산하지 않는다.

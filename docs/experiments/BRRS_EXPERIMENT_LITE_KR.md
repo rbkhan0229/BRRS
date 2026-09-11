@@ -1,4 +1,4 @@
-# BRRS Lite profile — 133 case
+# BRRS Lite profile — 175 case
 
 이 문서는 다른 profile 문서를 읽지 않아도 Lite 차량 실험을 이해하고 운영할 수 있도록
 범위, 보드 역할, 실행·재개와 통행 오염 처리를 모두 설명한다.
@@ -55,42 +55,43 @@ source는 논리 N2이므로 실제 링크는 case ID, `physical_role`, serial�
 | 목표 | 모든 물리 노드의 run PER < 1%, 시스템 오류 0 |
 
 환경, 거리, 위치, 허브·전원·케이블 구성은 차량용 manifest에 실제 상태로 기록하고
-실험 도중 바꾸지 않는다. Lead는 차량 Stage0 결과로 PAC별 선정·동결하기 전까지
+실험 도중 바꾸지 않는다. Lead는 차량 Stage0 결과로 PHY 설정별 선정·동결하기 전까지
 Exp1~Exp5에 임의 적용하지 않는다.
 
 ## 전체 case 수
 
 | 구분 | 조건 | case |
 |---|---:|---:|
-| Stage0 grid | 41 leads × 2 PAC | 82 |
-| Stage0 confirmation | 2 PAC × 선정 lead × 1 block | 2 |
+| Stage0 grid | 41 leads × 3 PHY 설정 | 123 |
+| Stage0 confirmation | 3 PHY 설정 × 선정 lead × 1 block | 3 |
 | Exp1 | 4 M × 2 PAC × 1 block | 8 |
 | Exp2 | M32/M256 × 2 PAC × 6 links × 1 block | 24 |
 | Exp3 | 3 variants × 1 block | 3 |
 | Exp4 | S6 × M32/M256 × 2 K × 2 PAC × 1 block | 8 |
 | Exp5 | 6 links × 1 block | 6 |
-| **합계** |  | **133** |
+| **합계** |  | **175** |
 
 Lite는 반복 block이 없지만 한 stage의 모든 조건을 manifest 순서로 한 번씩 끝낸 뒤
 다음 stage로 이동한다. 특정 조건만 즉시 반복해 좋은 결과를 고르지 않는다.
 
-## Stage0 — PAC별 lead 선정
+## Stage0 — PHY 설정별 lead 선정
 
-물리 N4→INIT 단일 링크에서 M32/tail0으로 PAC4와 PAC8 각각 lead 0~40 us의
-41개 정수점을 측정한다. Lead당 2,000 전송 기회이며 grid는 총 82 case다.
+물리 N4→INIT 단일 링크에서 M32/PAC4, M32/PAC8, M1024/PAC32 각각 lead
+0~40 us의 41개 정수점을 측정한다. Lead당 2,000 전송 기회이며 grid는 총
+123 case다. M1024/PAC32 설정은 Exp5 lead를 독립적으로 정한다.
 실행기는 시간 편향을 줄이기 위해 다음 순서로 점을 순회한다.
 
 `20, 0, 40, 10, 30, 5, 25, 15, 35, 2, 22, 12, 32, 7, 27, 17, 37, 4, 24, 14, 34, 9, 29, 19, 39, 1, 21, 11, 31, 6, 26, 16, 36, 3, 23, 13, 33, 8, 28, 18, 38`
 
 전체 grid가 유효해야 후보를 고른다. `lead-1`과 `lead+1`이 반드시 통과할 필요는 없다.
 연속 통과 구간이 있으면 넓은 구간의 중앙을 우선하고 고립된 성공점은 신중하게 해석한다.
-Lite에서는 선정 lead를 PAC별 1회, 총 2 case 확인한다. 각 run의 PER가 1% 미만이고
+Lite에서는 선정 lead를 PHY 설정별 1회, 총 3 case 확인한다. 각 run의 PER가 1% 미만이고
 합산 Wilson 95% 상한도 1% 미만일 때 Lite 범위의 manifest에 동결한다. 한 번의
 confirmation은 Essential/Full의 PAC별 5회 확인과 동등한 반복 근거가 아니다.
 
 Stage0은 뒤 단계의 설정을 결정하는 캘리브레이션이므로 Exp1~Exp5 사이에 다시 실행하지
 않는다. 차량 배치나 환경이 바뀌면 새 manifest에서 Stage0을 다시 시작한다. Exp4 S6/K6
-lead 후보 sweep은 Lite 133 case에 포함되지 않는 선택 실험이다.
+lead 후보 sweep은 Lite 175 case에 포함되지 않는 선택 실험이다.
 
 명령은 `Drivers/API`에서 실행한다. 전체 grid bundle을 모아
 `brrs_suite_leads.py candidates`로 후보 manifest를 만들고, Lite confirmation bundle을
@@ -122,14 +123,17 @@ M64/M128, 논리 역할 회전과 반복은 포함하지 않는다.
 
 ## Exp5 — 차량 링크별 raw CIR
 
-N2~N7을 한 대씩 활성화해 M1024/PAC32로 측정한다. Lead는 PAC8 Stage0 선정값을
-전달하지만 PAC32 최적값을 측정했다는 뜻은 아니다. 링크당 1,000 전송 기회를 주고
+N2~N7을 한 대씩 활성화해 M1024/PAC32로 측정한다. Lead는 Stage0의
+M1024/PAC32 grid와 confirmation에서 독립적으로 선정한 값을 사용한다. 링크당 1,000 전송 기회를 주고
 성공 프레임 중 최대 30프레임, 프레임당 300 raw CIR samples를 보존한다. 총 6 case다.
+
+차량별 실현 가능한 이용률은 Exp4에서 정하며, Exp5는 링크별 채널 차이를 설명하는
+보조 자료다. Lite Exp5만으로 이용률 예측식이나 보정된 K-factor를 주장하지 않는다.
 
 ## 실행 순서와 중단 지점
 
-1. Stage0 grid 82 case를 완료한다.
-2. PAC별 후보를 고르고 각 1회 confirmation하여 lead를 동결한다.
+1. Stage0 grid 123 case를 완료한다.
+2. PHY 설정별 후보를 고르고 각 1회 confirmation하여 lead를 동결한다.
 3. Exp1 8 → Exp2 24 → Exp3 3 → Exp4 8 → Exp5 6 case를 실행한다.
 
 Stage0 이후 Exp1~Exp5 한 바퀴는 49 case이며 여기까지 끝나면 Lite가 완료된다.
@@ -187,6 +191,6 @@ python3 brrs_exp4_capacity.py vehicle_frozen.json \
 ```
 
 차량 장착 직후 6링크 점검, 선택적 S6 lead 확인, SB/SP/guard/K 탐색, 비기본 비컨
-프리앰블과 오염 case 대체 실행은 133에 포함되지 않는다. 탐색은 고유 로그 경로에서
+프리앰블과 오염 case 대체 실행은 175에 포함되지 않는다. 탐색은 고유 로그 경로에서
 저수준 capture 명령으로 수행하고 채택한 조건만 새 manifest에 동결한다. 탐색 로그는
 진단 자료이며 Lite 공식 통계에 자동 합산하지 않는다.

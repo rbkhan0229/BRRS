@@ -26,8 +26,9 @@ from brrs_suite_evidence import read_evidence
 
 def frozen():
     m=manifest.load(API/'brrs_vehicle_manifest.json')
-    m['lead_selection']={'frozen':True,'lead_us_by_pac':{'4':25,'8':25},'evidence':'TEST ONLY, not field selected'}
-    m['lead_candidates_us_by_pac']={'4':25,'8':25}
+    values={'m32_pac4':25,'m32_pac8':25,'m1024_pac32':25}
+    m['lead_selection']={'frozen':True,'lead_us_by_config':values,'evidence':'TEST ONLY, not field selected'}
+    m['lead_candidates_us_by_config']=values
     return m
 
 def fake_bundle(root,m,c,raw):
@@ -64,17 +65,17 @@ class PaperTests(unittest.TestCase):
         cls.m=frozen();cls.exp4=manifest.plan(cls.m,'exp4',profile='paper')
 
     def test_paper_repetitions_unique_ids(self):
-        for stage,n in {'stage0':82,'exp1':40,'exp2':144,'exp3':9,'exp4':696,'exp5':18}.items():
+        for stage,n in {'stage0':123,'exp1':40,'exp2':144,'exp3':9,'exp4':696,'exp5':18}.items():
             c=manifest.plan(self.m,stage,profile='paper')
             self.assertEqual(len(c),n);self.assertEqual(len({x['id'] for x in c}),n)
         self.assertEqual(len(manifest.plan(self.m,'exp4')),16)
 
     def test_named_profiles_have_declared_scope_and_counts(self):
         expected={
-            'standard':({'stage0':82,'exp1':0,'exp2':54,'exp3':3,'exp4':138,'exp5':18},10),
-            'essential':({'stage0':82,'exp1':40,'exp2':72,'exp3':9,'exp4':48,'exp5':18},10),
-            'lite':({'stage0':82,'exp1':8,'exp2':24,'exp3':3,'exp4':8,'exp5':6},2),
-            'full':({'stage0':82,'exp1':40,'exp2':144,'exp3':9,'exp4':696,'exp5':18},10),
+            'standard':({'stage0':123,'exp1':0,'exp2':54,'exp3':3,'exp4':276,'exp5':18},15),
+            'essential':({'stage0':123,'exp1':40,'exp2':72,'exp3':9,'exp4':48,'exp5':18},15),
+            'lite':({'stage0':123,'exp1':8,'exp2':24,'exp3':3,'exp4':8,'exp5':6},3),
+            'full':({'stage0':123,'exp1':40,'exp2':144,'exp3':9,'exp4':696,'exp5':18},15),
         }
         for profile,(counts,confirmation) in expected.items():
             with self.subTest(profile=profile):
@@ -119,14 +120,38 @@ class PaperTests(unittest.TestCase):
             c['conditions']['run']:c['conditions']['active_physical_roles'][0]
             for c in s1 if c['conditions']['preamble']==32 and c['conditions']['rx_pac']==4
         }
-        self.assertEqual(physical_by_block,{1:'N2',2:'N3',3:'N4',4:'N5',5:'N6',6:'N7'})
+        self.assertEqual(physical_by_block,{1:'N2',2:'N3',3:'N4',4:'N5',5:'N6',6:'N7',
+                                            7:'N2',8:'N3',9:'N4',10:'N5',11:'N6',12:'N7'})
         grouped=defaultdict(set)
         for c in s1:
             grouped[c['conditions']['run']].add(tuple(c['conditions']['active_physical_roles']))
         self.assertTrue(all(len(mappings)==1 for mappings in grouped.values()))
 
+    def test_stage0_and_exp5_use_distinct_phy_specific_leads(self):
+        m=copy.deepcopy(self.m)
+        values={'m32_pac4':17,'m32_pac8':25,'m1024_pac32':21}
+        m['lead_selection']['lead_us_by_config']=values
+        m['lead_candidates_us_by_config']=values
+        stage0=manifest.plan(m,'stage0',profile='standard')
+        self.assertEqual({(c['conditions']['preamble'],c['conditions']['rx_pac']) for c in stage0},
+                         {(32,4),(32,8),(1024,32)})
+        pac32=next(c for c in stage0 if c['conditions']['preamble']==1024)
+        self.assertIn('--preamble',pac32['jobs'][0]['argv'])
+        self.assertEqual(pac32['jobs'][0]['argv'][pac32['jobs'][0]['argv'].index('--preamble')+1],'1024')
+        exp5=manifest.plan(m,'exp5',profile='standard')
+        self.assertEqual({c['conditions']['lead_us'] for c in exp5},{21})
+        self.assertEqual({c['conditions']['rx_pac'] for c in exp5},{32})
+
     def test_legacy_paper_manifest_and_ids_remain_reproducible(self):
         legacy=copy.deepcopy(self.m)
+        legacy['stage0'].pop('phy_configs')
+        legacy['exp5']={'preamble':1024,'pac':32,'lead_from_pac':8}
+        legacy['lead_selection']={'frozen':True,'lead_us_by_pac':{'4':25,'8':25},'evidence':'TEST ONLY'}
+        legacy['lead_candidates_us_by_pac']={'4':25,'8':25}
+        legacy.pop('lead_candidates_us_by_config')
+        for config in legacy['profiles'].values():
+            if 'stage_filters' in config:
+                config['stage_filters']['stage0']={'pacs':[4,8]}
         legacy['paper']=legacy.pop('profiles')['full']
         cases=manifest.plan(legacy,'exp4',profile='paper')
         self.assertEqual(len(cases),696)
@@ -157,6 +182,9 @@ class PaperTests(unittest.TestCase):
         with self.assertRaises(ValueError):paper.validate(changed)
         changed=copy.deepcopy(self.m)
         changed['profiles']['standard']['stage_filters']['exp4']['pacs_by_preamble']['256'].append(4)
+        with self.assertRaises(ValueError):paper.validate(changed)
+        changed=copy.deepcopy(self.m)
+        changed['profiles']['standard']['repeats_by_stage']['exp4']=6
         with self.assertRaises(ValueError):paper.validate(changed)
 
     def test_each_stage_completes_one_condition_block_before_repeating(self):
@@ -325,27 +353,28 @@ class PaperTests(unittest.TestCase):
 
     def grid_report(self):
         obs={}
-        for pac in [4,8]:
-            center=17 if pac==4 else 25
+        for preamble,pac,center in [(32,4,17),(32,8,25),(1024,32,21)]:
             for lead in self.m['stage0']['leads_us']:
-                obs[f'{pac}:{lead}']={'conditions':{'rx_pac':pac,'lead_us':lead},'worst_node_per_percent':0 if abs(lead-center)<=1 else 2}
+                obs[f'{preamble}:{pac}:{lead}']={'conditions':{'preamble':preamble,'rx_pac':pac,'lead_us':lead},'worst_node_per_percent':0 if abs(lead-center)<=1 else 2}
         return {'rejected':[],'groups':[{'status':'PASS'}],'observations':obs}
 
     def test_distinct_pac_candidates_and_confirmation_plan(self):
-        self.assertEqual(leads.candidates(self.m,self.grid_report()),{'4':17,'8':25})
-        m=copy.deepcopy(self.m);m['lead_candidates_us_by_pac']={'4':17,'8':25}
-        c=manifest.plan(m,'stage0',profile='paper',confirmation=True);self.assertEqual(len(c),10)
+        expected={'m32_pac4':17,'m32_pac8':25,'m1024_pac32':21}
+        self.assertEqual(leads.candidates(self.m,self.grid_report()),expected)
+        m=copy.deepcopy(self.m);m['lead_candidates_us_by_config']=expected
+        c=manifest.plan(m,'stage0',profile='paper',confirmation=True);self.assertEqual(len(c),15)
         self.assertEqual({x['conditions']['lead_us'] for x in c if x['conditions']['rx_pac']==4},{17})
         self.assertEqual({x['conditions']['run'] for x in c},{1,2,3,4,5})
 
     def test_isolated_periodic_candidate_does_not_require_adjacent_passes(self):
         r=self.grid_report()
-        for pac in [4,8]:
+        for pac in [4,8,32]:
             for v in r['observations'].values():
                 if v['conditions']['rx_pac']==pac:v['worst_node_per_percent']=2
-        for pac,lead in [(4,17),(8,25)]:
-            r['observations'][f'{pac}:{lead}']['worst_node_per_percent']=0
-        self.assertEqual(leads.candidates(self.m,r),{'4':17,'8':25})
+        for preamble,pac,lead in [(32,4,17),(32,8,25),(1024,32,21)]:
+            r['observations'][f'{preamble}:{pac}:{lead}']['worst_node_per_percent']=0
+        self.assertEqual(leads.candidates(self.m,r),
+                         {'m32_pac4':17,'m32_pac8':25,'m1024_pac32':21})
 
     def test_rev26_sensor_log_records_five_second_reacquisition_grace(self):
         lines=(FIXTURES/'exp4_N2.txt').read_text().splitlines()
@@ -398,10 +427,13 @@ class PaperTests(unittest.TestCase):
         with self.assertRaises(ValueError):leads.candidates(self.m,r)
 
     def test_confirmation_fail_or_uncertainty_does_not_freeze(self):
-        m=copy.deepcopy(self.m);m['lead_candidates_us_by_pac']={'4':17,'8':25}
+        candidates={'m32_pac4':17,'m32_pac8':25,'m1024_pac32':21}
+        m=copy.deepcopy(self.m);m['lead_candidates_us_by_config']=candidates
         r={'rejected':[],'groups':[{'status':'PASS','nodes_by_serial':{'tx':{'per_wilson95_percent':[0,.1]}}}],
-            'observations':{str(i):{'conditions':{'rx_pac':pac,'lead_us':l}} for i,(pac,l) in enumerate((p,l) for p in [4,8] for l in paper.confirmation_leads(m,p))}}
-        self.assertEqual(leads.freeze(m,r),{'4':17,'8':25})
+            'observations':{str(i):{'conditions':{'preamble':cfg['preamble'],'rx_pac':cfg['pac'],'lead_us':l}}
+                for i,(cfg,l) in enumerate((cfg,l) for cfg in manifest.stage0_configs(m)
+                                             for l in paper.confirmation_leads(m,cfg['preamble'],cfg['pac']))}}
+        self.assertEqual(leads.freeze(m,r),candidates)
         r['groups'][0]['nodes_by_serial']['tx']['per_wilson95_percent'][1]=1
         with self.assertRaises(ValueError):leads.freeze(m,r)
         r['groups'][0]['status']='FAIL_PER'

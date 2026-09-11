@@ -2,8 +2,7 @@
 """Full, standard, essential, lite, and legacy paper experiment profiles.
 
 This planner performs no hardware I/O. ``paper`` is retained only as a
-backward-compatible profile name for existing manifests and bundles; new
-campaigns use ``full`` for the former 999-case plan.
+backward-compatible profile name for existing manifests and bundles.
 """
 import copy
 import hashlib
@@ -24,9 +23,10 @@ def is_publication_profile(profile):
 
 
 def _default_filters(m):
+    from brrs_suite_manifest import stage0_configs
     links = m.get('cir_link_tx_roles', [m['single_link_tx_role']])
     return {
-        'stage0': {'pacs': list(m['pacs'])},
+        'stage0': {'config_ids': [c['id'] for c in stage0_configs(m)]},
         'exp1': {'preambles': list(m['exp1']['preambles']), 'pacs': list(m['pacs'])},
         'exp2': {'preambles': list(m['exp2']['preambles']), 'pacs': list(m['pacs']),
                  'links': list(links)},
@@ -93,9 +93,26 @@ def _validate_profile(m, name, config):
     filters = profile_filters(m, config)
     if set(config.get('stage_filters', filters)) != set(STAGES):
         raise ValueError(f'{name} stage filters must specify every stage')
+    from brrs_suite_manifest import stage0_configs
     allowed_pacs = set(m['pacs'])
+    allowed_stage0_ids = {c['id'] for c in stage0_configs(m)}
     links = set(m.get('cir_link_tx_roles', [m['single_link_tx_role']]))
-    for stage in ['stage0', 'exp1', 'exp2', 'exp4']:
+    stage0_filter = filters['stage0']
+    if 'config_ids' in stage0_filter:
+        selected_ids = stage0_filter['config_ids']
+        if (set(stage0_filter) != {'config_ids'} or not isinstance(selected_ids, list) or
+                not selected_ids or len(set(selected_ids)) != len(selected_ids) or
+                not set(selected_ids) <= allowed_stage0_ids):
+            raise ValueError(f'invalid {name} Stage0 configuration filter')
+    elif 'pacs' in stage0_filter:
+        # Historical profile filters selected the M32 grid by PAC only.
+        pacs = stage0_filter['pacs']
+        if (set(stage0_filter) != {'pacs'} or not pacs or len(set(pacs)) != len(pacs) or
+                not set(pacs) <= allowed_pacs):
+            raise ValueError(f'invalid {name} Stage0 PAC filter')
+    else:
+        raise ValueError(f'invalid {name} Stage0 filter')
+    for stage in ['exp1', 'exp2', 'exp4']:
         pacs = filters[stage]['pacs']
         if not pacs or len(set(pacs)) != len(pacs) or not set(pacs) <= allowed_pacs:
             raise ValueError(f'invalid {name} {stage} PAC filter')
@@ -182,8 +199,9 @@ def validate(m):
             if (standard.get('disabled_stages') != ['exp1'] or
                     standard['repeats_by_stage']['exp1'] != 0 or
                     standard['repeats_by_stage']['exp3'] != 1 or
+                    standard['repeats_by_stage']['exp4'] != 12 or
                     standard['active_tx_counts'] != [1, 2, 3, 4, 5, 6]):
-                raise ValueError('standard must fold Exp1 into Exp4 S1, retain one Exp3 block, and cover S1..S6')
+                raise ValueError('standard must fold Exp1 into Exp4 S1, retain one Exp3 block, and run two complete S1..S6 rotation cycles')
             expected_standard_exp4 = {
                 '1': [32, 64, 128, 256],
                 '2': [32, 256], '3': [32, 256], '4': [32, 256],
@@ -199,9 +217,17 @@ def validate(m):
             if standard['stage_filters']['exp2'].get('pacs_by_preamble') != {
                     '32': [4, 8], '256': [8]}:
                 raise ValueError('standard Exp2 must use PAC4 only for M32')
+        def stage0_ids(filters):
+            selected = filters['stage0']
+            if 'config_ids' in selected:
+                return set(selected['config_ids'])
+            return {c['id'] for c in stage0_configs(m)
+                    if c['preamble'] == 32 and c['pac'] in selected['pacs']}
+        if not stage0_ids(essential_filters).issubset(stage0_ids(full_filters)):
+            raise ValueError('essential Stage0 conditions must be a subset of full')
         if any(not set(essential_filters[stage][field]).issubset(full_filters[stage][field])
                for stage, fields in {
-                   'stage0': ['pacs'], 'exp1': ['preambles', 'pacs'],
+                   'exp1': ['preambles', 'pacs'],
                    'exp2': ['preambles', 'pacs', 'links'], 'exp3': ['variants'],
                    'exp4': ['preambles', 'pacs'], 'exp5': ['links']}.items()
                for field in fields):
@@ -234,7 +260,10 @@ def _selected(m, stage, case, filters):
     p = case['conditions']
     selected = filters[stage]
     if stage == 'stage0':
-        return p['rx_pac'] in selected['pacs']
+        if 'config_ids' in selected:
+            from brrs_suite_manifest import stage0_config_id
+            return stage0_config_id(p['preamble'], p['rx_pac']) in selected['config_ids']
+        return p['preamble'] == 32 and p['rx_pac'] in selected['pacs']
     if stage == 'exp1':
         return p['preamble'] in selected['preambles'] and p['rx_pac'] in selected['pacs']
     if stage == 'exp2':
@@ -294,7 +323,8 @@ def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'
             if confirmation:
                 raw = [case for case in raw
                        if case['conditions']['lead_us'] in
-                       confirmation_leads(m, case['conditions']['rx_pac'])]
+                       confirmation_leads(m, case['conditions']['preamble'],
+                                          case['conditions']['rx_pac'])]
             for case in raw:
                 conditions = case['conditions']
                 cyclic = config['exp4_assignment'] in ['installation_cyclic', 'installation_cyclic_all']
@@ -344,8 +374,12 @@ def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'
     return result
 
 
-def confirmation_leads(m, pac):
-    candidate = m['lead_candidates_us_by_pac'].get(str(pac))
+def confirmation_leads(m, preamble, pac=None):
+    from brrs_suite_manifest import lead_candidate_map, stage0_config_id
+    # Historical callers passed PAC only; that always meant M32.
+    if pac is None:
+        pac, preamble = preamble, 32
+    candidate = lead_candidate_map(m).get(stage0_config_id(preamble, pac))
     if type(candidate) is not int or candidate not in m['stage0']['leads_us']:
         raise ValueError('candidate must be a measured Stage0 grid lead')
     # A PAC/acquisition boundary can make the integer-lead response

@@ -1,6 +1,6 @@
 # Stage0~Exp5 논문용 실행 경로
 
-이 문서는 `DW3_QM33_SDK_1.0.2/Drivers/API`의 구현 기준이다. 준비 점검은 `--profile preparation`, 논문용 측정은 `--profile full|standard|essential|lite`를 사용한다. 범위는 **full > standard > essential > lite**다. `standard`는 실제 차량의 기본 계획으로, 별도 Exp1을 Exp4 S1에 흡수하고 PAC4는 M32에서만 사용하면서 S1~S6 노드 수 그래프와 반복 링크 근거를 유지한305 case다. `full`은 기존999 case, `essential`은 핵심 S6 조건의 반복 검증, `lite`는 essential과 같은 조건을 각1 block만 실행한다. 과거 `paper` 이름은 기존 manifest/bundle 재현용으로만 남아 있다. **plan/prepare/dry-run/결과 집계는 RF를 시작하지 않는다. 실제 송수신은 `run`에서만 시작한다.** `deploy`는 원격 파일 배포만 한다.
+이 문서는 `DW3_QM33_SDK_1.0.2/Drivers/API`의 구현 기준이다. 준비 점검은 `--profile preparation`, 논문용 측정은 `--profile full|standard|essential|lite`를 사용한다. 범위는 **full > standard > essential > lite**다. `standard`는 실제 차량의 기본 계획으로, 별도 Exp1을 Exp4 S1에 흡수하고 PAC4는 M32에서만 사용하면서 S1~S6 노드 수 그래프와 반복 링크 근거를 유지한489 case다. `full`은1045 case, `essential`은325 case, `lite`는175 case다. 세 profile 모두 Exp5용 M1024/PAC32 lead를 독립 Stage0 branch에서 선정한다. 과거 `paper` 이름은 기존 manifest/bundle 재현용으로만 남아 있다. **plan/prepare/dry-run/결과 집계는 RF를 시작하지 않는다. 실제 송수신은 `run`에서만 시작한다.** `deploy`는 원격 파일 배포만 한다.
 
 ## 환경별 manifest
 
@@ -10,7 +10,7 @@
 
 ## 반복과 활성 집합
 
-`profiles.full`은 Stage0=1, Exp1=5, Exp2=3, Exp3=3, Exp4=12, Exp5=3이며 Exp4는6회전×2주기다. `profiles.standard`는 Stage0=1, Exp1=0, Exp2=3, Exp3=1, Exp4=6, Exp5=3이다. Standard Exp4 S1은 PAC8로 M32/64/128/256을 비교하고 M32/PAC4를 추가한다. S2~S6은 M32/PAC4·8과 M256/PAC8에 집중한다. S1도 block마다 물리 TX를 N2~N7로 바꾸며 전체 Exp4를6회전한다. `profiles.essential`은 Exp1을 유지하되 Exp2를 M32/M256, Exp4를 S6의 M32/M256 기준·포화 조건으로 줄이고 Exp4는6회전×1주기다. `profiles.lite`는 essential의 같은 조건을 모두1 block만 실행하고 논리 역할을 회전하지 않는다. Full/standard/essential의 Stage0 선정 lead 확인은5회, lite는1회다.
+`profiles.full`은 Stage0=1, Exp1=5, Exp2=3, Exp3=3, Exp4=12, Exp5=3이며 Exp4는6회전×2주기다. `profiles.standard`는 Stage0=1, Exp1=0, Exp2=3, Exp3=1, Exp4=12, Exp5=3이며 Exp4 역시6회전×2주기다. Standard Exp4 S1은 PAC8로 M32/64/128/256을 비교하고 M32/PAC4를 추가한다. S2~S6은 M32/PAC4·8과 M256/PAC8에 집중한다. S1도 block마다 물리 TX를 N2~N7로 바꾸며 두 주기 동안 각 링크를 두 번 측정한다. `profiles.essential`은 Exp1을 유지하되 Exp2를 M32/M256, Exp4를 S6의 M32/M256 기준·포화 조건으로 줄이고 Exp4는6회전×1주기다. `profiles.lite`는 essential의 같은 조건을 모두1 block만 실행하고 논리 역할을 회전하지 않는다. 모든 profile의 Stage0 grid는 M32/PAC4, M32/PAC8, M1024/PAC32 세 설정이다. Full/standard/essential의 선정 lead 확인은 설정별5회, lite는1회다.
 
 반복은 같은 조건을 연달아 소진하지 않는다. 각 stage에서 block 1의 모든 조건을 한 번씩 실행한 뒤 block 2로 돌아가며, block마다 조건 순서를 순환하고 정·역 교대한다. 이렇게 시간대, 차량 온도, 주변 통행 변화가 특정 PHY 조건에만 몰리는 것을 줄인다. Stage0은 뒤 단계의 lead를 결정하므로 Exp1~Exp5와 섞지 않고 먼저 완료·동결한다.
 
@@ -22,7 +22,7 @@
 - 같은 block의 PAC·M·슬롯 조건에는 같은 배정을 사용한다. 조건 실행 순서만 별도로 순환·정역 교대한다.
 - 모든 case의 물리 serial/위치, 논리 ID, 반복 번호, 회전 index, 조건/배정 hash, HEX/ELF hash를 보존한다. 캡처 로그 경로도 case ID로 나뉜다.
 
-Full의 S1~S5는 노드당1슬롯이다. S6는 M32의6/12/13, M64의6/12, M128의6/10, M256의6/8슬롯을 비교한다. PAC2개를 적용하면 full Exp4의 기본 물리/부하 조건은58개이며12회 반복 시696 case다. Standard는 S1 5조건, S2~S5 각3조건, S6 6조건으로 block당23조건이며6회전에서138 case다. PAC8 M32~M256 비교는 PAC를 고정한 프리앰블 곡선이고 PAC4는 M32에만 추가된다. Essential/lite는 S6의 M32 6/13과 M256 6/8에 PAC4/8을 적용해 각각48/8 case다. 이는 각 profile의 전체 계획 개수이며 준비 점검 횟수가 아니다. `--cases`로 필요한 준비·검증 조건을 명시적으로 선택할 수 있다.
+Full의 S1~S5는 노드당1슬롯이다. S6는 M32의6/12/13, M64의6/12, M128의6/10, M256의6/8슬롯을 비교한다. PAC2개를 적용하면 full Exp4의 기본 물리/부하 조건은58개이며12회 반복 시696 case다. Standard는 S1 5조건, S2~S5 각3조건, S6 6조건으로 block당23조건이며12 blocks에서276 case다. PAC8 M32~M256 비교는 PAC를 고정한 프리앰블 곡선이고 PAC4는 M32에만 추가된다. Essential/lite는 S6의 M32 6/13과 M256 6/8에 PAC4/8을 적용해 각각48/8 case다. 이는 각 profile의 전체 계획 개수이며 준비 점검 횟수가 아니다. `--cases`로 필요한 준비·검증 조건을 명시적으로 선택할 수 있다.
 
 ## 계획과 이미지 준비
 
@@ -81,7 +81,7 @@ Stage0~Exp5는 RX까지 원격 노트북에 연결한 단일 호스트 구성도
 
 단일 bundle은 `brrs_suite_campaign.py deploy --bundle <폴더>` 후 그 bundle의 `sdk/Drivers/API/brrs_suite_case.py run --bundle <폴더>`로 실행할 수도 있다. 전체 준비 목록은 `campaign.json`, 진행 결과는 `progress.json`, 각 case는 `results/ASSESSMENT.json`, 완료 집계는 `RESULTS.json`이다.
 
-## PAC별 lead 선정 연결
+## PHY 설정별 lead 선정 연결
 
 ```bash
 # Stage0 전체 grid의 실제 완료 bundle 목록을 입력한다.
@@ -97,9 +97,9 @@ python3 brrs_suite_leads.py freeze nlos_candidates.json \
   --bundles <Stage0-confirmation-bundle들> --output-manifest nlos_frozen.json
 ```
 
-후보 선택은 PAC별 전체0~40us grid가 완전하고 유효해야 한다. lead 응답은 PAC/acquisition 경계에서 양자화되거나 비단조적일 수 있으므로 숫자상 양옆 `lead±1us`의 통과를 필수 조건으로 두지 않는다. 측정된 lead 자체의 최악 노드 PER가1% 미만이면 고립된 점도 후보가 된다. 다만 연속 통과 구간이 있으면 그 폭이 넓은 구간의 중앙, 해당 lead의 PER,20us와의 거리, 작은 lead 순으로 우선한다. 전체 grid의 양옆 모양과 반복되는 성공 구간은 민감도·주기성 자료로 보존한다. 선정 lead 자체는 full/standard/essential에서5회, lite에서1회 확인한다. 선택한 profile의 모든 run이 PER<1%이고 합산 Wilson95 상한도1% 미만일 때만 새 manifest를 동결한다. Lite 동결은1 block 범위의 예비 근거일 뿐 반복 profile과 동등하게 표현하지 않는다. 기준 미달·누락·수집 실패를 임의 lead로 대체하지 않는다. RX0인 Stage0 지점은 전이 자료로 남지만 PASS가 아니다.
+후보 선택은 M32/PAC4, M32/PAC8, M1024/PAC32 각각의 전체0~40us grid가 완전하고 유효해야 한다. lead 응답은 PAC/acquisition 경계에서 양자화되거나 비단조적일 수 있으므로 숫자상 양옆 `lead±1us`의 통과를 필수 조건으로 두지 않는다. 측정된 lead 자체의 최악 노드 PER가1% 미만이면 고립된 점도 후보가 된다. 다만 연속 통과 구간이 있으면 그 폭이 넓은 구간의 중앙, 해당 lead의 PER,20us와의 거리, 작은 lead 순으로 우선한다. 전체 grid의 양옆 모양과 반복되는 성공 구간은 민감도·주기성 자료로 보존한다. 선정 lead 자체는 full/standard/essential에서 설정별5회, lite에서1회 확인한다. 선택한 profile의 모든 run이 PER<1%이고 합산 Wilson95 상한도1% 미만일 때만 새 manifest를 동결한다. Lite 동결은1 block 범위의 예비 근거일 뿐 반복 profile과 동등하게 표현하지 않는다. 기준 미달·누락·수집 실패를 임의 lead로 대체하지 않는다. RX0인 Stage0 지점은 전이 자료로 남지만 PASS가 아니다.
 
-이 선택 규칙은 이번 구현의 명시적 기본 정책이다. 고립된 성공점도 자동 배제하지 않지만, 전체 grid와 독립 반복에서 불안정하면 동결하지 않는다. 정확한 주기는 미리 가정하지 않고 차량 데이터로만 추정한다. packet-level Wilson 구간은 손실 상관을 반영한 독립 run 분석을 대체하지 않으므로 run별 결과를 함께 남긴다. NLOS에서 고른 lead를 차량의 검증된 최적값으로 취급하지 않는다. 동결 이후 Exp1~Exp5는 PAC별 값을 자동 전달한다. Exp5는 고유 M1024/PAC32를 유지하며 lead만 PAC8 선정값을 참조한다.
+이 선택 규칙은 이번 구현의 명시적 기본 정책이다. 고립된 성공점도 자동 배제하지 않지만, 전체 grid와 독립 반복에서 불안정하면 동결하지 않는다. 정확한 주기는 미리 가정하지 않고 차량 데이터로만 추정한다. packet-level Wilson 구간은 손실 상관을 반영한 독립 run 분석을 대체하지 않으므로 run별 결과를 함께 남긴다. NLOS에서 고른 lead를 차량의 검증된 최적값으로 취급하지 않는다. 동결 이후 Exp1~Exp4는 해당 M32/PAC 설정의 값을, Exp5는 독립적으로 동결한 M1024/PAC32 값을 자동 전달한다.
 
 ## 집계와 용량
 
@@ -118,6 +118,6 @@ S6 용량 도구는 논문 모드에서도 기본6슬롯→계산상 최대→�
 
 2026-09-07 밤 현재 NLOS 6.9m에서 Stage0 M32/PAC8, Exp1 M64/PAC8, Exp2 M32/PAC8, Exp3 A/B/C, Exp5 M1024/PAC32를 대표 조건별 1회씩 실제 실행했고 모두 PER0%·수집·flash readback을 통과했다. 직전 Exp4 M32/PAC8/S6/13슬롯은 최악 노드0.70%였다. lead25는 이 기능 점검의 고정값이며 PAC별 최적값 선정은 아니다. Exp1·Exp3 후처리 분석기의 현재 로그 호환도 보완했다. [대표 실측·후처리 결과](../../../logs/vehicle_suite_nlos69_smoke_20260907_2301/RESULTS.md). 당시 미확인 항목 중 부분 활성·회전 실장비 경로는 아래 후속 측정으로 확인했다. 전체 lead/논문 반복 및 차량 RF는 별도다.
 
-논문 반복·회전·부분 활성화·metadata·이미지 선택·배포·재개·Stage0 선정·전 단계 원문 검증·serial 집계는 구현했다. 앞선 오프라인 구현과 이미지 준비 결과는 `logs/vehicle_paper_impl_20260907/RESULTS.md`, 이후 대표 RF 검증은 위 실측 보고서에 구분해 기록한다. 현재 남은 실측 범위는 아래 환경 변경 가능성을 반영한 PAC별 선정 확인, 전체 조건·회전·논문 반복 및 실제 차량 배치다.
+논문 반복·회전·부분 활성화·metadata·이미지 선택·배포·재개·Stage0 선정·전 단계 원문 검증·serial 집계는 구현했다. 앞선 오프라인 구현과 이미지 준비 결과는 `logs/vehicle_paper_impl_20260907/RESULTS.md`, 이후 대표 RF 검증은 위 실측 보고서에 구분해 기록한다. 현재 남은 실측 범위는 아래 환경 변경 가능성을 반영한 PHY 설정별 선정 확인, 전체 조건·회전·논문 반복 및 실제 차량 배치다.
 
 2026-09-07~08 후속으로 Stage0 빠른 탐색과 Exp4 S2/block2·S6/13슬롯/block2의 실제 역할 회전을 실행했다. 단일N4에서 통과한 lead20은 약한 링크N6/N7을 포함한6TX에서 실패했다. **단일 링크 Stage0 선정을 전체 네트워크의 검증된 lead로 취급하면 안 된다.** PAC8은25µs 최악0.55%, 26·27µs 모두0%로 낮은 손실 구간을 확인했다. PAC4의 이전 최저27µs/N7 1.00%도 strict<1% 실패이며, 전선 가림 보고 후 같은 조건1회는6.8%였다. 가림 대상/시점은 불명이므로 이전 자료를 임의 제외하거나 재측정과 합산하지 않았다. 추가 탐색은 사용자 요청에 따라 중단했고 공통 manifest는 논문용 선정 완료로 변경하지 않았다. [전체 실측·후보 및 한계](../../../logs/nlos69_lead_screen_rotation_20260907_2326/RESULTS.md), [마지막 PAC4 재측정](../../../logs/exp4_pac4_lead27_cable_recheck_20260908_0018/RESULTS.md).

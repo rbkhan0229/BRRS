@@ -14,6 +14,25 @@ API = Path(__file__).resolve().parent
 AIRTIME_US = {32: 97, 64: 130, 128: 195, 256: 325}
 ROLES = ['init', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7']
 
+def stage0_config_id(preamble, pac):
+    return f'm{preamble}_pac{pac}'
+
+def stage0_configs(m):
+    """Return explicit acquisition configurations, with legacy fallback."""
+    raw = m['stage0'].get('phy_configs')
+    if raw is None:
+        return [{'id': stage0_config_id(32, pac), 'preamble': 32, 'pac': pac}
+                for pac in m['pacs']]
+    return raw
+
+def lead_candidate_map(m):
+    """Return candidates keyed by PHY configuration, preserving old manifests."""
+    if 'lead_candidates_us_by_config' in m:
+        return m['lead_candidates_us_by_config']
+    return {stage0_config_id(32, pac): value
+            for pac, value in ((int(key), value)
+                               for key, value in m['lead_candidates_us_by_pac'].items())}
+
 def load(path):
     m = json.loads(Path(path).read_text())
     if m.get('schema_version') != 1 or set(m['boards']) != set(ROLES):
@@ -43,8 +62,33 @@ def load(path):
             raise ValueError('unsupported preamble list: ' + stage)
     if m['exp3'] != {'variants': ['A','B','C'], 'pac': 8, 'lead_from_pac': 8}:
         raise ValueError('Exp3 must retain its matched A/B/C PHY variants and PAC8')
-    if m['exp5'] != {'preamble': 1024, 'pac': 32, 'lead_from_pac': 8}:
-        raise ValueError('Exp5 must retain M1024/PAC32; lead refers to frozen PAC8 Stage0 margin')
+    configs = stage0_configs(m)
+    if (not isinstance(configs, list) or not configs or
+            any(not isinstance(c, dict) or set(c) != {'id', 'preamble', 'pac'} for c in configs) or
+            any(c['id'] != stage0_config_id(c['preamble'], c['pac']) for c in configs) or
+            len({c['id'] for c in configs}) != len(configs) or
+            len({(c['preamble'], c['pac']) for c in configs}) != len(configs) or
+            any((c['preamble'], c['pac']) not in {(32, 4), (32, 8), (1024, 32)} for c in configs)):
+        raise ValueError('Stage0 PHY configurations must be unique M32/PAC4, M32/PAC8, or M1024/PAC32 entries')
+    modern_exp5 = {'preamble': 1024, 'pac': 32, 'lead_from_stage0_config': 'm1024_pac32'}
+    legacy_exp5 = {'preamble': 1024, 'pac': 32, 'lead_from_pac': 8}
+    if m['exp5'] not in [modern_exp5, legacy_exp5]:
+        raise ValueError('Exp5 must retain M1024/PAC32 and an explicit frozen Stage0 lead source')
+    if m['exp5'] == modern_exp5 and 'm1024_pac32' not in {c['id'] for c in configs}:
+        raise ValueError('Exp5 M1024/PAC32 requires its matching Stage0 configuration')
+    config_ids = {c['id'] for c in configs}
+    if 'lead_candidates_us_by_config' in m:
+        candidates = m['lead_candidates_us_by_config']
+        selected = m['lead_selection'].get('lead_us_by_config')
+        if (not isinstance(candidates, dict) or set(candidates) != config_ids or
+                not isinstance(selected, dict) or set(selected) != config_ids):
+            raise ValueError('Stage0 candidate/selection keys must exactly match its PHY configurations')
+        if any(value is not None and (type(value) is not int or value not in m['stage0']['leads_us'])
+               for value in [*candidates.values(), *selected.values()]):
+            raise ValueError('Stage0 candidate/selection values must be null or measured grid leads')
+    elif ('lead_candidates_us_by_pac' not in m or
+          'lead_us_by_pac' not in m['lead_selection']):
+        raise ValueError('Stage0 lead candidate and selection maps are missing')
     e = m['exp4']
     if type(e['sensors']) is not int or not 1 <= e['sensors'] <= 6:
         raise ValueError('physical sensor count must be 1..6')
@@ -112,11 +156,17 @@ def fixed_assignments(m, sensors, actual):
         raise ValueError('connected TX probes do not match the explicitly selected fixed roles')
     return assigned
 
-def selected_lead(m, pac):
+def selected_lead(m, pac, preamble=32):
     s = m['lead_selection']
-    value = s['lead_us_by_pac'].get(str(pac))
+    config_id = stage0_config_id(preamble, pac)
+    if 'lead_us_by_config' in s:
+        value = s['lead_us_by_config'].get(config_id)
+    else:
+        # Historical manifests selected only M32/PAC4 and M32/PAC8. Exp5
+        # explicitly borrowed PAC8 in that schema and is handled by plan().
+        value = s['lead_us_by_pac'].get(str(pac))
     if s['frozen'] is not True or not s.get('evidence') or type(value) is not int or not 0 <= value <= 40:
-        raise ValueError(f'PAC{pac} lead is not selected/frozen; complete Stage0 and record evidence first')
+        raise ValueError(f'{config_id} lead is not selected/frozen; complete Stage0 and record evidence first')
     return value
 
 def capacity_counts(e, plen):
@@ -163,7 +213,8 @@ def plan(m, stage, *, capacity_candidates=False, profile='preparation', confirma
                 physical=m['single_link_tx_role']
             board = m['boards'][physical]
             if stage == 'stage0':
-                script = 'brrs_stage0_capture.sh'; args = [role, str(lead), '1', m['environment'], '--pac', str(pac)]
+                script = 'brrs_stage0_capture.sh'; args = [role, str(lead), '1', m['environment'],
+                                                           '--preamble', str(plen), '--pac', str(pac)]
             elif stage in ['exp1', 'exp2']:
                 script = f'brrs_{stage}_capture.sh'; args = [role, str(plen), '1', m['environment'], '--lead', str(lead), '--pac', str(pac)]
             elif stage == 'exp3':
@@ -189,8 +240,9 @@ def plan(m, stage, *, capacity_candidates=False, profile='preparation', confirma
                       'inactive_tx_roles': [r for r in ROLES[1:] if r not in [j['physical_role'] for j in jobs]],
                       'requires_supervisor': ['quiesce_inactive_tx','tx_ready_before_rx','verify_image_and_tool_hashes','per_node_goal_verification']})
     if stage == 'stage0':
-        for pac in m['pacs']:
-            for lead in m['stage0']['leads_us']: case(32,pac,lead)
+        for config in stage0_configs(m):
+            plen, pac = config['preamble'], config['pac']
+            for lead in m['stage0']['leads_us']: case(plen,pac,lead)
     elif stage in ['exp1','exp2']:
         for pac in m['pacs']:
             lead = selected_lead(m,pac)
@@ -206,7 +258,11 @@ def plan(m, stage, *, capacity_candidates=False, profile='preparation', confirma
                           else m['exp4']['slot_counts_by_preamble'][str(plen)])
                 for count in counts: case(plen,pac,selected_lead(m,pac),count=count)
     elif stage == 'exp5':
-        for link_role in cir_links(m):case(1024,32,selected_lead(m,8),link_role=link_role)
+        if 'lead_from_stage0_config' in m['exp5']:
+            exp5_lead = selected_lead(m, m['exp5']['pac'], m['exp5']['preamble'])
+        else:
+            exp5_lead = selected_lead(m, m['exp5']['lead_from_pac'])
+        for link_role in cir_links(m):case(1024,32,exp5_lead,link_role=link_role)
     else: raise ValueError('unknown stage')
     return cases
 

@@ -19,7 +19,7 @@ Roles:
   exp4:        init | tx | N2 .. N8
 
 Submission defaults for one fixed physical placement:
-  stage0: fixed randomized 0..40 us sweep at 1 us spacing, 1 run per lead
+  stage0: fixed randomized 0..40 us sweep for one matched M/PAC configuration
   exp1:   M=32/64/128/256, 1 run per M
   exp2:   M=32/64/128/256, 1 run per M
   exp3:   A/B/C, 1 run per variant
@@ -41,11 +41,12 @@ Options:
   --serial <S/N>         Select the J-Link attached to this role.
   --run-start <N>        First run number (default: 1).
   --repeats <N>          Run every condition N times (default: 1).
-  --preambles <list>     Override M list, e.g. 32,64,128,256.
+  --preambles <list>     Override M list. Stage0 accepts one of 32 or 1024;
+                         other stages accept 32,64,128,256.
   --leads <list>         Stage0 lead list, e.g. 14,15,16 or 0-20.
   --lead <us>            Fixed RX lead for Exp1-Exp4 (default: 15).
   --tail <us>            Stage0 tail margin (default: 0).
-  --pac <4|8>            Stage0/Exp1/Exp2/Exp4 RX PAC size.
+  --pac <4|8|32>         RX PAC size. PAC32 is Stage0 M1024-only.
   --pacs <list>          Exp1 PAC list (default: 4,8 unless --pac is set).
   --rx-mode <mode>       Exp1 RX mode: delayed or immediate (default: delayed).
   --sensors <1..7>       Exp4 physical sensor count (required for Exp4).
@@ -336,6 +337,15 @@ SLOT_COUNTS=()
 case "${EXPERIMENT}" in
     stage0)
         REPEATS="${REPEATS:-1}"
+        PREAMBLE_SPEC="${PREAMBLE_SPEC:-32}"
+        parse_integer_list "${PREAMBLE_SPEC}" 32 1024 preamble
+        PREAMBLES=("${PARSED_VALUES[@]}")
+        (( ${#PREAMBLES[@]} == 1 )) \
+            || { echo "Stage0 accepts exactly one preamble per command" >&2; exit 2; }
+        case "${PREAMBLES[0]}:${PAC}" in
+            32:4|32:8|1024:32) ;;
+            *) echo "Stage0 supports M32/PAC4, M32/PAC8, or M1024/PAC32" >&2; exit 2 ;;
+        esac
         if [[ -n "${LEAD_SPEC}" ]]; then
             parse_integer_list "${LEAD_SPEC}" 0 40 lead
             LEADS=("${PARSED_VALUES[@]}")
@@ -407,7 +417,7 @@ case "${EXPERIMENT}" in
         ;;
 esac
 
-if [[ -n "${PREAMBLE_SPEC}" ]]; then
+if [[ "${EXPERIMENT}" != "stage0" && -n "${PREAMBLE_SPEC}" ]]; then
     parse_integer_list "${PREAMBLE_SPEC}" 32 256 preamble
     PREAMBLES=("${PARSED_VALUES[@]}")
     for value in "${PREAMBLES[@]}"; do
@@ -424,10 +434,6 @@ if [[ "${EXPERIMENT}" != "stage0" && -n "${LEAD_SPEC}" ]]; then
 fi
 if [[ "${EXPERIMENT}" == "stage0" && ${FIXED_LEAD_SET} -eq 1 ]]; then
     echo "Stage0 sweeps --leads; do not pass the fixed --lead option" >&2
-    exit 2
-fi
-if [[ "${EXPERIMENT}" == "stage0" && -n "${PREAMBLE_SPEC}" ]]; then
-    echo "Stage0 uses a fixed 32-symbol preamble; do not pass --preambles" >&2
     exit 2
 fi
 if [[ "${EXPERIMENT}" != "stage0" && "${TAIL_US}" != "0" ]]; then
@@ -447,9 +453,12 @@ if [[ "${EXPERIMENT}" != "exp1" && "${RX_MODE}" != "delayed" ]]; then
     exit 2
 fi
 case "${PAC}" in
-    4|8) ;;
-    *) echo "pac must be 4 or 8" >&2; exit 2 ;;
+    4|8|32) ;;
+    *) echo "pac must be 4, 8, or 32" >&2; exit 2 ;;
 esac
+if [[ "${EXPERIMENT}" != "stage0" && "${PAC}" == "32" ]]; then
+    echo "PAC32 is only valid for Stage0 M1024" >&2; exit 2
+fi
 if [[ "${EXPERIMENT}" != "exp2" && "${EXPERIMENT}" != "exp5" && ${METHOD_SET} -eq 1 ]]; then
     echo "--method is only valid for Exp2 or Exp5" >&2
     exit 2
@@ -470,7 +479,7 @@ if [[ "${EXPERIMENT}" == "exp4" ]]; then
 fi
 
 case "${EXPERIMENT}" in
-    stage0) CASES_PER_RUN=${#LEADS[@]} ;;
+    stage0) CASES_PER_RUN=$((${#LEADS[@]} * ${#PREAMBLES[@]})) ;;
     exp1) CASES_PER_RUN=$((${#PREAMBLES[@]} * ${#PACS[@]})) ;;
     exp2) CASES_PER_RUN=${#PREAMBLES[@]} ;;
     exp3) CASES_PER_RUN=3 ;;
@@ -649,18 +658,20 @@ for (( offset=0; offset<REPEATS; offset++ )); do
     case "${EXPERIMENT}" in
         stage0)
             ordered_values_for_run "${run}" "${LEADS[@]}"
-            for lead in "${ORDERED_VALUES[@]}"; do
-                if [[ "${ROLE}" == "tx" ]]; then
-                    key="stage0_tx"
-                else
-                    key="stage0_rx_l${lead}_t${TAIL_US}_pac${PAC}"
-                fi
-                args=("${ROLE}" "${lead}" "${run}" "${ENVIRONMENT}")
-                [[ "${DISTANCE}" == "na" ]] || args+=("${DISTANCE}")
-                [[ "${TAIL_US}" == "0" ]] || args+=(--tail "${TAIL_US}")
-                [[ "${PAC}" == "8" ]] || args+=(--pac "${PAC}")
-                run_case "${key}" "stage0 lead=${lead} tail=${TAIL_US} pac=${PAC} run=${run}" \
-                    "${SCRIPT_DIR}/brrs_stage0_capture.sh" "${args[@]}"
+            for preamble in "${PREAMBLES[@]}"; do
+                for lead in "${ORDERED_VALUES[@]}"; do
+                    if [[ "${ROLE}" == "tx" ]]; then
+                        key="stage0_tx_m${preamble}"
+                    else
+                        key="stage0_rx_m${preamble}_l${lead}_t${TAIL_US}_pac${PAC}"
+                    fi
+                    args=("${ROLE}" "${lead}" "${run}" "${ENVIRONMENT}")
+                    [[ "${DISTANCE}" == "na" ]] || args+=("${DISTANCE}")
+                    [[ "${TAIL_US}" == "0" ]] || args+=(--tail "${TAIL_US}")
+                    args+=(--preamble "${preamble}" --pac "${PAC}")
+                    run_case "${key}" "stage0 M=${preamble} lead=${lead} tail=${TAIL_US} pac=${PAC} run=${run}" \
+                        "${SCRIPT_DIR}/brrs_stage0_capture.sh" "${args[@]}"
+                done
             done
             ;;
         exp1)

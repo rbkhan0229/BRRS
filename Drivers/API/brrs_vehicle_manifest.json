@@ -47,13 +47,31 @@
   ],
   "lead_selection": {
     "frozen": false,
-    "lead_us_by_pac": {
-      "4": null,
-      "8": null
+    "lead_us_by_config": {
+      "m32_pac4": null,
+      "m32_pac8": null,
+      "m1024_pac32": null
     },
     "evidence": null
   },
   "stage0": {
+    "phy_configs": [
+      {
+        "id": "m32_pac4",
+        "preamble": 32,
+        "pac": 4
+      },
+      {
+        "id": "m32_pac8",
+        "preamble": 32,
+        "pac": 8
+      },
+      {
+        "id": "m1024_pac32",
+        "preamble": 1024,
+        "pac": 32
+      }
+    ],
     "leads_us": [
       20,
       0,
@@ -169,13 +187,13 @@
   "exp5": {
     "preamble": 1024,
     "pac": 32,
-    "lead_from_pac": 8
+    "lead_from_stage0_config": "m1024_pac32"
   },
   "goal_per_node_percent_strictly_below": 1.0,
   "repeat_each_condition": 1,
   "profiles": {
     "full": {
-      "description": "Former 999-case paper profile with complete repetitions and Exp4 logical-slot rotation",
+      "description": "Complete profile with PHY-specific Stage0 calibration and full Exp4 logical-slot rotation",
       "repeats_by_stage": {
         "stage0": 1,
         "exp1": 5,
@@ -225,7 +243,7 @@
         "exp1": 0,
         "exp2": 3,
         "exp3": 1,
-        "exp4": 6,
+        "exp4": 12,
         "exp5": 3
       },
       "stage0_confirmation_repeats": 5,
@@ -241,9 +259,10 @@
       "condition_order": "alternating_rotated",
       "stage_filters": {
         "stage0": {
-          "pacs": [
-            4,
-            8
+          "config_ids": [
+            "m32_pac4",
+            "m32_pac8",
+            "m1024_pac32"
           ]
         },
         "exp1": {
@@ -387,9 +406,10 @@
       "condition_order": "as_listed",
       "stage_filters": {
         "stage0": {
-          "pacs": [
-            4,
-            8
+          "config_ids": [
+            "m32_pac4",
+            "m32_pac8",
+            "m1024_pac32"
           ]
         },
         "exp1": {
@@ -479,9 +499,10 @@
       "condition_order": "alternating_rotated",
       "stage_filters": {
         "stage0": {
-          "pacs": [
-            4,
-            8
+          "config_ids": [
+            "m32_pac4",
+            "m32_pac8",
+            "m1024_pac32"
           ]
         },
         "exp1": {
@@ -554,8 +575,9 @@
       }
     }
   },
-  "lead_candidates_us_by_pac": {
-    "4": null,
-    "8": null
+  "lead_candidates_us_by_config": {
+    "m32_pac4": null,
+    "m32_pac8": null,
+    "m1024_pac32": null
   }
 }

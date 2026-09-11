@@ -56,7 +56,7 @@ Standard Exp4 S1만 여섯 block에서 N2~N7을 순회한다. Exp4 다중 TX의 
 
 ## 명령 예시
 
-아래는 API 폴더에서 실행한다. `vehicle_frozen.json`은 **실제 배치와 PAC별 선정 근거를 기록한 환경별 파일**이다. 기본 템플릿의 lead는 아직 미선정이며, TEST_ONLY 문서나 빌드 검증용 lead를 차량 최적값으로 사용하지 않는다. Exp5의 lead는 기존 정책대로 선정된 PAC8 값을 참조하며 PAC32 최적값을 탐색한 것은 아니다.
+아래는 API 폴더에서 실행한다. `vehicle_frozen.json`은 **실제 배치와 PHY 설정별 선정 근거를 기록한 환경별 파일**이다. 기본 템플릿의 lead는 아직 미선정이며, TEST_ONLY 문서나 빌드 검증용 lead를 차량 최적값으로 사용하지 않는다. Exp5는 Stage0에서 독립적으로 동결한 M1024/PAC32 lead를 사용한다.
 
 ```bash
 # 계획 출력만 한다. SSH/보드 접근 없음.

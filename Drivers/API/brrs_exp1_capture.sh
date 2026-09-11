@@ -20,9 +20,8 @@ Options:
   --beacon-preamble <symbols>
                        SYNC beacon preamble: 32/64/128/256/512/1024 (default: 512).
   --lead <us>          RX lead margin for Exp1 (default: 15).
-  --pac <4|8>          RX PAC size for Stage0/Exp1 (default: 8, the BRRS
-                        baseline; 4 is the DW3000 vendor-recommended value
-                        for preambles under 127 symbols).
+  --pac <4|8|32>       RX PAC size. Exp1 uses PAC4/8. Stage0 additionally
+                        supports only the matched M1024/PAC32 calibration.
   --rx-mode <mode>     Exp1 RX scheduling: delayed (default) or immediate.
                         Immediate keeps the same beacon/PHY/slot and opens RX
                         as soon as DATA configuration is ready.
@@ -107,8 +106,8 @@ case "${ROLE}" in
     *) echo "role must be tx or rx" >&2; exit 2 ;;
 esac
 case "${PREAMBLE}" in
-    32|64|128|256) ;;
-    *) echo "preamble must be 32, 64, 128, or 256" >&2; exit 2 ;;
+    32|64|128|256|1024) ;;
+    *) echo "preamble must be 32, 64, 128, 256, or Stage0-only 1024" >&2; exit 2 ;;
 esac
 [[ "${RUN_NUMBER}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "run must be a positive integer" >&2; exit 2; }
@@ -123,10 +122,7 @@ fi
     || { echo "lead and tail must be between 0 and 1000 us" >&2; exit 2; }
 [[ -z "${TIMEOUT}" || "${TIMEOUT}" =~ ^[1-9][0-9]*$ ]] \
     || { echo "timeout must be a positive integer" >&2; exit 2; }
-case "${PAC}" in
-    4|8) ;;
-    *) echo "pac must be 4 or 8" >&2; exit 2 ;;
-esac
+case "${PAC}" in 4|8|32) ;; *) echo "pac must be 4, 8, or 32" >&2; exit 2 ;; esac
 case "${BEACON_PREAMBLE}" in
     32|64|128|256|512|1024) ;;
     *) echo "beacon preamble must be 32, 64, 128, 256, 512, or 1024" >&2; exit 2 ;;
@@ -137,18 +133,24 @@ case "${RX_MODE}" in
 esac
 
 if [[ "${MODE}" == "stage0" ]]; then
-    [[ "${PREAMBLE}" == "32" ]] \
-        || { echo "Stage0 uses the 32-symbol preamble" >&2; exit 2; }
+    if [[ "${PREAMBLE}" == "1024" ]]; then
+        [[ "${PAC}" == "32" ]] || { echo "Stage0 M1024 requires PAC32" >&2; exit 2; }
+    else
+        [[ "${PREAMBLE}" == "32" && ( "${PAC}" == "4" || "${PAC}" == "8" ) ]] \
+            || { echo "Stage0 supports M32/PAC4, M32/PAC8, or M1024/PAC32" >&2; exit 2; }
+    fi
     if [[ "${ROLE}" == "rx" ]]; then
         CONFIG="Stage0_L${LEAD_US}_T${TAIL_US}_Init"
     else
         CONFIG="Stage0_Normal"
     fi
-    EXPERIMENT_LABEL="Stage0: lead ${LEAD_US} us, tail ${TAIL_US} us, pac ${PAC}"
-    LOG_PREFIX="stage0_l${LEAD_US}_t${TAIL_US}_pac${PAC}"
+    EXPERIMENT_LABEL="Stage0: M${PREAMBLE}, lead ${LEAD_US} us, tail ${TAIL_US} us, pac ${PAC}"
+    LOG_PREFIX="stage0_m${PREAMBLE}_l${LEAD_US}_t${TAIL_US}_pac${PAC}"
     [[ "${RX_MODE}" == "delayed" ]] \
         || { echo "Stage0 supports delayed RX only" >&2; exit 2; }
 else
+    [[ "${PREAMBLE}" != "1024" && ( "${PAC}" == "4" || "${PAC}" == "8" ) ]] \
+        || { echo "Exp1 supports M32/64/128/256 with PAC4 or PAC8" >&2; exit 2; }
     TAIL_US=0
     if [[ "${ROLE}" == "rx" ]]; then
         CONFIG="Exp1_${PREAMBLE}_Init"
@@ -178,6 +180,7 @@ LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
 PAC_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_pac"
 RX_MODE_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_mode"
 BEACON_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_sync_preamble_symbols"
+DATA_PREAMBLE_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_data_preamble_symbols"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
 [[ "${DISTANCE}" != "na" && -n "${DISTANCE}" ]] && DISTANCE_TAG="_${DISTANCE}m"
@@ -260,6 +263,18 @@ if (( NO_BUILD == 0 )); then
     echo "[build] ${CONFIG}"
     BUILD_ARGS=(-threadnum "${EMBUILD_THREADS:-1}")
     DEFS="DEBUG;BRRS_SYNC_PREAMBLE_SYMBOLS=${BEACON_PREAMBLE};BRRS_TARGET_CYCLES=${EXPECTED_CYCLES}"
+    case "${PREAMBLE}" in
+        32) PLEN_DEFINE=DWT_PLEN_32 ;;
+        64) PLEN_DEFINE=DWT_PLEN_64 ;;
+        128) PLEN_DEFINE=DWT_PLEN_128 ;;
+        256) PLEN_DEFINE=DWT_PLEN_256 ;;
+        1024) PLEN_DEFINE=DWT_PLEN_1024 ;;
+    esac
+    [[ "${ROLE}" == "rx" ]] && ROLE_DEFINE=TEST_BRRS_INIT || ROLE_DEFINE=TEST_BRRS_NORMAL
+    MACROS="BRRS_ROLE_DEFINE=${ROLE_DEFINE};EXP3_VARIANT_DEFINE=EXP3_PHY_VARIANT=1"
+    MACROS+=";BRRS_EXPERIMENT_DEFINE=BRRS_EXPERIMENT=1"
+    MACROS+=";BRRS_DATA_PLEN_DEFINE=BRRS_DATA_PLEN=${PLEN_DEFINE}"
+    MACROS+=";BRRS_NODE_DEFINE=TEST_NODE_2;BRRS_SENSOR_COUNT_DEFINE=BRRS_SENSOR_NODES=1"
     if [[ "${MODE}" == "exp1" && "${ROLE}" == "rx" ]]; then
         RX_MODE_DEFINE=0
         [[ "${RX_MODE}" == "immediate" ]] && RX_MODE_DEFINE=1
@@ -274,6 +289,7 @@ if (( NO_BUILD == 0 )); then
         DEFS+=";BRRS_RX_PAC_SYMBOLS=${PAC}"
     fi
     BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
+    BUILD_ARGS+=(-sproperty "macros=${MACROS}")
     BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
     "${EMBUILD}" "${BUILD_ARGS[@]}" >"${BUILD_LOG}" 2>&1 \
         || { echo "build failed: ${BUILD_LOG}" >&2; exit 1; }
@@ -286,12 +302,17 @@ if (( NO_BUILD == 0 )); then
         printf '%s\n' "${PAC}" >"${PAC_STAMP}"
     fi
     printf '%s\n' "${BEACON_PREAMBLE}" >"${BEACON_STAMP}"
+    printf '%s\n' "${PREAMBLE}" >"${DATA_PREAMBLE_STAMP}"
 fi
 [[ -f "${HEX_FILE}" && -f "${ELF_FILE}" ]] \
     || { echo "firmware image missing for ${CONFIG}" >&2; exit 1; }
 if (( NO_BUILD == 1 )); then
     [[ -f "${BEACON_STAMP}" && "$(<"${BEACON_STAMP}")" == "${BEACON_PREAMBLE}" ]] \
         || { echo "cached ${CONFIG} was not built with beacon preamble ${BEACON_PREAMBLE}" >&2; exit 1; }
+fi
+if (( NO_BUILD == 1 )); then
+    [[ -f "${DATA_PREAMBLE_STAMP}" && "$(<"${DATA_PREAMBLE_STAMP}")" == "${PREAMBLE}" ]] \
+        || { echo "cached ${CONFIG} was not built with DATA preamble ${PREAMBLE}" >&2; exit 1; }
 fi
 if (( NO_BUILD == 1 )) && [[ "${MODE}" == "stage0" && "${ROLE}" == "rx" ]]; then
     [[ -f "${PAC_STAMP}" && "$(<"${PAC_STAMP}")" == "${PAC}" ]] \
