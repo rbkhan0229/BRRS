@@ -103,6 +103,18 @@ def _validate_profile(m, name, config):
         preambles = filters[stage]['preambles']
         if not preambles or len(set(preambles)) != len(preambles) or not set(preambles) <= set(m[stage]['preambles']):
             raise ValueError(f'invalid {name} {stage} preamble filter')
+    for stage in ['exp2', 'exp4']:
+        pacs_by_preamble = filters[stage].get('pacs_by_preamble')
+        if pacs_by_preamble is not None:
+            preambles = filters[stage]['preambles']
+            if set(pacs_by_preamble) != {str(plen) for plen in preambles}:
+                raise ValueError(f'{name} {stage} per-M PAC keys must match its preambles')
+            for plen in preambles:
+                values = pacs_by_preamble[str(plen)]
+                if (not isinstance(values, list) or not values or
+                        len(set(values)) != len(values) or
+                        not set(values) <= set(filters[stage]['pacs'])):
+                    raise ValueError(f'invalid {name} {stage} M{plen} PAC filter')
     variants = filters['exp3']['variants']
     if not variants or len(set(variants)) != len(variants) or not set(variants) <= set(m['exp3']['variants']):
         raise ValueError(f'invalid {name} Exp3 variant filter')
@@ -179,6 +191,14 @@ def validate(m):
             }
             if standard.get('exp4_preambles_by_active_tx') != expected_standard_exp4:
                 raise ValueError('standard Exp4 must cover every M at S1 and M32/M256 at S2..S6')
+            expected_standard_pacs = {
+                '32': [4, 8], '64': [8], '128': [8], '256': [8],
+            }
+            if standard['stage_filters']['exp4'].get('pacs_by_preamble') != expected_standard_pacs:
+                raise ValueError('standard Exp4 must use PAC4 only for M32 and PAC8 for every M')
+            if standard['stage_filters']['exp2'].get('pacs_by_preamble') != {
+                    '32': [4, 8], '256': [8]}:
+                raise ValueError('standard Exp2 must use PAC4 only for M32')
         if any(not set(essential_filters[stage][field]).issubset(full_filters[stage][field])
                for stage, fields in {
                    'stage0': ['pacs'], 'exp1': ['preambles', 'pacs'],
@@ -219,12 +239,16 @@ def _selected(m, stage, case, filters):
         return p['preamble'] in selected['preambles'] and p['rx_pac'] in selected['pacs']
     if stage == 'exp2':
         link = p.get('link_tx_role', m['single_link_tx_role'])
-        return (p['preamble'] in selected['preambles'] and p['rx_pac'] in selected['pacs']
+        by_preamble = selected.get('pacs_by_preamble', {})
+        allowed_pacs = by_preamble.get(str(p['preamble']), selected['pacs'])
+        return (p['preamble'] in selected['preambles'] and p['rx_pac'] in allowed_pacs
                 and link in selected['links'])
     if stage == 'exp3':
         return p['variant'] in selected['variants']
     if stage == 'exp4':
-        return p['preamble'] in selected['preambles'] and p['rx_pac'] in selected['pacs']
+        by_preamble = selected.get('pacs_by_preamble', {})
+        allowed_pacs = by_preamble.get(str(p['preamble']), selected['pacs'])
+        return p['preamble'] in selected['preambles'] and p['rx_pac'] in allowed_pacs
     if stage == 'exp5':
         return p.get('link_tx_role', m['single_link_tx_role']) in selected['links']
     raise ValueError('unknown stage')

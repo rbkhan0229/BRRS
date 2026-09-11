@@ -1,6 +1,6 @@
 # Stage0~Exp5 논문용 실행 경로
 
-이 문서는 `DW3_QM33_SDK_1.0.2/Drivers/API`의 구현 기준이다. 준비 점검은 `--profile preparation`, 논문용 측정은 `--profile full|standard|essential|lite`를 사용한다. 범위는 **full > standard > essential > lite**다. `standard`는 실제 차량의 기본 계획으로, 별도 Exp1을 Exp4 S1에 흡수하면서 S1~S6 노드 수 그래프와 반복 링크 근거를 유지한377 case다. `full`은 기존999 case, `essential`은 핵심 S6 조건의 반복 검증, `lite`는 essential과 같은 조건을 각1 block만 실행한다. 과거 `paper` 이름은 기존 manifest/bundle 재현용으로만 남아 있다. **plan/prepare/dry-run/결과 집계는 RF를 시작하지 않는다. 실제 송수신은 `run`에서만 시작한다.** `deploy`는 원격 파일 배포만 한다.
+이 문서는 `DW3_QM33_SDK_1.0.2/Drivers/API`의 구현 기준이다. 준비 점검은 `--profile preparation`, 논문용 측정은 `--profile full|standard|essential|lite`를 사용한다. 범위는 **full > standard > essential > lite**다. `standard`는 실제 차량의 기본 계획으로, 별도 Exp1을 Exp4 S1에 흡수하고 PAC4는 M32에서만 사용하면서 S1~S6 노드 수 그래프와 반복 링크 근거를 유지한305 case다. `full`은 기존999 case, `essential`은 핵심 S6 조건의 반복 검증, `lite`는 essential과 같은 조건을 각1 block만 실행한다. 과거 `paper` 이름은 기존 manifest/bundle 재현용으로만 남아 있다. **plan/prepare/dry-run/결과 집계는 RF를 시작하지 않는다. 실제 송수신은 `run`에서만 시작한다.** `deploy`는 원격 파일 배포만 한다.
 
 ## 환경별 manifest
 
@@ -10,11 +10,11 @@
 
 ## 반복과 활성 집합
 
-`profiles.full`은 Stage0=1, Exp1=5, Exp2=3, Exp3=3, Exp4=12, Exp5=3이며 Exp4는6회전×2주기다. `profiles.standard`는 Stage0=1, Exp1=0, Exp2=3, Exp3=1, Exp4=6, Exp5=3이다. Standard Exp4 S1은 M32/64/128/256을 모두 측정하고, S2~S6은 M32/M256에 집중한다. S1도 block마다 물리 TX를 N2~N7로 바꾸며 전체 Exp4를6회전한다. `profiles.essential`은 Exp1을 유지하되 Exp2를 M32/M256, Exp4를 S6의 M32/M256 기준·포화 조건으로 줄이고 Exp4는6회전×1주기다. `profiles.lite`는 essential의 같은 조건을 모두1 block만 실행하고 논리 역할을 회전하지 않는다. Full/standard/essential의 Stage0 선정 lead 확인은5회, lite는1회다.
+`profiles.full`은 Stage0=1, Exp1=5, Exp2=3, Exp3=3, Exp4=12, Exp5=3이며 Exp4는6회전×2주기다. `profiles.standard`는 Stage0=1, Exp1=0, Exp2=3, Exp3=1, Exp4=6, Exp5=3이다. Standard Exp4 S1은 PAC8로 M32/64/128/256을 비교하고 M32/PAC4를 추가한다. S2~S6은 M32/PAC4·8과 M256/PAC8에 집중한다. S1도 block마다 물리 TX를 N2~N7로 바꾸며 전체 Exp4를6회전한다. `profiles.essential`은 Exp1을 유지하되 Exp2를 M32/M256, Exp4를 S6의 M32/M256 기준·포화 조건으로 줄이고 Exp4는6회전×1주기다. `profiles.lite`는 essential의 같은 조건을 모두1 block만 실행하고 논리 역할을 회전하지 않는다. Full/standard/essential의 Stage0 선정 lead 확인은5회, lite는1회다.
 
 반복은 같은 조건을 연달아 소진하지 않는다. 각 stage에서 block 1의 모든 조건을 한 번씩 실행한 뒤 block 2로 돌아가며, block마다 조건 순서를 순환하고 정·역 교대한다. 이렇게 시간대, 차량 온도, 주변 통행 변화가 특정 PHY 조건에만 몰리는 것을 줄인다. Stage0은 뒤 단계의 lead를 결정하므로 Exp1~Exp5와 섞지 않고 먼저 완료·동결한다.
 
-- Exp2 full: M 4개 × PAC 2개 × 물리 링크 6개 × 3 blocks = 144 case. Standard/essential은 M32/M256만 유지하여72 case, lite는 같은24조건을1 block 수행한다. Exp5는 full/standard/essential이 물리 링크6개 × 3 blocks = 18 case이고 lite는6 case다. 각 PHY 조건에서 N2→N7을 순회하며, 반복 profile은 block별 조건 순서를 순환·정역 교대한다. case ID의 `_txN2`~`_txN7`과 metadata의 실제 serial로 구분한다.
+- Exp2 full: M 4개 × PAC 2개 × 물리 링크 6개 × 3 blocks = 144 case. Standard는 M32/PAC4·8과 M256/PAC8만 유지하여54 case, essential은 M32/M256 × PAC4/8로72 case, lite는 같은24조건을1 block 수행한다. Exp5는 full/standard/essential이 물리 링크6개 × 3 blocks = 18 case이고 lite는6 case다. 각 PHY 조건에서 N2→N7을 순회하며, 반복 profile은 block별 조건 순서를 순환·정역 교대한다. case ID의 `_txN2`~`_txN7`과 metadata의 실제 serial로 구분한다.
 - Exp4 S1: Full/preparation은 N4만 활성한다. Standard는 block1~6에서 N2~N7을
   한 번씩 활성화하며 모든 M/PAC 비교는 한 block 안에서 같은 물리 링크를 사용한다.
 - S2~S5: 설치표 순서 N2/N3/N4/N5/N6/N7을 반복 block마다 한 칸 순환하고 앞 S개를 활성화한다. 활성 보드에 논리 N2~N(S+1)를 배정한다. 6 block마다 모든 물리 보드가 각 논리 역할을 한 번씩 맡는다.
@@ -22,7 +22,7 @@
 - 같은 block의 PAC·M·슬롯 조건에는 같은 배정을 사용한다. 조건 실행 순서만 별도로 순환·정역 교대한다.
 - 모든 case의 물리 serial/위치, 논리 ID, 반복 번호, 회전 index, 조건/배정 hash, HEX/ELF hash를 보존한다. 캡처 로그 경로도 case ID로 나뉜다.
 
-Full의 S1~S5는 노드당1슬롯이다. S6는 M32의6/12/13, M64의6/12, M128의6/10, M256의6/8슬롯을 비교한다. PAC2개를 적용하면 full Exp4의 기본 물리/부하 조건은58개이며12회 반복 시696 case다. Standard는 S1의 M4개 8조건, S2~S5의 M32/M256 16조건, S6의 기준·포화 8조건으로 block당32조건이며6회전에서192 case다. Essential/lite는 S6의 M32 6/13과 M256 6/8만 유지해 각각48/8 case다. 이는 각 profile의 전체 계획 개수이며 준비 점검 횟수가 아니다. `--cases`로 필요한 준비·검증 조건을 명시적으로 선택할 수 있다.
+Full의 S1~S5는 노드당1슬롯이다. S6는 M32의6/12/13, M64의6/12, M128의6/10, M256의6/8슬롯을 비교한다. PAC2개를 적용하면 full Exp4의 기본 물리/부하 조건은58개이며12회 반복 시696 case다. Standard는 S1 5조건, S2~S5 각3조건, S6 6조건으로 block당23조건이며6회전에서138 case다. PAC8 M32~M256 비교는 PAC를 고정한 프리앰블 곡선이고 PAC4는 M32에만 추가된다. Essential/lite는 S6의 M32 6/13과 M256 6/8에 PAC4/8을 적용해 각각48/8 case다. 이는 각 profile의 전체 계획 개수이며 준비 점검 횟수가 아니다. `--cases`로 필요한 준비·검증 조건을 명시적으로 선택할 수 있다.
 
 ## 계획과 이미지 준비
 

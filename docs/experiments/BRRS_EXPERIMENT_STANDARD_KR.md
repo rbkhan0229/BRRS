@@ -1,4 +1,4 @@
-# BRRS Standard profile — 377 case
+# BRRS Standard profile — 305 case
 
 이 문서는 다른 profile 문서를 읽지 않아도 Standard 차량 실험을 이해하고 운영할 수
 있도록 범위, 보드 역할, 반복·회전, 실행·재개와 통행 오염 처리를 설명한다.
@@ -6,7 +6,7 @@
 Standard는 실제 차량 논문의 기본 profile이다. Full의 999 case보다 시간을 줄이되,
 Essential에 없는 S1~S5 노드 수 그래프와 여섯 물리 링크의 반복 근거를 유지한다.
 별도 Exp1은 실행하지 않는다. 같은 최종 TDMA 송수신 경로를 사용하는 Exp4 S1에서
-M32/64/128/256 × PAC4/8을 측정하고, block마다 송신 보드를 바꾸어 프리앰블 비교와
+M32/PAC4·PAC8 및 M64/128/256/PAC8을 측정하고, block마다 송신 보드를 바꾸어 프리앰블 비교와
 차량 위치 차이를 함께 검증한다. 전체 범위는 `full > standard > essential > lite`다.
 
 ## 공통 용어
@@ -47,7 +47,7 @@ Stage0과 Exp3의 단일 TX는 물리 N4를 사용한다. Exp2와 Exp5는 N2~N7�
 | 비컨 프리앰블 | M512 |
 | DATA payload | application 16 B, 전체 PSDU 26 B |
 | DATA 프리앰블 | S1 M32/64/128/256, S2~S6 M32/M256 |
-| DATA PAC | PAC4, PAC8 |
+| DATA PAC | M32는 PAC4/PAC8, M64 이상은 PAC8 |
 | Exp4 guard | 250 us |
 | Exp4 SB/SP | 3000/2500 us |
 | Exp4 수신 | 슬롯별 scheduled delayed-RX |
@@ -65,11 +65,11 @@ Stage0과 Exp3의 단일 TX는 물리 N4를 사용한다. Exp2와 Exp5는 N2~N7�
 | Stage0 grid | 41 leads × 2 PAC | 82 |
 | Stage0 confirmation | 2 PAC × 선정 lead × 5 blocks | 10 |
 | Exp1 | Exp4 S1에 흡수 | 0 |
-| Exp2 | M32/M256 × 2 PAC × 6 links × 3 blocks | 72 |
+| Exp2 | (M32 × PAC4/8 + M256 × PAC8) × 6 links × 3 blocks | 54 |
 | Exp3 | 3 variants × 1 block | 3 |
-| Exp4 | 32조건 × 6 blocks | 192 |
+| Exp4 | 23조건 × 6 blocks | 138 |
 | Exp5 | 6 links × 3 blocks | 18 |
-| **합계** |  | **377** |
+| **합계** |  | **305** |
 
 한 조건만 여러 번 연속 실행하지 않는다. 각 stage에서 block 1의 모든 조건을 마친 뒤
 block 2로 돌아가며, block마다 조건 시작 위치를 순환시키고 짝수 block은 역순으로
@@ -99,9 +99,9 @@ Exp4 S1은 최종 시스템 경로 시험이다. 펌웨어 디버깅이나 과�
 
 ## Exp2 — 여섯 링크의 CIR 요약
 
-각 case에서 N2~N7 중 한 물리 TX만 활성화한다. M32/M256 × PAC4/8 × 6링크를
-측정하며 조건당 1,000 전송 기회와 CIR 요약을 기록한다. Block당 24 case, 3 blocks로
-총 72 case다. 짧은 프리앰블과 M256 기준의 링크별 손실·채널 차이를 반복 검증한다.
+각 case에서 N2~N7 중 한 물리 TX만 활성화한다. M32는 PAC4/PAC8, M256은 PAC8로
+여섯 링크를 측정하며 조건당 1,000 전송 기회와 CIR 요약을 기록한다. Block당 18 case,
+3 blocks로 총 54 case다. 짧은 프리앰블과 M256 기준의 링크별 손실·채널 차이를 반복 검증한다.
 
 ## Exp3 — 차량 보조 확인
 
@@ -116,18 +116,20 @@ M별 포화 후보를 비교한다.
 
 | 활성 TX | M과 K | PAC4/8 포함 case/block |
 |---:|---|---:|
-| S1 | M32/64/128/256, K1 | 8 |
-| S2 | M32/M256, K2 | 4 |
-| S3 | M32/M256, K3 | 4 |
-| S4 | M32/M256, K4 | 4 |
-| S5 | M32/M256, K5 | 4 |
-| S6 | M32 K6/K13, M256 K6/K8 | 8 |
-| **합계** |  | **32** |
+| S1 | M32/PAC4·8 + M64/128/256/PAC8, K1 | 5 |
+| S2 | M32/PAC4·8 + M256/PAC8, K2 | 3 |
+| S3 | M32/PAC4·8 + M256/PAC8, K3 | 3 |
+| S4 | M32/PAC4·8 + M256/PAC8, K4 | 3 |
+| S5 | M32/PAC4·8 + M256/PAC8, K5 | 3 |
+| S6 | M32/PAC4·8 K6/K13 + M256/PAC8 K6/K8 | 6 |
+| **합계** |  | **23** |
 
-S1의 네 M은 프리앰블 성능 곡선을 만든다. S2~S6은 M32와 M256 끝점만 사용해
+PAC8로 고정한 M32~M256은 순수 프리앰블 길이 비교 곡선을 만들고, M32/PAC4는
+제조사 권장 짧은 프리앰블 조합과 PAC8을 직접 비교한다. M64 이상에는 PAC4를 적용하지
+않는다. S2~S6은 M32와 M256 끝점만 사용해
 노드 수에 따른 이용률·PER 변화를 보여준다. S6/K13과 S6/K8은 각 PHY의 포화 처리량을
 검증한다. Block 1~6에서 설치표를 한 칸씩 순환하므로 S1은 모든 물리 링크를 한 번씩,
-S2~S6은 가능한 논리 슬롯 역할을 한 바퀴 경험한다. 총 32 × 6 = 192 case다.
+S2~S6은 가능한 논리 슬롯 역할을 한 바퀴 경험한다. 총 23 × 6 = 138 case다.
 
 ## Exp5 — 차량 링크별 raw CIR
 
@@ -142,12 +144,12 @@ Stage0 92 case를 끝내 lead를 동결한 뒤 다음 순서로 진행한다.
 
 | round | 실행 stage/block | case |
 |---:|---|---:|
-| 1 | Exp2 24 + Exp3 3 + Exp4 32 + Exp5 6 | 65 |
-| 2~3 | Exp2 24 + Exp4 32 + Exp5 6 | 각 62 |
-| 4~6 | Exp4 32 | 각 32 |
+| 1 | Exp2 18 + Exp3 3 + Exp4 23 + Exp5 6 | 50 |
+| 2~3 | Exp2 18 + Exp4 23 + Exp5 6 | 각 47 |
+| 4~6 | Exp4 23 | 각 23 |
 
-Case당 준비·flash·READY·약 10초 RF·수집 검증을 합쳐 평균 1분 정도면 약 6시간 20분,
-현장 중단과 재측정을 포함하면 **약 7~8시간**을 예상한다. 시간은 장비·빌드 캐시 상태에
+Case당 준비·flash·READY·약 10초 RF·수집 검증을 합쳐 평균 1분 정도면 약 5시간,
+현장 중단과 재측정을 포함하면 **약 6~7시간**을 예상한다. 시간은 장비·빌드 캐시 상태에
 따라 달라진다. 한 번에 끝낼 필요는 없으며 case, stage 또는 round 경계에서 중단한다.
 
 ## 계획·실행·재개
@@ -192,5 +194,5 @@ python3 brrs_exp4_capacity.py vehicle_frozen.json \
 ```
 
 차량 장착 직후 6링크 점검, SB/SP/guard/K 탐색, 비기본 비컨 프리앰블과 오염 case
-대체 실행은 377 case에 포함되지 않는다. 탐색은 고유 로그 경로에서 수행하고 채택한
+대체 실행은 305 case에 포함되지 않는다. 탐색은 고유 로그 경로에서 수행하고 채택한
 조건만 새 manifest에 동결한다. 이 로그는 진단 자료이며 Standard 통계에 자동 합산하지 않는다.

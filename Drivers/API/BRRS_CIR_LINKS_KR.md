@@ -8,12 +8,12 @@
 
 | 실험 | 준비 | full | standard | essential | lite |
 |---|---:|---:|---:|---:|---:|
-| Exp2 | 48 | 144 | 72 | 72 | 24 |
+| Exp2 | 48 | 144 | 54 | 72 | 24 |
 | Exp5 | 6 | 18 | 18 | 18 | 6 |
 
 Exp2의 full/준비는 M32/64/128/256 × PAC4/8 × 물리 링크6개를 사용한다.
-Standard/essential/lite는 같은 링크와 PAC를 유지하고 M32/M256 끝점만 사용한다. Exp5의 조건
-집합은 네 profile이 같고 반복 수만 다르다.
+Standard는 M32/PAC4·8과 M256/PAC8을 사용한다. Essential/lite는 M32/M256에
+PAC4/8을 모두 적용한다. Exp5의 조건 집합은 네 profile이 같고 반복 수만 다르다.
 
 각 링크에서 활성 TX의 펌웨어 논리 ID와 raw의 `N2`는 동일하다. 실제 보드는 case ID의 `_txN2`~`_txN7`, 검증된 `physical_role`, serial, 위치로 식별한다. Exp2와 Exp5의 `ASSESSMENT.json`에는 `stage_metrics.physical_link`를 추가했다. 다른 물리 링크를 하나의 평균으로 합치지 않으며, 누락된 링크는 INCOMPLETE로 남는다. 수신 0은 PASS가 아니다.
 

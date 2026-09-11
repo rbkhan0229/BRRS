@@ -216,7 +216,7 @@
       }
     },
     "standard": {
-      "description": "Primary vehicle profile: Exp1 folded into rotating Exp4 S1, S1-S6 scaling, endpoint PHYs beyond S1, and repeated link evidence",
+      "description": "Primary vehicle profile: Exp1 folded into rotating Exp4 S1, PAC4 limited to M32, S1-S6 scaling, and repeated link evidence",
       "disabled_stages": [
         "exp1"
       ],
@@ -267,6 +267,15 @@
             4,
             8
           ],
+          "pacs_by_preamble": {
+            "32": [
+              4,
+              8
+            ],
+            "256": [
+              8
+            ]
+          },
           "links": [
             "N2",
             "N3",
@@ -293,7 +302,22 @@
           "pacs": [
             4,
             8
-          ]
+          ],
+          "pacs_by_preamble": {
+            "32": [
+              4,
+              8
+            ],
+            "64": [
+              8
+            ],
+            "128": [
+              8
+            ],
+            "256": [
+              8
+            ]
+          }
         },
         "exp5": {
           "links": [

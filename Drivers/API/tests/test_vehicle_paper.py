@@ -71,7 +71,7 @@ class PaperTests(unittest.TestCase):
 
     def test_named_profiles_have_declared_scope_and_counts(self):
         expected={
-            'standard':({'stage0':82,'exp1':0,'exp2':72,'exp3':3,'exp4':192,'exp5':18},10),
+            'standard':({'stage0':82,'exp1':0,'exp2':54,'exp3':3,'exp4':138,'exp5':18},10),
             'essential':({'stage0':82,'exp1':40,'exp2':72,'exp3':9,'exp4':48,'exp5':18},10),
             'lite':({'stage0':82,'exp1':8,'exp2':24,'exp3':3,'exp4':8,'exp5':6},2),
             'full':({'stage0':82,'exp1':40,'exp2':144,'exp3':9,'exp4':696,'exp5':18},10),
@@ -110,6 +110,10 @@ class PaperTests(unittest.TestCase):
             expected={32,64,128,256} if sensors==1 else {32,256}
             self.assertEqual({c['conditions']['preamble'] for c in selected},expected)
             self.assertEqual({c['conditions']['rotation_index'] for c in selected},set(range(6)))
+            self.assertEqual({c['conditions']['rx_pac'] for c in selected
+                              if c['conditions']['preamble']==32},{4,8})
+            self.assertTrue(all(c['conditions']['rx_pac']==8 for c in selected
+                                if c['conditions']['preamble']!=32))
         s1=[c for c in planned if c['conditions']['sensors']==1]
         physical_by_block={
             c['conditions']['run']:c['conditions']['active_physical_roles'][0]
@@ -150,6 +154,9 @@ class PaperTests(unittest.TestCase):
         with self.assertRaises(ValueError):paper.validate(changed)
         changed=copy.deepcopy(self.m)
         changed['profiles']['standard']['exp4_preambles_by_active_tx']['2'].append(64)
+        with self.assertRaises(ValueError):paper.validate(changed)
+        changed=copy.deepcopy(self.m)
+        changed['profiles']['standard']['stage_filters']['exp4']['pacs_by_preamble']['256'].append(4)
         with self.assertRaises(ValueError):paper.validate(changed)
 
     def test_each_stage_completes_one_condition_block_before_repeating(self):

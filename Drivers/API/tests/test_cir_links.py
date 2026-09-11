@@ -248,7 +248,7 @@ class LinkTests(unittest.TestCase):
             p=Path(td)/'m.json';p.write_text(json.dumps(frozen()))
             base=dict(manifest=p,stage='exp4',profile='full',confirmation=False,
                       capacity_candidates=False,cases=None,dry_run=True)
-            for profile,count in [('full',58),('standard',32),('essential',8),('lite',8)]:
+            for profile,count in [('full',58),('standard',23),('essential',8),('lite',8)]:
                 args=type('Args',(),{**base,'profile':profile,'blocks':[1]})()
                 with patch.object(subprocess,'run',side_effect=AssertionError('no hardware/process')),patch('sys.stdout',new_callable=io.StringIO) as out:
                     campaign.make_campaign(args)
