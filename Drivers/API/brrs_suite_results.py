@@ -188,7 +188,7 @@ def collect(m,cases,bundles,exclusions=None):
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('manifest',type=Path);ap.add_argument('--stage',required=True,choices=['stage0','exp1','exp2','exp3','exp4','exp5'])
-    ap.add_argument('--profile',default='essential',choices=['preparation','full','essential','lite','paper']);ap.add_argument('--confirmation',action='store_true')
+    ap.add_argument('--profile',default='essential',choices=['preparation','full','standard','essential','lite','paper']);ap.add_argument('--confirmation',action='store_true')
     ap.add_argument('--capacity-candidates',action='store_true');ap.add_argument('--bundles',nargs='*',type=Path,default=[]);ap.add_argument('--exclusions',type=Path)
     a=ap.parse_args();m=load(a.manifest);cases=plan(m,a.stage,profile=a.profile,confirmation=a.confirmation,capacity_candidates=a.capacity_candidates)
     r=collect(m,cases,a.bundles,json.loads(a.exclusions.read_text()) if a.exclusions else None)

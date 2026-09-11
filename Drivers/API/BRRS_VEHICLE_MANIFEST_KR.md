@@ -1,6 +1,6 @@
 # 차량 준비용 고정 역할과 단계별 설정
 
-공통 설정은 `brrs_vehicle_manifest.json`이다. 물리 RX는 1050270933이다. Stage0/Exp1/Exp3 및 Exp4 S1의 1:1 TX는 **N4 1050282818**이다. Exp2/Exp5는 `cir_link_tx_roles`의 **N2~N7을 한 대씩 순회**한다. 단일 링크 펌웨어의 논리 ID는 N2이므로 metadata의 `physical_role`과 `logical_node`를 구분한다. Exp4 full/essential은 사전에 정한 논리 역할 회전을 사용하고, preparation/lite는 원래 serial 매핑의1 block을 사용한다.
+공통 설정은 `brrs_vehicle_manifest.json`이다. 물리 RX는 1050270933이다. Stage0/Exp1/Exp3과 Full/Essential Exp4 S1의 1:1 TX는 **N4 1050282818**이다. Standard Exp4 S1은 여섯 block에서 N2~N7을 한 번씩 사용한다. Exp2/Exp5는 `cir_link_tx_roles`의 **N2~N7을 한 대씩 순회**한다. 단일 링크 펌웨어의 논리 ID는 N2이므로 metadata의 `physical_role`과 `logical_node`를 구분한다. Exp4 full/standard/essential은 사전에 정한 논리 역할 회전을 사용하고, preparation/lite는 원래 serial 매핑의1 block을 사용한다.
 
 이 사본의 통합 런너와 auto-TX는 기본적으로 위 manifest를 사용한다. USB 열거 순서나 run 번호에 따라 역할을 바꾸지 않는다. 지정 `--serial`이 manifest와 다르면 실행 전에 거부한다. auto-TX는 선택한 보드가 정확히 연결되었는지 확인하며, 모든 TX가 연결된 상태의 부분집합 제어는 별도 실행기에서 관리한다.
 
@@ -84,4 +84,4 @@ python3 brrs_exp4_capacity.py brrs_vehicle_manifest.json --bundles <완료-bundl
 
 용량 도구는 보드에 접속하지 않는다. bundle/payload hash, 실행 상태, serial·역할·조건·manifest·HEX·raw metadata, READY/END, 기존 INIT/TX 검증과 송신 분모를 다시 확인한다. 각 물리 serial의 offered/RX/PER 및 TX beacon/attempt/success, 전체 전송률·app goodput을 출력한다. offered에는 beacon 미수신으로 송신하지 못한 기회도 포함한다. 어느 보드든 PER≥1%면 FAIL_PER, 전체 수신0·수집/제어 오류·증거 불일치는 INVALID로 중단한다. 동일 case의 여러 실행을 넣어 좋은 결과만 고르는 것도 거부한다.
 
-`SCREENING_MAX_FOUND`는 이 고정 배치에서 조건당1회로 확인한 **준비 점검 상한**이다. 준비 모드의 단일 실행 값은 논문용 최종 용량이 아니다. `brrs_exp4_capacity.py --profile full|essential|lite`는 선택한 profile의 완료 여부와 노드별 결과를 합쳐 별도로 판정한다. `full`은 S1~S6 전수 조건과12회 반복, `essential`은 핵심 S6 조건의6회 논리 슬롯 회전, `lite`는 essential과 같은 조건의 고정 배치1회다. [논문용 실행 안내](BRRS_PAPER_CAMPAIGN_KR.md)를 따른다. PAC별 lead 미선정 상태도 유지한다. M128의 lead25·10슬롯 PAC4/PAC8 이미지와 준비/캡처 build-only 경로를 오프라인으로 검증했으며, 그 진단값을 최적 lead로 선정하거나 새 RF 결과로 사용하지 않는다. 근거는 `logs/vehicle_capacity_fix_20260907/RESULTS.md`다.
+`SCREENING_MAX_FOUND`는 이 고정 배치에서 조건당1회로 확인한 **준비 점검 상한**이다. 준비 모드의 단일 실행 값은 논문용 최종 용량이 아니다. `brrs_exp4_capacity.py --profile full|standard|essential|lite`는 선택한 profile의 완료 여부와 노드별 결과를 합쳐 별도로 판정한다. `full`은 S1~S6 전수 조건과12회 반복, `standard`는 S1 전 M·S2~S6 끝점 M과6회 물리/논리 회전, `essential`은 핵심 S6 조건의6회 논리 슬롯 회전, `lite`는 essential과 같은 조건의 고정 배치1회다. [논문용 실행 안내](BRRS_PAPER_CAMPAIGN_KR.md)를 따른다. PAC별 lead 미선정 상태도 유지한다. M128의 lead25·10슬롯 PAC4/PAC8 이미지와 준비/캡처 build-only 경로를 오프라인으로 검증했으며, 그 진단값을 최적 lead로 선정하거나 새 RF 결과로 사용하지 않는다. 근거는 `logs/vehicle_capacity_fix_20260907/RESULTS.md`다.

@@ -97,7 +97,7 @@ def next_case(cases, observations):
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('manifest',type=Path); ap.add_argument('--bundles',type=Path,nargs='*',default=[])
-    ap.add_argument('--profile',choices=['preparation','full','essential','lite','paper'],default='preparation')
+    ap.add_argument('--profile',choices=['preparation','full','standard','essential','lite','paper'],default='preparation')
     ap.add_argument('--exclusions',type=Path)
     args=ap.parse_args()
     if args.profile!='preparation':return profile_capacity(args)

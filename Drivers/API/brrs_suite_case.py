@@ -286,7 +286,7 @@ def side(a):
                       'suite_case_id':c['id'],'suite_conditions_sha256':c['conditions_sha256'], 'firmware_sha256':job['hex_sha256'],
                       'suite_manifest_sha256':job['environment']['BRRS_SUITE_MANIFEST_SHA256'],'raw_sha256':sha(out/(role+'.log')),
                       'run_number':str(c['conditions']['run']),'collection_status':'PASS'}
-            if c['conditions'].get('profile') in ['essential','lite','full','paper']:
+            if c['conditions'].get('profile') in ['standard','essential','lite','full','paper']:
                 expected.update(suite_profile=c['conditions']['profile'],suite_block=str(c['conditions']['run']),
                     suite_rotation_index=str(c['conditions']['rotation_index']),physical_location=job['location'],suite_assignment_sha256=c['assignment_sha256'])
             for k,v in expected.items():
@@ -412,7 +412,7 @@ def main():
     p=sub.add_parser('prepare'); p.add_argument('--manifest',type=Path,required=True)
     p.add_argument('--stage',required=True); p.add_argument('--case',required=True); p.add_argument('--reuse',action='store_true')
     p.add_argument('--bundle',type=Path,required=True)
-    p.add_argument('--profile',choices=['preparation','full','essential','lite','paper'],default='preparation')
+    p.add_argument('--profile',choices=['preparation','full','standard','essential','lite','paper'],default='preparation')
     p.add_argument('--confirmation',action='store_true')
     p=sub.add_parser('side'); p.add_argument('--bundle',type=Path,required=True)
     p.add_argument('--expected-index',required=True)

@@ -71,6 +71,7 @@ class PaperTests(unittest.TestCase):
 
     def test_named_profiles_have_declared_scope_and_counts(self):
         expected={
+            'standard':({'stage0':82,'exp1':0,'exp2':72,'exp3':3,'exp4':192,'exp5':18},10),
             'essential':({'stage0':82,'exp1':40,'exp2':72,'exp3':9,'exp4':48,'exp5':18},10),
             'lite':({'stage0':82,'exp1':8,'exp2':24,'exp3':3,'exp4':8,'exp5':6},2),
             'full':({'stage0':82,'exp1':40,'exp2':144,'exp3':9,'exp4':696,'exp5':18},10),
@@ -100,6 +101,26 @@ class PaperTests(unittest.TestCase):
             self.m,'stage0',profile='lite',confirmation=True)}
         self.assertEqual(lite_confirmation,essential_confirmation)
 
+    def test_standard_folds_exp1_into_rotating_exp4_s1(self):
+        self.assertEqual(manifest.plan(self.m,'exp1',profile='standard'),[])
+        planned=manifest.plan(self.m,'exp4',profile='standard')
+        self.assertEqual({c['conditions']['sensors'] for c in planned},set(range(1,7)))
+        for sensors in range(1,7):
+            selected=[c for c in planned if c['conditions']['sensors']==sensors]
+            expected={32,64,128,256} if sensors==1 else {32,256}
+            self.assertEqual({c['conditions']['preamble'] for c in selected},expected)
+            self.assertEqual({c['conditions']['rotation_index'] for c in selected},set(range(6)))
+        s1=[c for c in planned if c['conditions']['sensors']==1]
+        physical_by_block={
+            c['conditions']['run']:c['conditions']['active_physical_roles'][0]
+            for c in s1 if c['conditions']['preamble']==32 and c['conditions']['rx_pac']==4
+        }
+        self.assertEqual(physical_by_block,{1:'N2',2:'N3',3:'N4',4:'N5',5:'N6',6:'N7'})
+        grouped=defaultdict(set)
+        for c in s1:
+            grouped[c['conditions']['run']].add(tuple(c['conditions']['active_physical_roles']))
+        self.assertTrue(all(len(mappings)==1 for mappings in grouped.values()))
+
     def test_legacy_paper_manifest_and_ids_remain_reproducible(self):
         legacy=copy.deepcopy(self.m)
         legacy['paper']=legacy.pop('profiles')['full']
@@ -107,6 +128,12 @@ class PaperTests(unittest.TestCase):
         self.assertEqual(len(cases),696)
         self.assertTrue(all(c['id'].startswith('paper_') for c in cases))
         self.assertEqual({c['conditions']['profile'] for c in cases},{'paper'})
+
+    def test_pre_standard_named_profiles_remain_readable(self):
+        old=copy.deepcopy(self.m)
+        old['profiles'].pop('standard')
+        paper.validate(old)
+        self.assertEqual(len(manifest.plan(old,'exp4',profile='essential')),48)
 
     def test_profile_hierarchy_is_fail_closed(self):
         changed=copy.deepcopy(self.m)
@@ -117,6 +144,12 @@ class PaperTests(unittest.TestCase):
         with self.assertRaises(ValueError):paper.validate(changed)
         changed=copy.deepcopy(self.m)
         changed['profiles']['full']['s6_slot_counts_by_preamble']['32'].remove(13)
+        with self.assertRaises(ValueError):paper.validate(changed)
+        changed=copy.deepcopy(self.m)
+        changed['profiles']['standard']['repeats_by_stage']['exp1']=1
+        with self.assertRaises(ValueError):paper.validate(changed)
+        changed=copy.deepcopy(self.m)
+        changed['profiles']['standard']['exp4_preambles_by_active_tx']['2'].append(64)
         with self.assertRaises(ValueError):paper.validate(changed)
 
     def test_each_stage_completes_one_condition_block_before_repeating(self):

@@ -6,7 +6,7 @@
 Lite는 논문의 핵심 조건을 각각 한 block만 실행하는 현장 점검 profile이다. 장비 연결,
 PHY 설정, Stage0~Exp5 실행 경로, 로그와 분석기가 전체 단계에서 정상인지 빠르게 확인한다.
 조건 범위는 Essential의 첫 block과 같지만 반복과 Exp4 논리 역할 회전은 없다. 범위와
-증거 강도는 `full > essential > lite`다.
+증거 강도는 `full > standard > essential > lite`다.
 
 ## 공통 용어
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full, essential, lite, and legacy paper publication experiment profiles.
+"""Full, standard, essential, lite, and legacy paper experiment profiles.
 
 This planner performs no hardware I/O. ``paper`` is retained only as a
 backward-compatible profile name for existing manifests and bundles; new
@@ -10,7 +10,7 @@ import hashlib
 import json
 
 STAGES = ['stage0', 'exp1', 'exp2', 'exp3', 'exp4', 'exp5']
-PUBLICATION_PROFILES = ('full', 'essential', 'lite', 'paper')
+PUBLICATION_PROFILES = ('full', 'standard', 'essential', 'lite', 'paper')
 PROFILE_CHOICES = ('preparation', *PUBLICATION_PROFILES)
 
 
@@ -65,9 +65,14 @@ def _validate_profile(m, name, config):
     from brrs_suite_manifest import max_slots
 
     counts = config['repeats_by_stage']
-    if set(counts) != set(STAGES) or any(type(x) is not int or not 1 <= x <= 100
-                                        for x in counts.values()):
-        raise ValueError(f'{name} repeats must specify every stage, 1..100')
+    disabled = config.get('disabled_stages', [])
+    if (not isinstance(disabled, list) or len(set(disabled)) != len(disabled) or
+            any(stage not in STAGES or stage == 'stage0' for stage in disabled)):
+        raise ValueError(f'invalid {name} disabled stages')
+    if (set(counts) != set(STAGES) or
+            any(type(x) is not int or not 0 <= x <= 100 for x in counts.values()) or
+            {stage for stage, repetitions in counts.items() if repetitions == 0} != set(disabled)):
+        raise ValueError(f'{name} repeats must specify every stage; only declared disabled stages may be zero')
     if counts['stage0'] != 1:
         raise ValueError(f'{name} Stage0 grid must run exactly once')
     if type(config['stage0_confirmation_repeats']) is not int or not 1 <= config['stage0_confirmation_repeats'] <= 100:
@@ -78,9 +83,9 @@ def _validate_profile(m, name, config):
             any(type(x) is not int or not 1 <= x <= 6 for x in active) or 6 not in active):
         raise ValueError(f'{name} active TX counts must be unique values in 1..6 and include S6')
     assignment = config['exp4_assignment']
-    if assignment not in ['installation_cyclic', 'installation_fixed']:
+    if assignment not in ['installation_cyclic', 'installation_cyclic_all', 'installation_fixed']:
         raise ValueError(f'unsupported {name} Exp4 assignment')
-    if assignment == 'installation_cyclic' and counts['exp4'] % 6:
+    if assignment in ['installation_cyclic', 'installation_cyclic_all'] and counts['exp4'] % 6:
         raise ValueError(f'{name} cyclic Exp4 repeats must be complete six-block cycles')
     if config['condition_order'] not in ['alternating_rotated', 'as_listed']:
         raise ValueError(f'unsupported {name} condition order')
@@ -109,10 +114,22 @@ def _validate_profile(m, name, config):
     if (not exp4_preambles or len(set(exp4_preambles)) != len(exp4_preambles) or
             not set(exp4_preambles) <= set(m['exp4']['preambles'])):
         raise ValueError(f'invalid {name} Exp4 preamble filter')
+    by_active = config.get('exp4_preambles_by_active_tx')
+    if by_active is not None:
+        if set(by_active) != {str(s) for s in active}:
+            raise ValueError(f'{name} Exp4 per-S preamble keys must match active TX counts')
+        for sensors in active:
+            values = by_active[str(sensors)]
+            if (not isinstance(values, list) or not values or len(set(values)) != len(values) or
+                    not set(values) <= set(exp4_preambles)):
+                raise ValueError(f'invalid {name} S{sensors} Exp4 preambles')
+        s6_preambles = by_active['6']
+    else:
+        s6_preambles = exp4_preambles
     slot_counts = config['s6_slot_counts_by_preamble']
-    if set(slot_counts) != {str(x) for x in exp4_preambles}:
+    if set(slot_counts) != {str(x) for x in s6_preambles}:
         raise ValueError(f'{name} S6 slot-count keys must match its Exp4 preambles')
-    for plen in exp4_preambles:
+    for plen in s6_preambles:
         values = slot_counts[str(plen)]
         if (not values or len(set(values)) != len(values) or
                 any(type(k) is not int or not 6 <= k <= max_slots(m['exp4'], plen)
@@ -123,11 +140,15 @@ def _validate_profile(m, name, config):
 def validate(m):
     profiles = m.get('profiles')
     if profiles is not None:
-        if set(profiles) != {'full', 'lite', 'essential'}:
-            raise ValueError('profiles must contain exactly full, essential, and lite')
+        profile_names = set(profiles)
+        if profile_names not in [
+                {'full', 'essential', 'lite'},
+                {'full', 'standard', 'essential', 'lite'}]:
+            raise ValueError('profiles must contain full, essential, and lite, with optional standard for historical compatibility')
         for name, config in profiles.items():
             _validate_profile(m, name, config)
         full = profiles['full']
+        standard = profiles.get('standard')
         essential = profiles['essential']
         lite = profiles['lite']
         full_filters = profile_filters(m, full)
@@ -142,7 +163,22 @@ def validate(m):
                 lite['exp4_assignment'] != 'installation_fixed'):
             raise ValueError('lite must run exactly one fixed-installation block')
         if full['exp4_assignment'] != 'installation_cyclic' or essential['exp4_assignment'] != 'installation_cyclic':
-            raise ValueError('full and essential require complete logical-slot rotations')
+            raise ValueError('full and essential require complete logical rotations')
+        if standard is not None:
+            if standard['exp4_assignment'] != 'installation_cyclic_all':
+                raise ValueError('standard requires all-link Exp4 rotations')
+            if (standard.get('disabled_stages') != ['exp1'] or
+                    standard['repeats_by_stage']['exp1'] != 0 or
+                    standard['repeats_by_stage']['exp3'] != 1 or
+                    standard['active_tx_counts'] != [1, 2, 3, 4, 5, 6]):
+                raise ValueError('standard must fold Exp1 into Exp4 S1, retain one Exp3 block, and cover S1..S6')
+            expected_standard_exp4 = {
+                '1': [32, 64, 128, 256],
+                '2': [32, 256], '3': [32, 256], '4': [32, 256],
+                '5': [32, 256], '6': [32, 256],
+            }
+            if standard.get('exp4_preambles_by_active_tx') != expected_standard_exp4:
+                raise ValueError('standard Exp4 must cover every M at S1 and M32/M256 at S2..S6')
         if any(not set(essential_filters[stage][field]).issubset(full_filters[stage][field])
                for stage, fields in {
                    'stage0': ['pacs'], 'exp1': ['preambles', 'pacs'],
@@ -167,7 +203,7 @@ def validate(m):
 def assignments(m, sensors, block, mode='installation_cyclic'):
     """Map fixed installed boards to logical roles; never move hardware."""
     roles = ['N2', 'N3', 'N4', 'N5', 'N6', 'N7']
-    if sensors == 1:
+    if sensors == 1 and mode != 'installation_cyclic_all':
         return [m['single_link_tx_role']]
     if mode == 'installation_fixed':
         return roles[:sensors]
@@ -211,7 +247,8 @@ def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'
                 exp4 = configured['exp4']
                 exp4['sensors'] = sensors
                 exp4.pop('capacity_search', None)
-                exp4_preambles = filters['exp4']['preambles']
+                by_active = config.get('exp4_preambles_by_active_tx', {})
+                exp4_preambles = by_active.get(str(sensors), filters['exp4']['preambles'])
                 exp4['preambles'] = list(exp4_preambles)
                 configured['pacs'] = list(filters['exp4']['pacs'])
                 exp4['slot_counts_by_preamble'] = {
@@ -224,6 +261,8 @@ def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'
                 if sensors < 6:
                     exp4['sequences_by_preamble_slotcount'] = {}
                 physical = assignments(m, sensors, block, config['exp4_assignment'])
+                if sensors == 1:
+                    configured['single_link_tx_role'] = physical[0]
                 for logical, role in enumerate(physical, 2):
                     configured['boards'][f'N{logical}'] = copy.deepcopy(m['boards'][role])
             raw = [case for case in base_plan(configured, stage)
@@ -234,8 +273,10 @@ def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'
                        confirmation_leads(m, case['conditions']['rx_pac'])]
             for case in raw:
                 conditions = case['conditions']
-                rotation = ((block - 1) % 6 if stage == 'exp4' and sensors > 1 and
-                            config['exp4_assignment'] == 'installation_cyclic' else 0)
+                cyclic = config['exp4_assignment'] in ['installation_cyclic', 'installation_cyclic_all']
+                rotation = ((block - 1) % 6 if stage == 'exp4' and
+                            (sensors > 1 or config['exp4_assignment'] == 'installation_cyclic_all') and
+                            cyclic else 0)
                 conditions.update(run=block, profile=profile, rotation_index=rotation,
                                   phase='confirmation' if confirmation else 'main')
                 case['condition_id'] = case['id'] + (f'_s{sensors}' if stage == 'exp4' else '') + ('_confirmation' if confirmation else '')

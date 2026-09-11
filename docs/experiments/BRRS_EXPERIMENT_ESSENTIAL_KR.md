@@ -6,7 +6,7 @@
 Essential은 논문의 핵심 데이터를 우선 확보하기 위한 profile이다. 프리앰블 PER와
 SFD/PHR 비교는 유지하고, 6개 차량 링크의 M32/M256 끝점과 실제 TX 6대의 기준·포화
 용량에 집중한다. Exp4는 고정된 물리 배치에서 논리 노드/슬롯 배정을 여섯 방식으로
-한 바퀴 회전한다. 범위와 증거 강도는 `full > essential > lite`다.
+한 바퀴 회전한다. 범위와 증거 강도는 `full > standard > essential > lite`다.
 
 ## 공통 용어
 

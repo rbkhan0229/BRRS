@@ -51,7 +51,7 @@ def freeze(m,report):
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('action',choices=['candidates','freeze']);ap.add_argument('manifest',type=Path)
-    ap.add_argument('--profile',choices=['full','essential','lite','paper'],default='essential')
+    ap.add_argument('--profile',choices=['full','standard','essential','lite','paper'],default='essential')
     ap.add_argument('--bundles',nargs='+',type=Path,required=True);ap.add_argument('--output-manifest',type=Path,required=True)
     ap.add_argument('--exclusions',type=Path)
     a=ap.parse_args();m=load(a.manifest)

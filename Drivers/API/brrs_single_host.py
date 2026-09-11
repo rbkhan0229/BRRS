@@ -146,7 +146,7 @@ def metadata(root, c, job, console):
         'suite_manifest_sha256': job['environment']['BRRS_SUITE_MANIFEST_SHA256'],
         'firmware_sha256': job['hex_sha256'], 'raw_sha256': result['raw_sha256'],
         'run_number': str(c['conditions']['run']), 'collection_status': 'PASS'}
-    if c['conditions'].get('profile') in ['essential','lite','full','paper']:
+    if c['conditions'].get('profile') in ['standard','essential','lite','full','paper']:
         expected.update(suite_profile=c['conditions']['profile'],suite_block=str(c['conditions']['run']),
             suite_rotation_index=str(c['conditions']['rotation_index']),physical_location=job['location'],
             suite_assignment_sha256=c['assignment_sha256'])
