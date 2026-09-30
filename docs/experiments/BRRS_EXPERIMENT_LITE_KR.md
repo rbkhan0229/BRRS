@@ -1,3 +1,5 @@
+2026-09-13 N6 보드 교체: 현재 J-Link serial은 `1050257038` (이전 `1050227627`). 이전 실행의 manifest·원본·평가는 변경하지 않는다. 위치 표는 Standard 배치 기준이며, 새 차량의 실제 장착 위치 확인과 별개다.
+
 # BRRS Lite profile — 175 case
 
 이 문서는 다른 profile 문서를 읽지 않아도 Lite 차량 실험을 이해하고 운영할 수 있도록
@@ -31,7 +33,7 @@ Lite Exp4는 원래 설치 매핑을 그대로 사용한다. 물리 보드 위�
 | N3 | 1050273888 | bumper_B |
 | N4 | 1050282818 | driver_seat |
 | N5 | 1050208509 | passenger_seat |
-| N6 | 1050227627 | trunk_A |
+| N6 | 1050257038 | trunk_A |
 | N7 | 1050204212 | trunk_B |
 
 Stage0, Exp1과 Exp3의 단일 TX는 물리 N4를 사용한다. Exp2와 Exp5는 N2~N7을

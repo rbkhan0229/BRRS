@@ -98,6 +98,7 @@
 #include <shared_defines.h>
 #include <shared_functions.h>
 #include "../brrs_beacon_protocol.h"
+#include "../brrs_cir_quality.h"
 #include "brrs_phy_config_profile.h"
 #include "brrs_phy_fast_switch.h"
 
@@ -105,6 +106,13 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
+
+#ifndef BRRS_EXP4_ALLOW_ZERO_RX
+#define BRRS_EXP4_ALLOW_ZERO_RX 0
+#endif
+#if BRRS_EXP4_ALLOW_ZERO_RX != 0 && BRRS_EXP4_ALLOW_ZERO_RX != 1
+#error "BRRS_EXP4_ALLOW_ZERO_RX must be 0 or 1"
+#endif
 
 #include "nrf_delay.h"
 #include "nrf.h"
@@ -205,6 +213,13 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
  * 32/64/128/256 sweep behavior, so the two get separate constants below. */
 #define ENABLE_CIR      (BRRS_EXPERIMENT == 2 || BRRS_EXPERIMENT == 5)
 
+#ifndef BRRS_EXP5_RAW_STRIDE
+#define BRRS_EXP5_RAW_STRIDE 1
+#endif
+#if BRRS_EXP5_RAW_STRIDE != 1 && BRRS_EXP5_RAW_STRIDE != 33
+#error "Exp5 raw stride must be 1 (legacy) or 33 (distributed)"
+#endif
+
 #if BRRS_EXPERIMENT == 5
 #define CIR_ANALYSIS_SAMPLES    300
 #define CIR_LOG_PER_FRAME       0
@@ -239,6 +254,7 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #define BRRS_TARGET_CYCLES 1000
 #endif
 #define TARGET_CYCLES   BRRS_TARGET_CYCLES
+#include "../brrs_sf_trace.h"
 
 /* Small fixed margin only -- the capture harness already waits for the
  * Normal node's EXP_LOG_READY marker (printed only once its radio is
@@ -537,9 +553,43 @@ _Static_assert(CONFIG_SWITCH_US < BRRS_SUPERFRAME_US,
 #error "BRRS_UWB_CHANNEL must be 5 or 9"
 #endif
 
+/* Fixed-code diagnostics: no hopping, ACK or retransmission is added. */
+#ifndef BRRS_DATA_PREAMBLE_CODE
+#define BRRS_DATA_PREAMBLE_CODE 9
+#endif
+#ifndef BRRS_SYNC_PREAMBLE_CODE
+#define BRRS_SYNC_PREAMBLE_CODE 10
+#endif
+#if BRRS_DATA_PREAMBLE_CODE < 9 || BRRS_DATA_PREAMBLE_CODE > 12
+#error "BRRS_DATA_PREAMBLE_CODE must be 9 through 12"
+#endif
+#if BRRS_SYNC_PREAMBLE_CODE < 9 || BRRS_SYNC_PREAMBLE_CODE > 12
+#error "BRRS_SYNC_PREAMBLE_CODE must be 9 through 12"
+#endif
+#ifndef BRRS_CODE_DIAGNOSTIC
+#define BRRS_CODE_DIAGNOSTIC 0
+#endif
+#if BRRS_CODE_DIAGNOSTIC != 0 && BRRS_CODE_DIAGNOSTIC != 1
+#error "BRRS_CODE_DIAGNOSTIC must be 0 or 1"
+#endif
+#if BRRS_CODE_DIAGNOSTIC && BRRS_EXPERIMENT != 1
+#error "BRRS_CODE_DIAGNOSTIC is implemented only for Exp1"
+#endif
+#if BRRS_CODE_DIAGNOSTIC && (TARGET_CYCLES < 1 || TARGET_CYCLES > 65535)
+#error "BRRS_CODE_DIAGNOSTIC requires a nonzero 16-bit superframe range"
+#endif
+
+/* Volatile Exp1 boot reads retain the exact selected values in the ELF. */
+volatile const uint32_t brrs_data_preamble_code = BRRS_DATA_PREAMBLE_CODE;
+volatile const uint32_t brrs_sync_preamble_code = BRRS_SYNC_PREAMBLE_CODE;
+volatile const uint32_t brrs_code_diagnostic = BRRS_CODE_DIAGNOSTIC;
+
+/* Referenced through a volatile boot read so ELF channel evidence survives GC. */
+volatile const uint32_t brrs_uwb_channel = BRRS_UWB_CHANNEL;
+
 static dwt_config_t config_data = {
     BRRS_UWB_CHANNEL, DATA_PLEN, DATA_PAC,
-    9, 9, DATA_SFD_TYPE,
+    BRRS_DATA_PREAMBLE_CODE, BRRS_DATA_PREAMBLE_CODE, DATA_SFD_TYPE,
     DWT_BR_6M8, DWT_PHRMODE_STD, DATA_PHR_RATE,
     (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - DATA_PAC_SYMBOLS),
     DWT_STS_MODE_OFF, DWT_STS_LEN_64, DWT_PDOA_M0
@@ -547,7 +597,7 @@ static dwt_config_t config_data = {
 
 static dwt_config_t config_sync = {
     BRRS_UWB_CHANNEL, SYNC_PLEN, DWT_PAC8,
-    10, 10, 1,
+    BRRS_SYNC_PREAMBLE_CODE, BRRS_SYNC_PREAMBLE_CODE, 1,
     DWT_BR_6M8, DWT_PHRMODE_STD, DWT_PHRRATE_STD,
     (SYNC_PREAMBLE_SYMBOLS + 1 + 8 - 8),
     DWT_STS_MODE_OFF, DWT_STS_LEN_64, DWT_PDOA_M0
@@ -657,6 +707,30 @@ static uint32_t total_rx_delayed_fallbacks = 0;
 static uint32_t data_config_errors = 0;
 static uint32_t run_end_tx_count = 0;
 
+#if BRRS_CODE_DIAGNOSTIC
+/* Diagnostic receive bitmap: 1-based superframe sequence, physical N7/logical N2.
+ * Record only an accepted DATA frame; print after RF has ended. */
+static uint8_t data_rx_bitmap[(TARGET_CYCLES + 7U) / 8U];
+static uint32_t data_rx_bitmap_count;
+
+
+/* CRC-good events in the Exp1 receive windows, not all RF frames in the air.
+ * The reject hierarchy below is exclusive; the separate flags can overlap. */
+static struct {
+    uint32_t total;
+    uint32_t length_reject;
+    uint32_t type_reject;
+    uint32_t protocol_reject;
+    uint32_t source_reject;
+    uint32_t candidate;
+    uint32_t accepted;
+    uint32_t duplicate;
+    uint32_t wrong_superframe;
+    uint32_t wrong_slot_source;
+    uint32_t unexpected_destination;
+} code_rx_class;
+#endif
+
 /* [DIAG] 실패 원인 세분화: "수신 실패"와 "예약 실패"를 구분하기 위한 카운터 */
 static uint32_t rx_to_frame = 0;     /* RXFTO: 창 내 preamble 미검출 (frame wait TO) */
 static uint32_t rx_to_preamble = 0;  /* RXPTO: preamble detection timeout (PRETOC 설정 시) */
@@ -753,6 +827,7 @@ typedef struct {
     uint64_t noise_floor_power;
     uint16_t noise_samples;
     uint64_t snr_ratio_x1000;
+    brrs_cir_diag_log_t diag;
 } cir_sample_log_t;
 
 typedef struct {
@@ -766,6 +841,10 @@ typedef struct {
 
 static cir_sample_log_t cir_sample_logs[TARGET_CYCLES];
 static uint32_t cir_sample_log_count = 0;
+static uint32_t cir_diag_read_errors = 0;
+static uint32_t cir_rssi_invalid = 0;
+static uint32_t cir_fp_invalid = 0;
+static uint32_t cir_snr_invalid = 0;
 static cir_raw_frame_log_t cir_raw_frame_logs[CIR_RAW_LOG_LIMIT];
 static uint32_t cir_raw_frame_log_count = 0;
 static char cir_rtt_buffer[CIR_RTT_BUFFER_SIZE];
@@ -883,7 +962,8 @@ static void store_cir_sample(uint8_t src_idx,
                              uint64_t fp_peak_power,
                              uint64_t noise_floor_power,
                              uint16_t noise_samples,
-                             uint64_t snr_ratio_x1000)
+                             uint64_t snr_ratio_x1000,
+                             const brrs_cir_diag_log_t *diag)
 {
     cir_sample_log_t *entry;
 
@@ -905,6 +985,7 @@ static void store_cir_sample(uint8_t src_idx,
     entry->noise_floor_power = noise_floor_power;
     entry->noise_samples = noise_samples;
     entry->snr_ratio_x1000 = snr_ratio_x1000;
+    entry->diag = *diag;
 }
 
 static void store_cir_raw_frame(uint32_t frame_no,
@@ -920,6 +1001,9 @@ static void store_cir_raw_frame(uint32_t frame_no,
         n_samples > CIR_RAW_SAMPLES) {
         return;
     }
+    if (frame_no == 0U || ((frame_no - 1U) % BRRS_EXP5_RAW_STRIDE) != 0U) {
+        return;
+    }
 
     entry = &cir_raw_frame_logs[cir_raw_frame_log_count++];
     entry->frame_no = frame_no;
@@ -928,6 +1012,48 @@ static void store_cir_raw_frame(uint32_t frame_no,
     entry->fp_sample = fp_sample;
     entry->n_samples = n_samples;
     memcpy(entry->samples, samples, (size_t)n_samples * 6U);
+}
+
+/* These two records share frame/cycle identity in both live and deferred dumps. */
+static void format_cir_metric(char *buf, size_t size, int32_t value, bool valid)
+{
+    if (valid) {
+        format_x100(buf, size, value);
+    } else {
+        snprintf(buf, size, "NA");
+    }
+}
+
+static void emit_cir_sample(const cir_sample_log_t *entry, bool terminal)
+{
+    static char line[400];
+    char rssi[16], fp[16], gap[16];
+    const brrs_cir_diag_log_t *diag = &entry->diag;
+    format_cir_metric(rssi, sizeof(rssi), entry->rssi_x100, diag->rssi_valid);
+    format_cir_metric(fp, sizeof(fp), entry->fp_x100, diag->fp_valid);
+    format_cir_metric(gap, sizeof(gap), entry->gap_x100, diag->rssi_valid && diag->fp_valid);
+    snprintf(line, sizeof(line),
+             "CIR_CSV,%lu,%lu,%s,%d,%u,%u,%u,%s,%s,%s,%llu,%llu,%u,%llu",
+             (unsigned long)entry->frame_no, (unsigned long)entry->cycle_no,
+             get_slot_description(entry->src_idx), PREAMBLE_SYMBOLS,
+             entry->fp_sample, entry->peak_idx, entry->accum, rssi, fp, gap,
+             (unsigned long long)entry->fp_peak_power,
+             (unsigned long long)entry->noise_floor_power, entry->noise_samples,
+             (unsigned long long)entry->snr_ratio_x1000);
+    cir_log_info(line);
+    if (terminal) test_run_info((unsigned char *)line);
+    snprintf(line, sizeof(line),
+             "CIR_DIAG_CSV,%lu,%lu,%s,%d,0,%lu,%u,%lu,%lu,%lu,%u,%u,%lu,%d,%d,%d,%d,%u,%u,%u",
+             (unsigned long)entry->frame_no, (unsigned long)entry->cycle_no,
+             get_slot_description(entry->src_idx), PREAMBLE_SYMBOLS,
+             (unsigned long)diag->power, entry->accum,
+             (unsigned long)diag->f1, (unsigned long)diag->f2, (unsigned long)diag->f3,
+             diag->dgc_decision, diag->rx_pcode, (unsigned long)diag->cia_conf,
+             (int)diag->rssi_status, (int)diag->fp_status,
+             (int)diag->rssi_q8_8, (int)diag->fp_q8_8,
+             (unsigned)diag->rssi_valid, (unsigned)diag->fp_valid, (unsigned)diag->snr_valid);
+    cir_log_info(line);
+    if (terminal) test_run_info((unsigned char *)line);
 }
 
 static void dump_cir_samples(void)
@@ -953,27 +1079,14 @@ static void dump_cir_samples(void)
 
     for (i = 0; i < cir_sample_log_count; i++) {
         cir_sample_log_t *entry = &cir_sample_logs[i];
-        char rssi_str[16], fp_str[16], gap_str[16];
-
-        format_x100(rssi_str, sizeof(rssi_str), entry->rssi_x100);
-        format_x100(fp_str, sizeof(fp_str), entry->fp_x100);
-        format_x100(gap_str, sizeof(gap_str), entry->gap_x100);
-
-        snprintf(csv_line, sizeof(csv_line),
-                 "CIR_CSV,%lu,%lu,%s,%d,%u,%u,%u,%s,%s,%s,%llu,%llu,%u,%llu",
-                 (unsigned long)entry->frame_no,
-                 (unsigned long)entry->cycle_no,
-                 get_slot_description(entry->src_idx), PREAMBLE_SYMBOLS,
-                 entry->fp_sample, entry->peak_idx, entry->accum,
-                 rssi_str, fp_str, gap_str,
-                 (unsigned long long)entry->fp_peak_power,
-                 (unsigned long long)entry->noise_floor_power,
-                 entry->noise_samples,
-                 (unsigned long long)entry->snr_ratio_x1000);
-        cir_log_info(csv_line);
+        emit_cir_sample(entry, false);
         Sleep(CIR_SAMPLE_DUMP_DELAY_MS);
     }
 
+    snprintf(csv_line, sizeof(csv_line),
+             "CIR_RAW_SAMPLING_CSV,version=1,stride=%u,basis=valid_rx_seq,limit=30",
+             BRRS_EXP5_RAW_STRIDE);
+    cir_log_info(csv_line);
     snprintf(csv_line, sizeof(csv_line),
              "CIR_RAW_DUMP_START,plen=%d,count=%lu,samples_per_frame=%u",
              PREAMBLE_SYMBOLS,
@@ -1141,85 +1254,77 @@ static bool calculate_fp_snr_from_cir(uint8_t *buf,
 
 static void log_cir_quality(uint8_t src_idx, uint32_t frame_no, uint32_t cycle_no)
 {
-    dwt_cirdiags_t diag;
-    int16_t rssi_q8_8 = 0;
-    int16_t fp_q8_8 = 0;
-    int32_t rssi_x100 = 0;
-    int32_t fp_x100 = 0;
-    int32_t gap_x100 = 0;
+    dwt_cirdiags_t diag = {0};
+    brrs_cir_diag_log_t raw = {0};
+    int diag_status = dwt_readdiagnostics_acc(&diag, DWT_ACC_IDX_IP_M);
     uint16_t fp_sample;
     uint16_t sample_offs;
     uint64_t fp_peak_power = 0;
     uint64_t noise_floor_power = 0;
     uint16_t noise_samples = 0;
     uint64_t snr_ratio_x1000 = 0;
-    bool snr_valid;
+    int32_t rssi_x100, fp_x100, gap_x100;
 
-    if (dwt_readdiagnostics_acc(&diag, DWT_ACC_IDX_IP_M) != DWT_SUCCESS) {
-        return;
+    if (diag_status != DWT_SUCCESS) {
+        static char error[160];
+        cir_diag_read_errors++;
+        cir_rssi_invalid++;
+        cir_fp_invalid++;
+        cir_snr_invalid++;
+        snprintf(error, sizeof(error),
+                 "CIR_DIAG_ERROR,frame=%lu,cycle=%lu,node=%s,rc=%d",
+                 (unsigned long)frame_no, (unsigned long)cycle_no,
+                 get_slot_description(src_idx), diag_status);
+        cir_log_info(error);
+        test_run_info((unsigned char *)error);
+        return; /* Missing diagnostic record makes final collection FAIL. */
     }
 
-    if (dwt_calculate_rssi(&diag, DWT_ACC_IDX_IP_M, &rssi_q8_8) != DWT_SUCCESS) {
-        return;
-    }
-    if (dwt_calculate_first_path_power(&diag, DWT_ACC_IDX_IP_M, &fp_q8_8) != DWT_SUCCESS) {
-        return;
-    }
-
-    rssi_x100 = q8_8_to_x100(rssi_q8_8);
-    fp_x100 = q8_8_to_x100(fp_q8_8);
+    raw.power = diag.power;
+    raw.f1 = diag.F1;
+    raw.f2 = diag.F2;
+    raw.f3 = diag.F3;
+    /* These reads are restricted to the existing Exp2/Exp5 quality path.
+     * They preserve the observed inputs; no replacement RSSI is synthesized. */
+    raw.dgc_decision = (uint8_t)((dwt_read_reg(DGC_DBG_ID) >> 28U) & 7U);
+    raw.rx_pcode = (uint8_t)((dwt_read_reg(CHAN_CTRL_ID) & CHAN_CTRL_RX_PCODE_BIT_MASK) >> CHAN_CTRL_RX_PCODE_BIT_OFFSET);
+    raw.cia_conf = dwt_read_reg(CIA_CONF_ID);
+    raw.rssi_q8_8 = INT16_MIN;
+    raw.fp_q8_8 = INT16_MIN;
+    raw.rssi_status = (int8_t)dwt_calculate_rssi(&diag, DWT_ACC_IDX_IP_M, &raw.rssi_q8_8);
+    raw.fp_status = (int8_t)dwt_calculate_first_path_power(&diag, DWT_ACC_IDX_IP_M, &raw.fp_q8_8);
+    raw.rssi_valid = brrs_cir_power_valid(raw.rssi_status, raw.rssi_q8_8) && diag.accumCount != 0U && diag.power != 0U;
+    raw.fp_valid = brrs_cir_power_valid(raw.fp_status, raw.fp_q8_8) && diag.accumCount != 0U;
+    rssi_x100 = q8_8_to_x100(raw.rssi_q8_8);
+    fp_x100 = q8_8_to_x100(raw.fp_q8_8);
     gap_x100 = rssi_x100 - fp_x100;
-
-    update_signal_stats(&rssi_stats[src_idx], rssi_x100);
-    update_signal_stats(&fp_power_stats[src_idx], fp_x100);
-    update_signal_stats(&fp_gap_stats[src_idx], gap_x100);
+    if (raw.rssi_valid) update_signal_stats(&rssi_stats[src_idx], rssi_x100);
+    else cir_rssi_invalid++;
+    if (raw.fp_valid) update_signal_stats(&fp_power_stats[src_idx], fp_x100);
+    else cir_fp_invalid++;
+    if (raw.rssi_valid && raw.fp_valid) update_signal_stats(&fp_gap_stats[src_idx], gap_x100);
 
     fp_sample = (uint16_t)(diag.FpIndex >> 6);
     sample_offs = (fp_sample > CIR_RAW_PRE_FP_SAMPLES) ?
                   (uint16_t)(fp_sample - CIR_RAW_PRE_FP_SAMPLES) : 0;
-
     memset(cir_buf, 0, sizeof(cir_buf));
     dwt_readcir((uint32_t*)cir_buf, DWT_ACC_IDX_IP_M, sample_offs,
                 CIR_ANALYSIS_SAMPLES, DWT_CIR_READ_FULL);
-
-    snr_valid = calculate_fp_snr_from_cir(cir_buf, CIR_ANALYSIS_SAMPLES,
-                                          sample_offs, fp_sample,
-                                          &fp_peak_power, &noise_floor_power,
-                                          &noise_samples, &snr_ratio_x1000);
-    if (snr_valid) {
-        update_ratio_stats(&fp_snr_ratio_stats[src_idx], snr_ratio_x1000);
-    }
+    raw.snr_valid = calculate_fp_snr_from_cir(cir_buf, CIR_ANALYSIS_SAMPLES,
+                                              sample_offs, fp_sample,
+                                              &fp_peak_power, &noise_floor_power,
+                                              &noise_samples, &snr_ratio_x1000);
+    if (raw.snr_valid) update_ratio_stats(&fp_snr_ratio_stats[src_idx], snr_ratio_x1000);
+    else cir_snr_invalid++;
 
     store_cir_sample(src_idx, frame_no, cycle_no, fp_sample, diag.peakIndex, diag.accumCount,
                      rssi_x100, fp_x100, gap_x100,
-                     fp_peak_power, noise_floor_power, noise_samples, snr_ratio_x1000);
-
-    store_cir_raw_frame(frame_no, cycle_no, sample_offs, fp_sample,
-                        cir_buf, CIR_RAW_SAMPLES);
-
+                     fp_peak_power, noise_floor_power, noise_samples, snr_ratio_x1000, &raw);
+    store_cir_raw_frame(frame_no, cycle_no, sample_offs, fp_sample, cir_buf, CIR_RAW_SAMPLES);
 #if CIR_LOG_PER_FRAME
-    {
-        static char csv_line[360];
-        char rssi_str[16], fp_str[16], gap_str[16];
-
-        format_x100(rssi_str, sizeof(rssi_str), rssi_x100);
-        format_x100(fp_str, sizeof(fp_str), fp_x100);
-        format_x100(gap_str, sizeof(gap_str), gap_x100);
-        snprintf(csv_line, sizeof(csv_line),
-                 "CIR_CSV,%lu,%lu,%s,%d,%u,%u,%u,%s,%s,%s,%llu,%llu,%u,%llu",
-                 (unsigned long)frame_no,
-                 (unsigned long)cycle_no,
-                 get_slot_description(src_idx), PREAMBLE_SYMBOLS,
-                 fp_sample, diag.peakIndex, diag.accumCount,
-                 rssi_str, fp_str, gap_str,
-                 (unsigned long long)fp_peak_power,
-                 (unsigned long long)noise_floor_power,
-                 noise_samples,
-                 (unsigned long long)snr_ratio_x1000);
-        cir_log_info(csv_line);
-#if CIR_LOG_PER_FRAME_TO_TERMINAL
-        test_run_info((unsigned char *)csv_line);
-#endif
+    if (cir_sample_log_count > 0 && cir_sample_logs[cir_sample_log_count - 1].frame_no == frame_no &&
+        cir_sample_logs[cir_sample_log_count - 1].cycle_no == cycle_no) {
+        emit_cir_sample(&cir_sample_logs[cir_sample_log_count - 1], CIR_LOG_PER_FRAME_TO_TERMINAL != 0);
     }
 #endif
 }
@@ -2511,6 +2616,169 @@ static uint32_t last_sync_tx_ts_high32 = 0;  /* SYNC TX timestamp 저장 */
 static bool slots_scheduled[BRRS_MAX_DATA_SLOTS] = {false};
 static uint8_t current_rx_slot = 0xFF;  /* 현재 대기 중인 슬롯 (RX 윈도우 안에서) */
 
+#if BRRS_EXPERIMENT == 1 && BRRS_CODE_DIAGNOSTIC
+#define BRRS_DATA_ERROR_TRACE_CAP 256U
+typedef struct {
+    uint16_t seq;
+    uint8_t kind; /* 1=timeout, 2=PHY error */
+    uint8_t slot;
+    uint32_t cpu_elapsed_cycles; /* MCU cycles since approximate SYNC RMARKER */
+    uint32_t prev_quiet_elapsed_cycles, poll_start_elapsed_cycles, poll_end_elapsed_cycles;
+    uint32_t irq_elapsed_cycles;
+    uint8_t irq_valid, irq_arm_high;
+    uint32_t status;
+} brrs_data_error_row_t;
+static brrs_data_error_row_t brrs_data_error_rows[BRRS_DATA_ERROR_TRACE_CAP];
+static uint32_t brrs_data_error_count;
+static uint32_t brrs_data_error_overflow;
+static uint32_t brrs_prev_quiet_poll_cycles;
+
+/* Diagnostic only: GPIO ISR timestamps a masked RX event and never uses SPI. */
+static volatile bool brrs_data_irq_armed;
+static volatile bool brrs_data_irq_pending;
+static volatile uint32_t brrs_data_irq_cycles;
+static uint32_t brrs_data_irq_arm_high;
+static uint32_t brrs_data_irq_arm_count;
+static uint32_t brrs_data_irq_arm_high_count;
+static volatile uint32_t brrs_data_irq_event_count;
+static volatile uint32_t brrs_data_irq_duplicate_count;
+static volatile uint32_t brrs_data_irq_spurious_count;
+
+static void brrs_data_irq_isr(void)
+{
+    uint32_t cycles = dwt_timer_get_cycles();
+    if (!brrs_data_irq_armed) brrs_data_irq_spurious_count++;
+    else if (brrs_data_irq_pending) brrs_data_irq_duplicate_count++;
+    else {
+        brrs_data_irq_cycles = cycles;
+        __DMB();
+        brrs_data_irq_pending = true;
+        brrs_data_irq_event_count++;
+    }
+}
+
+static void brrs_data_irq_arm(void)
+{
+    port_DisableEXT_IRQ();
+    brrs_data_irq_armed = true;
+    brrs_data_irq_pending = false;
+    brrs_data_irq_cycles = 0U;
+    brrs_data_irq_arm_high = port_CheckEXT_IRQ();
+    if (brrs_data_irq_arm_high != 0U) brrs_data_irq_arm_high_count++;
+    __DMB();
+    port_EnableEXT_IRQ();
+    brrs_data_irq_arm_count++;
+}
+
+static void brrs_data_irq_dump(void)
+{
+    char line[230];
+    snprintf(line, sizeof(line),
+             "BRRS_DATA_IRQ_SUMMARY,version=1,arm=%lu,arm_pin_high_count=%lu,event=%lu,duplicate=%lu,spurious=%lu",
+             (unsigned long)brrs_data_irq_arm_count,
+             (unsigned long)brrs_data_irq_arm_high_count,
+             (unsigned long)brrs_data_irq_event_count,
+             (unsigned long)brrs_data_irq_duplicate_count,
+             (unsigned long)brrs_data_irq_spurious_count);
+    final_log_info(line);
+}
+
+static void brrs_data_error_record(uint8_t kind, uint32_t status, uint32_t cpu_elapsed_cycles, uint32_t prev_quiet_elapsed_cycles, uint32_t poll_start_elapsed_cycles, uint32_t poll_end_elapsed_cycles,
+                                   uint8_t irq_valid, uint32_t irq_elapsed_cycles, uint8_t irq_arm_high)
+{
+    if (brrs_data_error_count >= BRRS_DATA_ERROR_TRACE_CAP) {
+        brrs_data_error_overflow++;
+        return;
+    }
+    brrs_data_error_rows[brrs_data_error_count++] = (brrs_data_error_row_t){
+        (uint16_t)current_cycle, kind, current_rx_slot,
+        cpu_elapsed_cycles, prev_quiet_elapsed_cycles, poll_start_elapsed_cycles, poll_end_elapsed_cycles,
+        irq_elapsed_cycles, irq_valid, irq_arm_high, status
+    };
+}
+
+static void brrs_data_error_dump(void)
+{
+    char line[340];
+    snprintf(line, sizeof(line),
+             "BRRS_DATA_ERROR_BEGIN,version=1,count=%lu,overflow=%lu",
+             (unsigned long)brrs_data_error_count,
+             (unsigned long)brrs_data_error_overflow);
+    final_log_info(line);
+    for (uint32_t i = 0U; i < brrs_data_error_count; i++) {
+        brrs_data_error_row_t *row = &brrs_data_error_rows[i];
+        snprintf(line, sizeof(line),
+                 "BRRS_DATA_ERROR_ROW,index=%lu,seq=%u,kind=%u,slot=%u,cpu_elapsed_cycles=%lu,prev_quiet_elapsed_cycles=%lu,poll_start_elapsed_cycles=%lu,poll_end_elapsed_cycles=%lu,irq_valid=%u,irq_elapsed_cycles=%lu,irq_arm_high=%u,status=0x%08lX",
+                 (unsigned long)i, (unsigned)row->seq, (unsigned)row->kind,
+                 (unsigned)row->slot, (unsigned long)row->cpu_elapsed_cycles,
+                 (unsigned long)row->prev_quiet_elapsed_cycles,
+                 (unsigned long)row->poll_start_elapsed_cycles,
+                 (unsigned long)row->poll_end_elapsed_cycles,
+                 (unsigned)row->irq_valid,
+                 (unsigned long)row->irq_elapsed_cycles,
+                 (unsigned)row->irq_arm_high,
+                 (unsigned long)row->status);
+        final_log_info(line);
+        nrf_delay_ms(1U); /* post-RF RTT drain; no DATA-path pacing */
+    }
+
+    final_log_info("BRRS_DATA_ERROR_END,status=PASS");
+}
+
+typedef struct {
+    uint16_t seq;
+    uint32_t cpu_elapsed_cycles;
+    uint32_t prev_quiet_elapsed_cycles, poll_start_elapsed_cycles, poll_end_elapsed_cycles;
+    uint32_t irq_elapsed_cycles;
+    uint8_t irq_valid, irq_arm_high;
+    int32_t open_delta_high32;
+} brrs_data_good_anchor_t;
+static brrs_data_good_anchor_t brrs_data_good_anchors[16];
+static uint32_t brrs_data_good_anchor_count;
+
+static void brrs_data_good_anchor_record(uint32_t cpu_elapsed_cycles, uint32_t prev_quiet_elapsed_cycles, uint32_t poll_start_elapsed_cycles, uint32_t poll_end_elapsed_cycles,
+                                         uint8_t irq_valid, uint32_t irq_elapsed_cycles, uint8_t irq_arm_high)
+{
+    uint32_t expected_high32;
+    if (current_cycle != 1U && (current_cycle % 200U) != 0U) return;
+    if (brrs_data_good_anchor_count >= 16U) return;
+    expected_high32 = last_sync_tx_ts_high32 +
+        (uint32_t)(US_TO_DWT_TIME(current_beacon_config.first_slot_offset_us) >> 8);
+    brrs_data_good_anchors[brrs_data_good_anchor_count++] = (brrs_data_good_anchor_t){
+        (uint16_t)current_cycle,
+        cpu_elapsed_cycles,
+        prev_quiet_elapsed_cycles, poll_start_elapsed_cycles, poll_end_elapsed_cycles,
+        irq_elapsed_cycles, irq_valid, irq_arm_high,
+        (int32_t)(last_rx_open_high32 - expected_high32)
+    };
+}
+
+static void brrs_data_good_anchor_dump(void)
+{
+    char line[340];
+    snprintf(line, sizeof(line), "BRRS_DATA_GOOD_ANCHOR_BEGIN,version=1,count=%lu",
+             (unsigned long)brrs_data_good_anchor_count);
+    final_log_info(line);
+    for (uint32_t i = 0U; i < brrs_data_good_anchor_count; i++) {
+        brrs_data_good_anchor_t *row = &brrs_data_good_anchors[i];
+        snprintf(line, sizeof(line),
+                 "BRRS_DATA_GOOD_ANCHOR_ROW,index=%lu,seq=%u,cpu_elapsed_cycles=%lu,prev_quiet_elapsed_cycles=%lu,poll_start_elapsed_cycles=%lu,poll_end_elapsed_cycles=%lu,irq_valid=%u,irq_elapsed_cycles=%lu,irq_arm_high=%u,open_delta_high32=%ld",
+                 (unsigned long)i, (unsigned)row->seq,
+                 (unsigned long)row->cpu_elapsed_cycles,
+                 (unsigned long)row->prev_quiet_elapsed_cycles,
+                 (unsigned long)row->poll_start_elapsed_cycles,
+                 (unsigned long)row->poll_end_elapsed_cycles,
+                 (unsigned)row->irq_valid,
+                 (unsigned long)row->irq_elapsed_cycles,
+                 (unsigned)row->irq_arm_high,
+                 (long)row->open_delta_high32);
+        final_log_info(line);
+        nrf_delay_ms(1U);
+    }
+    final_log_info("BRRS_DATA_GOOD_ANCHOR_END,status=PASS");
+}
+#endif
+
 #if BRRS_EXP4_SLOTTED_RX
 typedef struct {
     uint32_t attempted, armed, late, good, timeout, error;
@@ -2742,6 +3010,12 @@ static bool schedule_rx_slot(uint8_t slot_idx)
 #endif
 
             if (scheduled) {
+#if BRRS_EXPERIMENT == 1 && BRRS_CODE_DIAGNOSTIC
+                if (slot_idx == 0U) {
+                    brrs_prev_quiet_poll_cycles = dwt_timer_get_cycles();
+                    brrs_data_irq_arm();
+                }
+#endif
 #if BRRS_EXPERIMENT == 3 && EXP3_RX_STAGE_DIAG
                 if (owner_seq == 2U && current_cycle <= TARGET_CYCLES) {
                     exp3_trace_begin(current_cycle, last_rx_open_high32);
@@ -3421,6 +3695,9 @@ static void exp4_close_data_burst(exp4_burst_close_reason_t reason)
 #endif
     current_rx_slot = 0xFF;
     exp4_process_deferred_records();
+#if BRRS_DIAG_SF_TRACE
+    brrs_sf_trace_rx(current_cycle, exp4_slot_received, current_beacon_config.slot_count);
+#endif
 #if BRRS_OPT_RX_ERROR_DIAG
     brrs_rxerr_process(&exp4_error_diag, CPU_FREQ_HZ / 1000000UL);
 #endif
@@ -3820,19 +4097,46 @@ int brrs_init(void)
     } else {
         dwt_configuretxrf(&txconfig_options);
     }
-#if BRRS_EXPERIMENT == 4
     {
-        char rf_line[240];
+        char rf_line[280];
         uint32_t chan_ctrl = dwt_read_reg(CHAN_CTRL_ID);
+        uint32_t tx_power_reg = dwt_read_reg(TX_POWER_ID);
+#if BRRS_EXPERIMENT == 1
+        /* Reuse the existing boot SYNC register read; DATA hardware is not
+         * sampled here. No extra configuration or hot-path SPI is performed. */
+        {
+            char code_line[320];
+            snprintf(code_line, sizeof(code_line),
+                     "BRRS_CODE_CONFIG_CSV,data_code=%lu,sync_code=%lu,hardware_tx_code=%lu,hardware_rx_code=%lu,diagnostic=%lu,phase=boot_sync,data_hardware=not_sampled,chan_ctrl=0x%08lx",
+                     (unsigned long)brrs_data_preamble_code,
+                     (unsigned long)brrs_sync_preamble_code,
+                     (unsigned long)((chan_ctrl & CHAN_CTRL_TX_PCODE_BIT_MASK) >>
+                                     CHAN_CTRL_TX_PCODE_BIT_OFFSET),
+                     (unsigned long)((chan_ctrl & CHAN_CTRL_RX_PCODE_BIT_MASK) >>
+                                     CHAN_CTRL_RX_PCODE_BIT_OFFSET),
+                     (unsigned long)brrs_code_diagnostic,
+                     (unsigned long)chan_ctrl);
+            final_log_info(code_line);
+        }
+#endif
+        snprintf(rf_line, sizeof(rf_line),
+                 "BRRS_RF_CONFIG_CSV,data_channel=%u,sync_channel=%u,hardware_channel=%u,tx_power_index=%u,linear_tx_status=%ld,tx_power_reg=%08lx,pg_delay=%u,compiled_channel=%lu",
+                 (unsigned)config_data.chan, (unsigned)config_sync.chan,
+                 (unsigned)((chan_ctrl & CHAN_CTRL_RF_CHAN_BIT_MASK) ? 9U : 5U),
+                 (unsigned)USE_TX_POWER_INDEX, (long)linear_tx_status,
+                 (unsigned long)tx_power_reg, (unsigned)txconfig_options.PGdly,
+                 (unsigned long)brrs_uwb_channel);
+        cir_log_info(rf_line);
+#if BRRS_EXPERIMENT == 4
         snprintf(rf_line, sizeof(rf_line),
                  "EXP4_RF_CONFIG_CSV,data_channel=%u,sync_channel=%u,hardware_channel=%u,tx_power_index=%u,linear_tx_status=%ld,tx_power_reg=%08lx,pg_delay=%u",
                  (unsigned)config_data.chan, (unsigned)config_sync.chan,
                  (unsigned)((chan_ctrl & CHAN_CTRL_RF_CHAN_BIT_MASK) ? 9U : 5U),
                  (unsigned)USE_TX_POWER_INDEX, (long)linear_tx_status,
-                 (unsigned long)dwt_read_reg(TX_POWER_ID), (unsigned)txconfig_options.PGdly);
+                 (unsigned long)tx_power_reg, (unsigned)txconfig_options.PGdly);
         cir_log_info(rf_line);
-    }
 #endif
+    }
 
     dwt_setrxaftertxdelay(TX_TO_RX_DELAY_UUS);
     /* dwt_setrxtimeout은 schedule_delayed_rx()에서 설정 */
@@ -3893,6 +4197,23 @@ int brrs_init(void)
         if (port_GetEXT_IRQStatus() != 0U) {
             while (1) { };
         }
+    }
+#elif BRRS_EXPERIMENT == 1 && BRRS_CODE_DIAGNOSTIC
+    {
+        const uint32_t event_mask = DWT_INT_RXFCG_BIT_MASK |
+            SYS_STATUS_ALL_RX_ERR | SYS_STATUS_ALL_RX_TO;
+        uint32_t enabled;
+        char line[190];
+        port_set_dwic_isr_oneshot(brrs_data_irq_isr);
+        port_DisableEXT_IRQ();
+        dwt_setinterrupt(event_mask, 0U, DWT_ENABLE_INT_ONLY);
+        enabled = dwt_read_reg(SYS_ENABLE_LO_ID);
+        snprintf(line, sizeof(line),
+                 "BRRS_DATA_IRQ_CONFIG,version=1,expected=0x%08lX,enabled=0x%08lX,status=%s",
+                 (unsigned long)event_mask, (unsigned long)enabled,
+                 ((enabled & event_mask) == event_mask) ? "PASS" : "FAIL");
+        test_run_info((unsigned char *)line);
+        if ((enabled & event_mask) != event_mask) while (1) { };
     }
 #else
     dwt_setinterrupt(0, 0, DWT_ENABLE_INT);
@@ -3983,6 +4304,8 @@ int brrs_init(void)
     cir_log_info("CIR_CSV_HEADER,rx_seq,cycle,node,plen,fp_sample,peak_idx,accum,rssi_dbm,fp_dbm,rssi_fp_gap_db,fp_peak_power,noise_floor_power,noise_samples,fp_snr_ratio_x1000");
 #endif
 #if ENABLE_CIR
+    final_log_info("CIR_QUALITY_SCHEMA,version=2");
+    final_log_info("CIR_DIAG_CSV_HEADER,rx_seq,cycle,node,plen,diag_rc,power,accum,F1,F2,F3,dgc_decision,rx_pcode,cia_conf,rssi_rc,fp_rc,rssi_q8_8,fp_q8_8,rssi_valid,fp_valid,snr_valid");
     cir_log_info("CIR_SUMMARY_CSV_HEADER,node,plen,n,fp_snr_ratio_min_x1000,fp_snr_ratio_max_x1000,fp_snr_ratio_avg_x1000,rssi_min_x100,rssi_max_x100,rssi_avg_x100,fp_min_x100,fp_max_x100,fp_avg_x100");
 #endif
 
@@ -4112,6 +4435,8 @@ int brrs_init(void)
 #endif
 #endif
 
+    uint32_t ho_tx_ant_high32=dwt_gettxantennadelay() >> 8;
+    uint32_t ho_next_sync=0, ho_sync_late=0, ho_sync_min=0xffffffffU, ho_sync_max=0, ho_sync_count=0;
     int period_count = 0;
     uint32_t last_sync_cycles = 0;
 #if BRRS_EXPERIMENT != 4
@@ -4165,7 +4490,7 @@ int brrs_init(void)
                                            exp4_prep_close_start_cycles));
             }
 #else
-        if (last_sync_cycles == 0 || dwt_timer_elapsed(last_sync_cycles, period_interval_cycles)) {
+        if (last_sync_cycles == 0 || dwt_timer_elapsed(last_sync_cycles, us_to_cpu_cycles(6500))) {
 #endif
             period_count++;
 
@@ -4417,10 +4742,12 @@ int brrs_init(void)
                          );
                     bool timing_pass = slot_timing_counts_match();
                     bool link_pass = (exp4_frames_received == expected_frames);
+                    /* Characterization may observe zero DATA, but every
+                     * schedule, timing and completion check still applies. */
                     bool collection_pass =
                         (total_cycles == TARGET_CYCLES &&
                          expected_frames > 0U &&
-                         exp4_frames_received > 0U &&
+                         (exp4_frames_received > 0U || BRRS_EXP4_ALLOW_ZERO_RX) &&
                          expected_frames == data_slots_per_superframe * total_cycles &&
                          exp4_end_ok &&
                          exp4_end_tx_count == EXP4_END_REPEAT_COUNT &&
@@ -5045,6 +5372,9 @@ int brrs_init(void)
                              collection_pass ? "PASS" : "FAIL");
                     final_log_info(s);
 
+#if BRRS_EXP4_ALLOW_ZERO_RX
+                    final_log_info("EXP4_CHARACTERIZATION_CSV,allow_zero_rx=1,status=PASS");
+#endif
                     snprintf(s, sizeof(s),
                              "EXP4_DONE,plen=%d,physical_sensors=%d,data_slots=%lu,slot_repeats=%d,superframes=%lu,expected=%lu,rx=%lu,collection=%s,link=%s,status=%s",
                              PREAMBLE_SYMBOLS, active_sensor_count,
@@ -5308,6 +5638,7 @@ int brrs_init(void)
                     cir_final_expected = 0;
                     cir_final_rx = 0;
                     cir_final_valid = 0;
+                    uint32_t rssi_valid_total = 0, fp_valid_total = 0;
 
                     for (i = 0; i < TOTAL_ARRAY_SIZE; i++) {
                         uint32_t expected = expected_rx[i];
@@ -5326,8 +5657,10 @@ int brrs_init(void)
                         cir_final_expected += expected;
                         cir_final_rx += received;
                         cir_final_valid += snr_count;
+                        rssi_valid_total += rssi_stats[i].count;
+                        fp_valid_total += fp_power_stats[i].count;
 
-                        node_collection_pass = (received == snr_count);
+                        node_collection_pass = (received == snr_count && received == fp_power_stats[i].count);
                         node_link_pass = (received == expected);
                         missed = (expected >= received) ? (expected - received) : 0U;
                         per_x1000 = (uint32_t)(((uint64_t)missed * 100000ULL +
@@ -5340,10 +5673,10 @@ int brrs_init(void)
                             cir_final_link_pass = false;
                         }
 
-                        if (rssi_stats[i].count > 0) {
-                            int32_t rssi_avg = (int32_t)(rssi_stats[i].sum_x100 / (int64_t)rssi_stats[i].count);
-                            int32_t fp_avg = (int32_t)(fp_power_stats[i].sum_x100 / (int64_t)fp_power_stats[i].count);
-                            int32_t gap_avg = (int32_t)(fp_gap_stats[i].sum_x100 / (int64_t)fp_gap_stats[i].count);
+                        if (received > 0) {
+                            int32_t rssi_avg = rssi_stats[i].count ? (int32_t)(rssi_stats[i].sum_x100 / (int64_t)rssi_stats[i].count) : 0;
+                            int32_t fp_avg = fp_power_stats[i].count ? (int32_t)(fp_power_stats[i].sum_x100 / (int64_t)fp_power_stats[i].count) : 0;
+                            int32_t gap_avg = fp_gap_stats[i].count ? (int32_t)(fp_gap_stats[i].sum_x100 / (int64_t)fp_gap_stats[i].count) : 0;
                             uint64_t snr_ratio_min = (snr_count > 0) ? fp_snr_ratio_stats[i].min_x1000 : 0;
                             uint64_t snr_ratio_max = (snr_count > 0) ? fp_snr_ratio_stats[i].max_x1000 : 0;
                             uint64_t snr_ratio_avg = (snr_count > 0) ?
@@ -5353,13 +5686,13 @@ int brrs_init(void)
                             char gap_avg_s[16];
                             static char s[320];
 
-                            format_x100(rssi_min, sizeof(rssi_min), rssi_stats[i].min_x100);
-                            format_x100(rssi_max, sizeof(rssi_max), rssi_stats[i].max_x100);
-                            format_x100(rssi_avg_s, sizeof(rssi_avg_s), rssi_avg);
-                            format_x100(fp_min, sizeof(fp_min), fp_power_stats[i].min_x100);
-                            format_x100(fp_max, sizeof(fp_max), fp_power_stats[i].max_x100);
-                            format_x100(fp_avg_s, sizeof(fp_avg_s), fp_avg);
-                            format_x100(gap_avg_s, sizeof(gap_avg_s), gap_avg);
+                            format_cir_metric(rssi_min, sizeof(rssi_min), rssi_stats[i].min_x100, rssi_stats[i].count > 0);
+                            format_cir_metric(rssi_max, sizeof(rssi_max), rssi_stats[i].max_x100, rssi_stats[i].count > 0);
+                            format_cir_metric(rssi_avg_s, sizeof(rssi_avg_s), rssi_avg, rssi_stats[i].count > 0);
+                            format_cir_metric(fp_min, sizeof(fp_min), fp_power_stats[i].min_x100, fp_power_stats[i].count > 0);
+                            format_cir_metric(fp_max, sizeof(fp_max), fp_power_stats[i].max_x100, fp_power_stats[i].count > 0);
+                            format_cir_metric(fp_avg_s, sizeof(fp_avg_s), fp_avg, fp_power_stats[i].count > 0);
+                            format_cir_metric(gap_avg_s, sizeof(gap_avg_s), gap_avg, fp_gap_stats[i].count > 0);
 
                             snprintf(s, sizeof(s),
                                      "%s: RSSI min=%s max=%s avg=%sdBm | FP min=%s max=%s avg=%sdBm | RSSI-FP avg=%sdB | FP-SNR ratiox1000 min=%llu max=%llu avg=%llu (n=%lu)",
@@ -5373,19 +5706,28 @@ int brrs_init(void)
                                      (unsigned long)snr_count);
                             final_log_info(s);
 
+                            char rssi_xmin[24], rssi_xmax[24], rssi_xavg[24];
+                            char fp_xmin[24], fp_xmax[24], fp_xavg[24];
+                            if (rssi_stats[i].count) {
+                                snprintf(rssi_xmin, sizeof(rssi_xmin), "%ld", (long)rssi_stats[i].min_x100);
+                                snprintf(rssi_xmax, sizeof(rssi_xmax), "%ld", (long)rssi_stats[i].max_x100);
+                                snprintf(rssi_xavg, sizeof(rssi_xavg), "%ld", (long)rssi_avg);
+                            } else {
+                                strcpy(rssi_xmin, "NA"); strcpy(rssi_xmax, "NA"); strcpy(rssi_xavg, "NA");
+                            }
+                            if (fp_power_stats[i].count) {
+                                snprintf(fp_xmin, sizeof(fp_xmin), "%ld", (long)fp_power_stats[i].min_x100);
+                                snprintf(fp_xmax, sizeof(fp_xmax), "%ld", (long)fp_power_stats[i].max_x100);
+                                snprintf(fp_xavg, sizeof(fp_xavg), "%ld", (long)fp_avg);
+                            } else {
+                                strcpy(fp_xmin, "NA"); strcpy(fp_xmax, "NA"); strcpy(fp_xavg, "NA");
+                            }
                             snprintf(s, sizeof(s),
-                                     "CIR_SUMMARY_CSV,%s,%d,%lu,%llu,%llu,%llu,%ld,%ld,%ld,%ld,%ld,%ld",
-                                     get_slot_description(i), PREAMBLE_SYMBOLS,
-                                     (unsigned long)snr_count,
-                                     (unsigned long long)snr_ratio_min,
-                                     (unsigned long long)snr_ratio_max,
+                                     "CIR_SUMMARY_CSV,%s,%d,%lu,%llu,%llu,%llu,%s,%s,%s,%s,%s,%s",
+                                     get_slot_description(i), PREAMBLE_SYMBOLS, (unsigned long)snr_count,
+                                     (unsigned long long)snr_ratio_min, (unsigned long long)snr_ratio_max,
                                      (unsigned long long)snr_ratio_avg,
-                                     (long)rssi_stats[i].min_x100,
-                                     (long)rssi_stats[i].max_x100,
-                                     (long)rssi_avg,
-                                     (long)fp_power_stats[i].min_x100,
-                                     (long)fp_power_stats[i].max_x100,
-                                     (long)fp_avg);
+                                     rssi_xmin, rssi_xmax, rssi_xavg, fp_xmin, fp_xmax, fp_xavg);
                             final_log_info(s);
                         }
 
@@ -5411,10 +5753,26 @@ int brrs_init(void)
                         cir_final_rx == 0U ||
                         cir_sample_log_count != cir_final_valid ||
                         cir_final_valid != cir_final_rx ||
+                        fp_valid_total != cir_final_rx ||
+                        cir_diag_read_errors != 0U ||
+                        rssi_valid_total + cir_rssi_invalid != cir_final_rx ||
+                        fp_valid_total + cir_fp_invalid != cir_final_rx ||
+                        cir_final_valid + cir_snr_invalid != cir_final_rx ||
                         cir_raw_frame_log_count !=
-                            ((cir_final_valid < CIR_RAW_LOG_LIMIT) ?
-                             cir_final_valid : CIR_RAW_LOG_LIMIT)) {
+                            (((cir_final_valid + BRRS_EXP5_RAW_STRIDE - 1U) / BRRS_EXP5_RAW_STRIDE < CIR_RAW_LOG_LIMIT) ?
+                             (cir_final_valid + BRRS_EXP5_RAW_STRIDE - 1U) / BRRS_EXP5_RAW_STRIDE : CIR_RAW_LOG_LIMIT)) {
                         cir_final_collection_pass = false;
+                    }
+                    {
+                        static char validity[400];
+                        snprintf(validity, sizeof(validity),
+                                 "CIR_VALIDITY_SUMMARY,expected=%lu,records=%lu,rssi_valid=%lu,rssi_invalid=%lu,fp_valid=%lu,fp_invalid=%lu,snr_valid=%lu,snr_invalid=%lu,diag_read_errors=%lu,status=%s",
+                                 (unsigned long)cir_final_rx, (unsigned long)cir_sample_log_count,
+                                 (unsigned long)rssi_valid_total, (unsigned long)cir_rssi_invalid,
+                                 (unsigned long)fp_valid_total, (unsigned long)cir_fp_invalid,
+                                 (unsigned long)cir_final_valid, (unsigned long)cir_snr_invalid,
+                                 (unsigned long)cir_diag_read_errors, cir_final_collection_pass ? "PASS" : "FAIL");
+                        final_log_info(validity);
                     }
                 }
 #endif
@@ -5502,6 +5860,65 @@ int brrs_init(void)
                     final_log_info(line);
                 }
 #endif
+#if BRRS_DIAG_SF_TRACE
+                brrs_sf_trace_dump(0U, final_log_info);
+#endif
+#if BRRS_CODE_DIAGNOSTIC
+                {
+                    char line[128];
+                    uint32_t word_index;
+                    snprintf(line, sizeof(line),
+                             "BRRS_DATA_BITMAP_BEGIN,version=1,expected=%lu,received=%lu,words=%lu",
+                             (unsigned long)TARGET_CYCLES,
+                             (unsigned long)data_rx_bitmap_count,
+                             (unsigned long)((TARGET_CYCLES + 31U) / 32U));
+                    final_log_info(line);
+                    for (word_index = 0U; word_index < (TARGET_CYCLES + 31U) / 32U; word_index++) {
+                        uint32_t bit_index;
+                        uint32_t word = 0U;
+                        for (bit_index = 0U; bit_index < 32U; bit_index++) {
+                            uint32_t sf = word_index * 32U + bit_index;
+                            if (sf < TARGET_CYCLES &&
+                                (data_rx_bitmap[sf >> 3] & (1U << (sf & 7U))) != 0U) {
+                                word |= (uint32_t)1U << bit_index;
+                            }
+                        }
+                        snprintf(line, sizeof(line),
+                                 "BRRS_DATA_BITMAP_WORD,index=%lu,bits=0x%08lX",
+                                 (unsigned long)word_index, (unsigned long)word);
+                        final_log_info(line);
+                    }
+                    final_log_info("BRRS_DATA_BITMAP_END,status=PASS");
+                }
+#if BRRS_EXPERIMENT == 1
+                brrs_data_error_dump();
+                brrs_data_good_anchor_dump();
+                brrs_data_irq_dump();
+#endif
+#endif
+#if BRRS_CODE_DIAGNOSTIC
+                {
+                    char line[400];
+                    snprintf(line, sizeof(line),
+                             "BRRS_CODE_RX_CLASS_CSV,role=INIT,scope=exp1_rxfcg_events,total=%lu,length_reject=%lu,type_reject=%lu,protocol_reject=%lu,source_reject=%lu,candidate=%lu,accepted=%lu,duplicate=%lu",
+                             (unsigned long)code_rx_class.total,
+                             (unsigned long)code_rx_class.length_reject,
+                             (unsigned long)code_rx_class.type_reject,
+                             (unsigned long)code_rx_class.protocol_reject,
+                             (unsigned long)code_rx_class.source_reject,
+                             (unsigned long)code_rx_class.candidate,
+                             (unsigned long)code_rx_class.accepted,
+                             (unsigned long)code_rx_class.duplicate);
+                    final_log_info(line);
+                    snprintf(line, sizeof(line),
+                             "BRRS_CODE_RX_FLAGS_CSV,role=INIT,scope=candidate_frames_overlapping_flags,wrong_superframe=%lu,wrong_slot_source=%lu,unexpected_destination=%lu",
+                             (unsigned long)code_rx_class.wrong_superframe,
+                             (unsigned long)code_rx_class.wrong_slot_source,
+                             (unsigned long)code_rx_class.unexpected_destination);
+                    final_log_info(line);
+                }
+#endif
+                {char h[200];snprintf(h,sizeof(h),"BRRS_HO_INIT,period_us=10000,count=%lu,min_ticks=%lu,max_ticks=%lu,late=%lu",(unsigned long)ho_sync_count,(unsigned long)ho_sync_min,(unsigned long)ho_sync_max,(unsigned long)ho_sync_late);final_log_info(h);}
                 final_log_info("===== END STATS =====\n");
                 dwt_forcetrxoff();
 #if ENABLE_CIR
@@ -5592,7 +6009,12 @@ int brrs_init(void)
                 last_sync_cycles = dwt_timer_get_cycles();
 
                 /* [CHANGED] DWT_RESPONSE_EXPECTED 제거 - delayed-RX 직접 제어 */
-                int sync_result = dwt_starttx(DWT_START_TX_IMMEDIATE);
+                int sync_result;
+                if(ho_next_sync) {
+                    dwt_setdelayedtrxtime(ho_next_sync - ho_tx_ant_high32);
+                    sync_result=dwt_starttx(DWT_START_TX_DELAYED);
+                    if(sync_result!=DWT_SUCCESS){ho_sync_late++;break;}
+                } else sync_result=dwt_starttx(DWT_START_TX_IMMEDIATE);
                 if (sync_result == DWT_SUCCESS) {
                     uint32_t tx_status = 0;
                     waitforsysstatus(&tx_status, NULL, DWT_INT_TXFRS_BIT_MASK, 0);
@@ -5600,7 +6022,11 @@ int brrs_init(void)
                         dwt_writesysstatuslo(DWT_INT_TXFRS_BIT_MASK);
 
                         /* [NEW] SYNC TX timestamp 획득 - 이후 슬롯 RX 시각 계산의 기준 */
-                        last_sync_tx_ts_high32 = dwt_readtxtimestamphi32();
+                        uint32_t actual=dwt_readtxtimestamphi32();
+                        if(last_sync_tx_ts_high32){uint32_t dt=actual-last_sync_tx_ts_high32;if(dt<ho_sync_min)ho_sync_min=dt;if(dt>ho_sync_max)ho_sync_max=dt;ho_sync_count++;}
+                        last_sync_tx_ts_high32=actual;
+                        ho_next_sync=(ho_next_sync ? ho_next_sync : actual)+2496000U; /* exact 10ms in DW high32 */
+                        last_sync_cycles=dwt_timer_get_cycles()-us_to_cpu_cycles(BEACON_PHR_PSDU_US);
                     }
                 } else {
                     test_run_info((unsigned char *)"DBG: SYNC TX FAILED!");
@@ -5772,11 +6198,31 @@ int brrs_init(void)
                 (exp4_fint_status & FINT_STAT_RXOK_BIT_MASK) != 0U) {
                 status_reg |= DWT_INT_RXFCG_BIT_MASK;
             }
+#elif BRRS_EXPERIMENT == 1 && BRRS_CODE_DIAGNOSTIC
+            uint32_t brrs_poll_start_cycles = dwt_timer_get_cycles();
+            uint32_t status_reg = dwt_readsysstatuslo();
+            uint32_t brrs_poll_end_cycles = dwt_timer_get_cycles();
+            if ((status_reg & (DWT_INT_RXFCG_BIT_MASK | SYS_STATUS_ALL_RX_TO |
+                               SYS_STATUS_ALL_RX_ERR)) == 0U)
+                brrs_prev_quiet_poll_cycles = brrs_poll_end_cycles;
+            else {
+                port_DisableEXT_IRQ();
+                brrs_data_irq_armed = false;
+            }
 #else
             uint32_t status_reg = dwt_readsysstatuslo();
 #endif
 
             if (status_reg & DWT_INT_RXFCG_BIT_MASK) {
+#if BRRS_EXPERIMENT == 1 && BRRS_CODE_DIAGNOSTIC
+                brrs_data_good_anchor_record(dwt_timer_get_cycles() - last_sync_cycles,
+                    brrs_prev_quiet_poll_cycles - last_sync_cycles,
+                    brrs_poll_start_cycles - last_sync_cycles,
+                    brrs_poll_end_cycles - last_sync_cycles,
+                    brrs_data_irq_pending ? 1U : 0U,
+                    brrs_data_irq_pending ? brrs_data_irq_cycles - last_sync_cycles : 0U,
+                    (uint8_t)brrs_data_irq_arm_high);
+#endif
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = exp4_status_poll_start_cycles;
                 uint32_t exp4_hot_path_start_cycles = exp4_event_start_cycles;
@@ -6147,6 +6593,34 @@ int brrs_init(void)
                 uint8_t src_node = rx_buffer[IDX_SOURCE];
                 uint8_t src_idx = node_id_to_index(src_node);
 
+#if BRRS_CODE_DIAGNOSTIC
+                code_rx_class.total++;
+                if (!frame_length_valid) {
+                    code_rx_class.length_reject++;
+                } else if (msg_type != MSG_TYPE_DATA) {
+                    code_rx_class.type_reject++;
+                } else if (rx_buffer[IDX_PROTOCOL_VERSION] != BRRS_PROTOCOL_VERSION) {
+                    code_rx_class.protocol_reject++;
+                } else if (src_idx == 0U || src_idx >= TOTAL_ARRAY_SIZE) {
+                    code_rx_class.source_reject++;
+                } else {
+                    code_rx_class.candidate++;
+                    /* Observations only: do not change legacy acceptance. */
+                    if (brrs_get_u16_le(&rx_buffer[IDX_SUPERFRAME_SEQ]) !=
+                            (uint16_t)current_cycle) {
+                        code_rx_class.wrong_superframe++;
+                    }
+                    if (completed_rx_slot >= current_beacon_config.slot_count ||
+                        current_beacon_config.slot_owner[completed_rx_slot] !=
+                            (uint8_t)(src_idx + 1U)) {
+                        code_rx_class.wrong_slot_source++;
+                    }
+                    if (rx_buffer[IDX_DEST] != NODE_ALL) {
+                        code_rx_class.unexpected_destination++;
+                    }
+                }
+#endif
+
                 /* [D-1] DATA 수신 */
                 if (frame_length_valid && msg_type == MSG_TYPE_DATA &&
                     rx_buffer[IDX_PROTOCOL_VERSION] == BRRS_PROTOCOL_VERSION) {
@@ -6209,8 +6683,25 @@ int brrs_init(void)
                             accept_new_frame = true;
                         }
 #endif
+#if BRRS_CODE_DIAGNOSTIC
+                        if (accept_new_frame) {
+                            code_rx_class.accepted++;
+                        } else {
+                            code_rx_class.duplicate++;
+                        }
+#endif
                         if (accept_new_frame) {
                             per_stats[src_idx].rx_count++;
+#if BRRS_CODE_DIAGNOSTIC
+                            if (src_idx == 1U && current_cycle >= 1U &&
+                                current_cycle <= TARGET_CYCLES) {
+                                const uint32_t bit = current_cycle - 1U;
+                                if ((data_rx_bitmap[bit >> 3] & (1U << (bit & 7U))) == 0U) {
+                                    data_rx_bitmap[bit >> 3] |= (uint8_t)(1U << (bit & 7U));
+                                    data_rx_bitmap_count++;
+                                }
+                            }
+#endif
 #if BRRS_EXPERIMENT == 4
                             exp4_frames_received++;
                             exp4_payload_bytes_received += BRRS_APP_PAYLOAD_BYTES;
@@ -6302,6 +6793,15 @@ int brrs_init(void)
 
             /* RX timeout - 예약된 윈도우 안에서 패킷 못 받음 (PER에 반영) */
             else if (status_reg & SYS_STATUS_ALL_RX_TO) {
+#if BRRS_EXPERIMENT == 1 && BRRS_CODE_DIAGNOSTIC
+                brrs_data_error_record(1U, status_reg, dwt_timer_get_cycles() - last_sync_cycles,
+                    brrs_prev_quiet_poll_cycles - last_sync_cycles,
+                    brrs_poll_start_cycles - last_sync_cycles,
+                    brrs_poll_end_cycles - last_sync_cycles,
+                    brrs_data_irq_pending ? 1U : 0U,
+                    brrs_data_irq_pending ? brrs_data_irq_cycles - last_sync_cycles : 0U,
+                    (uint8_t)brrs_data_irq_arm_high);
+#endif
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = exp4_status_poll_start_cycles;
                 uint8_t failed_rx_slot = current_rx_slot;
@@ -6377,6 +6877,15 @@ int brrs_init(void)
 
             /* RX errors */
             else if (status_reg & SYS_STATUS_ALL_RX_ERR) {
+#if BRRS_EXPERIMENT == 1 && BRRS_CODE_DIAGNOSTIC
+                brrs_data_error_record(2U, status_reg, dwt_timer_get_cycles() - last_sync_cycles,
+                    brrs_prev_quiet_poll_cycles - last_sync_cycles,
+                    brrs_poll_start_cycles - last_sync_cycles,
+                    brrs_poll_end_cycles - last_sync_cycles,
+                    brrs_data_irq_pending ? 1U : 0U,
+                    brrs_data_irq_pending ? brrs_data_irq_cycles - last_sync_cycles : 0U,
+                    (uint8_t)brrs_data_irq_arm_high);
+#endif
                 uint8_t failed_rx_slot = current_rx_slot;
 #if BRRS_EXPERIMENT == 4
                 uint32_t exp4_event_start_cycles = exp4_status_poll_start_cycles;

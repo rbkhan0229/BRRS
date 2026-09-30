@@ -232,6 +232,7 @@ static void terminal_log_info(unsigned char *data)
 #define BRRS_TARGET_CYCLES 1000
 #endif
 #define TARGET_CYCLES   BRRS_TARGET_CYCLES
+#include "../brrs_sf_trace.h"
 
 /* Do not turn a short vehicle-channel beacon fade into an early experiment
  * termination.  The node keeps reacquisition active during this grace time;
@@ -408,9 +409,43 @@ _Static_assert(CONFIG_SWITCH_US < BRRS_SUPERFRAME_US,
 #error "BRRS_UWB_CHANNEL must be 5 or 9"
 #endif
 
+/* Fixed-code diagnostics: no hopping, ACK or retransmission is added. */
+#ifndef BRRS_DATA_PREAMBLE_CODE
+#define BRRS_DATA_PREAMBLE_CODE 9
+#endif
+#ifndef BRRS_SYNC_PREAMBLE_CODE
+#define BRRS_SYNC_PREAMBLE_CODE 10
+#endif
+#if BRRS_DATA_PREAMBLE_CODE < 9 || BRRS_DATA_PREAMBLE_CODE > 12
+#error "BRRS_DATA_PREAMBLE_CODE must be 9 through 12"
+#endif
+#if BRRS_SYNC_PREAMBLE_CODE < 9 || BRRS_SYNC_PREAMBLE_CODE > 12
+#error "BRRS_SYNC_PREAMBLE_CODE must be 9 through 12"
+#endif
+#ifndef BRRS_CODE_DIAGNOSTIC
+#define BRRS_CODE_DIAGNOSTIC 0
+#endif
+#if BRRS_CODE_DIAGNOSTIC != 0 && BRRS_CODE_DIAGNOSTIC != 1
+#error "BRRS_CODE_DIAGNOSTIC must be 0 or 1"
+#endif
+#if BRRS_CODE_DIAGNOSTIC && BRRS_EXPERIMENT != 1
+#error "BRRS_CODE_DIAGNOSTIC is implemented only for Exp1"
+#endif
+#if BRRS_CODE_DIAGNOSTIC && (TARGET_CYCLES < 1 || TARGET_CYCLES > 65535)
+#error "BRRS_CODE_DIAGNOSTIC requires a nonzero 16-bit superframe range"
+#endif
+
+/* Volatile Exp1 boot reads retain the exact selected values in the ELF. */
+volatile const uint32_t brrs_data_preamble_code = BRRS_DATA_PREAMBLE_CODE;
+volatile const uint32_t brrs_sync_preamble_code = BRRS_SYNC_PREAMBLE_CODE;
+volatile const uint32_t brrs_code_diagnostic = BRRS_CODE_DIAGNOSTIC;
+
+/* Referenced through a volatile boot read so ELF channel evidence survives GC. */
+volatile const uint32_t brrs_uwb_channel = BRRS_UWB_CHANNEL;
+
 static dwt_config_t config_data = {
     BRRS_UWB_CHANNEL, DATA_PLEN, DATA_PAC,
-    9, 9, DATA_SFD_TYPE,
+    BRRS_DATA_PREAMBLE_CODE, BRRS_DATA_PREAMBLE_CODE, DATA_SFD_TYPE,
     DWT_BR_6M8, DWT_PHRMODE_STD, DATA_PHR_RATE,
     (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - DATA_PAC_SYMBOLS),
     DWT_STS_MODE_OFF, DWT_STS_LEN_64, DWT_PDOA_M0
@@ -459,7 +494,7 @@ static bool brrs_apply_beacon_data_phy(uint16_t symbols)
 
 static dwt_config_t config_sync = {
     BRRS_UWB_CHANNEL, SYNC_PLEN, DWT_PAC8,
-    10, 10, 1,
+    BRRS_SYNC_PREAMBLE_CODE, BRRS_SYNC_PREAMBLE_CODE, 1,
     DWT_BR_6M8, DWT_PHRMODE_STD, DWT_PHRRATE_STD,
     (SYNC_PREAMBLE_SYMBOLS + 1 + 8 - 8),
     DWT_STS_MODE_OFF, DWT_STS_LEN_64, DWT_PDOA_M0
@@ -557,6 +592,23 @@ static uint32_t total_rx_errors = 0;
 static uint32_t total_tx_attempts = 0;
 static uint32_t total_tx_delayed_late = 0;
 static bool run_end_received = false;
+#if BRRS_CODE_DIAGNOSTIC
+/* Only validated SYNC frames enter this observer. The bitmap records actual
+ * sequence identities, not an inferred number of elapsed superframes. */
+#include "brrs_holdover.h"
+static uint8_t code_sync_seen[(TARGET_CYCLES + 7U) / 8U];
+static struct {
+    uint32_t messages;
+    uint32_t unique;
+    uint32_t duplicate;
+    uint32_t out_of_range;
+    uint32_t nonmonotonic;
+    uint32_t owned_slot_scope_errors;
+    uint16_t first_seq;
+    uint16_t last_seq;
+    uint16_t high_seq;
+} code_sync;
+#endif
 #if BRRS_EXPERIMENT == 4
 static uint32_t exp4_sync_frames_received = 0;
 static uint32_t exp4_sync_frames_missed = 0;
@@ -876,6 +928,8 @@ static uint32_t dwt_timer_get_cycles(void) {
     return DWT_CYCCNT;
 }
 
+#include "brrs_beacon_trace.h"
+
 static uint32_t us_to_cpu_cycles(uint32_t microseconds) {
     return microseconds * (CPU_FREQ_HZ / 1000000);
 }
@@ -1046,6 +1100,83 @@ static uint8_t node_id_to_index(uint8_t node_id) {
 static uint8_t my_slot_idx(void) {
     return (uint8_t)(MY_NODE_SEQ - 1);
 }
+
+#if BRRS_CODE_DIAGNOSTIC
+static void brrs_code_note_sync(uint16_t seq, uint8_t owned_slots)
+{
+    uint32_t bit_index;
+    uint8_t bit_mask;
+
+    code_sync.messages++;
+    if (owned_slots != 1U) {
+        code_sync.owned_slot_scope_errors++;
+    }
+    if (seq == 0U || seq > TARGET_CYCLES) {
+        code_sync.out_of_range++;
+        return;
+    }
+    if (code_sync.unique == 0U) {
+        code_sync.first_seq = seq;
+    }
+    if (code_sync.high_seq != 0U && seq < code_sync.high_seq) {
+        code_sync.nonmonotonic++;
+    }
+    code_sync.last_seq = seq;
+    if (seq > code_sync.high_seq) {
+        code_sync.high_seq = seq;
+    }
+    bit_index = (uint32_t)seq - 1U;
+    bit_mask = (uint8_t)(1U << (bit_index & 7U));
+    if ((code_sync_seen[bit_index >> 3] & bit_mask) != 0U) {
+        code_sync.duplicate++;
+    } else {
+        code_sync_seen[bit_index >> 3] |= bit_mask;
+        code_sync.unique++;
+    }
+}
+
+static void brrs_code_print_summary(void)
+{
+    char line[440];
+    char first[12] = "NA";
+    char last[12] = "NA";
+    uint32_t success = per_stats[my_slot_idx()].tx_count;
+    bool scope_valid = run_end_received && code_sync.unique > 0U &&
+        code_sync.owned_slot_scope_errors == 0U &&
+        code_sync.out_of_range == 0U && code_sync.duplicate == 0U &&
+        code_sync.nonmonotonic == 0U && success <= total_tx_attempts &&
+        total_tx_attempts <= code_sync.unique + ho_attempts;
+
+    if (code_sync.unique > 0U) {
+        snprintf(first, sizeof(first), "%u", (unsigned)code_sync.first_seq);
+        snprintf(last, sizeof(last), "%u", (unsigned)code_sync.last_seq);
+    }
+    snprintf(line, sizeof(line),
+             "BRRS_CODE_SYNC_CSV,role=NORMAL,node=%u,scope=exp1_sf_seq_1_to_target,messages=%lu,unique=%lu,expected=%u,missed=%lu,first_seq=%s,last_seq=%s,duplicate=%lu,out_of_range=%lu,nonmonotonic=%lu,owned_slot_scope_errors=%lu,end=%u",
+             (unsigned)MY_NODE_SEQ, (unsigned long)code_sync.messages,
+             (unsigned long)code_sync.unique, (unsigned)TARGET_CYCLES,
+             (unsigned long)(TARGET_CYCLES - code_sync.unique), first, last,
+             (unsigned long)code_sync.duplicate,
+             (unsigned long)code_sync.out_of_range,
+             (unsigned long)code_sync.nonmonotonic,
+             (unsigned long)code_sync.owned_slot_scope_errors,
+             run_end_received ? 1U : 0U);
+    final_log_info(line);
+    if (scope_valid) {
+        snprintf(line, sizeof(line),
+                 "BRRS_CODE_TX_ACCOUNT_CSV,role=NORMAL,node=%u,scope=one_owned_slot_per_sf,offered=%u,success=%lu,attempts=%lu,unsent=%lu,status=VALID",
+                 (unsigned)MY_NODE_SEQ, (unsigned)TARGET_CYCLES,
+                 (unsigned long)success, (unsigned long)total_tx_attempts,
+                 (unsigned long)(TARGET_CYCLES - success));
+    } else {
+        snprintf(line, sizeof(line),
+                 "BRRS_CODE_TX_ACCOUNT_CSV,role=NORMAL,node=%u,scope=one_owned_slot_per_sf,offered=NA,success=%lu,attempts=%lu,unsent=NA,status=UNAVAILABLE_SCOPE",
+                 (unsigned)MY_NODE_SEQ, (unsigned long)success,
+                 (unsigned long)total_tx_attempts);
+    }
+    final_log_info(line);
+}
+#endif
 
 static const char* get_slot_description(uint8_t slot_idx) {
     static const char* names[] = {"INIT","N2","N3","N4","N5","N6","N7","N8"};
@@ -1337,19 +1468,46 @@ int brrs_normal(void)
     } else {
         dwt_configuretxrf(&txconfig_options);
     }
-#if BRRS_EXPERIMENT == 4
     {
-        char rf_line[240];
+        char rf_line[280];
         uint32_t chan_ctrl = dwt_read_reg(CHAN_CTRL_ID);
+        uint32_t tx_power_reg = dwt_read_reg(TX_POWER_ID);
+#if BRRS_EXPERIMENT == 1
+        /* Reuse the existing boot SYNC register read; DATA hardware is not
+         * sampled here. No extra configuration or hot-path SPI is performed. */
+        {
+            char code_line[320];
+            snprintf(code_line, sizeof(code_line),
+                     "BRRS_CODE_CONFIG_CSV,data_code=%lu,sync_code=%lu,hardware_tx_code=%lu,hardware_rx_code=%lu,diagnostic=%lu,phase=boot_sync,data_hardware=not_sampled,chan_ctrl=0x%08lx",
+                     (unsigned long)brrs_data_preamble_code,
+                     (unsigned long)brrs_sync_preamble_code,
+                     (unsigned long)((chan_ctrl & CHAN_CTRL_TX_PCODE_BIT_MASK) >>
+                                     CHAN_CTRL_TX_PCODE_BIT_OFFSET),
+                     (unsigned long)((chan_ctrl & CHAN_CTRL_RX_PCODE_BIT_MASK) >>
+                                     CHAN_CTRL_RX_PCODE_BIT_OFFSET),
+                     (unsigned long)brrs_code_diagnostic,
+                     (unsigned long)chan_ctrl);
+            final_log_info(code_line);
+        }
+#endif
+        snprintf(rf_line, sizeof(rf_line),
+                 "BRRS_RF_CONFIG_CSV,data_channel=%u,sync_channel=%u,hardware_channel=%u,tx_power_index=%u,linear_tx_status=%ld,tx_power_reg=%08lx,pg_delay=%u,compiled_channel=%lu",
+                 (unsigned)config_data.chan, (unsigned)config_sync.chan,
+                 (unsigned)((chan_ctrl & CHAN_CTRL_RF_CHAN_BIT_MASK) ? 9U : 5U),
+                 (unsigned)USE_TX_POWER_INDEX, (long)linear_tx_status,
+                 (unsigned long)tx_power_reg, (unsigned)txconfig_options.PGdly,
+                 (unsigned long)brrs_uwb_channel);
+        exp_log_info(rf_line);
+#if BRRS_EXPERIMENT == 4
         snprintf(rf_line, sizeof(rf_line),
                  "EXP4_RF_CONFIG_CSV,data_channel=%u,sync_channel=%u,hardware_channel=%u,tx_power_index=%u,linear_tx_status=%ld,tx_power_reg=%08lx,pg_delay=%u",
                  (unsigned)config_data.chan, (unsigned)config_sync.chan,
                  (unsigned)((chan_ctrl & CHAN_CTRL_RF_CHAN_BIT_MASK) ? 9U : 5U),
                  (unsigned)USE_TX_POWER_INDEX, (long)linear_tx_status,
-                 (unsigned long)dwt_read_reg(TX_POWER_ID), (unsigned)txconfig_options.PGdly);
+                 (unsigned long)tx_power_reg, (unsigned)txconfig_options.PGdly);
         exp_log_info(rf_line);
-    }
 #endif
+    }
 
     dwt_setrxaftertxdelay(TX_TO_RX_DELAY_UUS);
     /* 초기/복구 SYNC 대기는 50 ms 유한 timeout 뒤 즉시 다시 연다. */
@@ -1422,6 +1580,7 @@ int brrs_normal(void)
 
     while (1)
     {
+        bool ho_synthetic = false;
         /* [DEBUG] 2초마다 상태 출력 (SYNC 못 받는 경우 진단용) */
         if (dwt_timer_elapsed(last_debug_cycles, debug_interval_cycles)) {
             last_debug_cycles = dwt_timer_get_cycles();
@@ -1477,6 +1636,17 @@ int brrs_normal(void)
 
             if (by_timeout || by_cycle) {
                 final_stats_printed = true;
+                bd_dump(final_log_info);
+                {
+                    char h[400];
+                    snprintf(h,sizeof(h),"BRRS_HO_SUMMARY,mode=%u,accepted=%lu,predicted_attempts=%lu,predicted_success=%lu,injected=%lu,blocked=%lu,system_errors=%lu,rx_scheduled=%lu,rx_late=%lu,prediction_checks=%lu,prediction_bad=%lu,max_error_ticks=%lu,rows=%lu",
+                        (unsigned)brrs_ho_mode,(unsigned long)ho_accepted,(unsigned long)ho_attempts,(unsigned long)ho_success,(unsigned long)ho_injected,(unsigned long)ho_blocked,(unsigned long)ho_system_errors,(unsigned long)ho_rx_scheduled,(unsigned long)ho_rx_late,(unsigned long)ho_prediction_checks,(unsigned long)ho_prediction_bad,(unsigned long)ho.max_error,(unsigned long)ho_count);
+                    final_log_info(h);
+                    for(unsigned i=0;i<ho_count;i++){
+                        snprintf(h,sizeof(h),"BRRS_HO_ROW,seq=%u,kind=%u,actual=%lu,predicted=%lu",ho_rows[i].seq,ho_rows[i].kind,(unsigned long)ho_rows[i].actual,(unsigned long)ho_rows[i].predicted);final_log_info(h);
+                    }
+                    final_log_info("BRRS_HO_END,version=1");
+                }
 
                 static char hdr[128];
                 snprintf(hdr, sizeof(hdr), "\n===== %s FINAL STATS (PLEN=%d, %dsym) =====",
@@ -1765,6 +1935,12 @@ int brrs_normal(void)
                 final_log_info("--- Experiment 3 TX EXTTXE airtime capture ---");
                 exp3_tx_print_summary();
 #endif
+#if BRRS_DIAG_SF_TRACE
+                brrs_sf_trace_dump(MY_NODE_SEQ, final_log_info);
+#endif
+#if BRRS_CODE_DIAGNOSTIC
+                brrs_code_print_summary();
+#endif
                 final_log_info("===== END STATS =====\n");
                 dwt_forcetrxoff();
 #if BRRS_EXPERIMENT == 3
@@ -1786,7 +1962,13 @@ int brrs_normal(void)
                 }
                 dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
                 dwt_writesysstatuslo(0xFFFFFFFF);
-                dwt_rxenable(DWT_START_RX_IMMEDIATE);
+                if(ho_ready() && ho.seq<TARGET_CYCLES) {
+                    uint32_t target=ho.last+ho.period-199680U; /* 800 us early */
+                    dwt_setdelayedtrxtime(target);
+                    dwt_setrxtimeout(US_TO_UUS(2000));
+                    if(dwt_rxenable(DWT_START_RX_DELAYED | DWT_IDLE_ON_DLY_ERR)==DWT_SUCCESS)ho_rx_scheduled++;
+                    else {ho_rx_late++;dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));dwt_rxenable(DWT_START_RX_IMMEDIATE);}
+                } else dwt_rxenable(DWT_START_RX_IMMEDIATE);
             }
         }
 #endif
@@ -1794,6 +1976,17 @@ int brrs_normal(void)
         /* ========== [D] RX 폴링 ========== */
         {
             uint32_t status_reg = dwt_readsysstatuslo();
+            bd_poll(status_reg,config_is_sync);
+            if(config_is_sync && !run_end_received && !(status_reg & DWT_INT_RXFCG_BIT_MASK) && BRRS_HO_MODE!=0 && ho.seq) {
+                uint32_t now_rf=dwt_readsystimestamphi32();
+                if(ho_due(now_rf,TARGET_CYCLES)) {
+                    ho_synthetic=true;ho.used=true;ho_attempts++;
+                    current_beacon_config.superframe_seq=ho.seq+1U;
+                    last_sync_rx_ts_high32=ho.last+ho.period;
+                    goto ho_dispatch;
+                }
+                if(ho.used && (int32_t)(now_rf-(ho.last+2U*ho.period+37440U))>=0){ho_blocked++;ho.n=0;ho.pos=0;ho.used=false;}
+            }
 
             if (status_reg & DWT_INT_RXFCG_BIT_MASK) {
 #if BRRS_EXPERIMENT == 4 && BRRS_OPT_PHY_FAST_SWITCH
@@ -1843,6 +2036,7 @@ int brrs_normal(void)
                     valid_beacon = (reject_reason == NULL);
 
                     if (!valid_beacon) {
+                        bd_event(8U,1U,__LINE__);
                         static char error_line[480];
                         char owners[BRRS_MAX_DATA_SLOTS + 1U] = {0};
                         uint8_t slot;
@@ -1902,6 +2096,13 @@ int brrs_normal(void)
                         dwt_rxenable(DWT_START_RX_IMMEDIATE);
                         continue;
                     }
+                    /* Diagnostic lease: compile-bound schedule, no dynamic changes. */
+                    if(msg_type==MSG_TYPE_SYNC && (decoded_config.superframe_period_us!=10000U || decoded_config.first_slot_offset_us!=SYNC_BUFFER_US || decoded_config.slot_count!=1U || decoded_config.slot_owner[0]!=2U || decoded_config.data_preamble_symbols!=PREAMBLE_SYMBOLS || decoded_config.superframe_seq<=ho_last_dispatch || decoded_config.superframe_seq>TARGET_CYCLES)) {
+                        ho_system_errors++;ho.n=0;ho.pos=0;dwt_forcetrxoff();dwt_rxenable(DWT_START_RX_IMMEDIATE);continue;
+                    }
+                    if(BRRS_HO_MODE==2 && msg_type==MSG_TYPE_SYNC && (decoded_config.superframe_seq==3U || decoded_config.superframe_seq==100U || decoded_config.superframe_seq==200U || decoded_config.superframe_seq==201U)) {
+                        ho_injected++;dwt_forcetrxoff();dwt_writesysstatuslo(0xffffffffU);dwt_rxenable(DWT_START_RX_IMMEDIATE);continue;
+                    }
                     current_beacon_config = decoded_config;
                     brrs_load_owned_slots(&current_beacon_config);
 #if BRRS_EXPERIMENT == 4
@@ -1915,6 +2116,7 @@ int brrs_normal(void)
                 }
 
                 if (!is_control_frame) {
+                    bd_event(2U,((uint32_t)rx_frame_len<<24)|((uint32_t)msg_type<<16)|((uint32_t)src_node<<8)|dest_node,__LINE__);
                     dwt_forcetrxoff();
                     if (dwt_configure(&config_sync) == DWT_SUCCESS) {
                         config_is_sync = true;
@@ -1959,6 +2161,7 @@ int brrs_normal(void)
 
                 /* [D-1] SYNC 수신 - 핵심 타이밍 기준 */
                 if (msg_type == MSG_TYPE_SYNC) {
+ho_dispatch: ;
                     uint32_t current_cycles = dwt_timer_get_cycles();
                     last_sync_cycles = current_cycles;
 
@@ -1974,7 +2177,15 @@ int brrs_normal(void)
 #endif
 
                     /* [NEW] DW3000 RX timestamp 획득 - delayed-TX 기준 */
-                    last_sync_rx_ts_high32 = dwt_readrxtimestamphi32();
+                    if(!ho_synthetic) {
+                        uint32_t stamp=dwt_readrxtimestamphi32();
+                        uint32_t predicted=ho.n>=HO_TRAIN ? ho.last+(current_beacon_config.superframe_seq-ho.seq)*ho.period : 0U;
+                        ho_record(current_beacon_config.superframe_seq,stamp,predicted,0U);
+                        ho_observe(current_beacon_config.superframe_seq,stamp);ho_accepted++;
+                        last_sync_rx_ts_high32=stamp;
+                        bd_sync(current_beacon_config.superframe_seq,current_cycles,last_sync_rx_ts_high32,bd_sample_anchor());
+                    }else ho_record(current_beacon_config.superframe_seq,0U,last_sync_rx_ts_high32,1U);
+                    ho_last_dispatch=current_beacon_config.superframe_seq;
 
                     slot_tx_done = false;
 
@@ -2015,10 +2226,18 @@ int brrs_normal(void)
 
                         exp4_last_sync_seq = superframe_seq;
                         exp4_sync_frames_received++;
+#if BRRS_DIAG_SF_TRACE
+                        brrs_sf_trace_beacon(superframe_seq);
+#endif
                         current_cycle = superframe_seq;
                     }
 #else
                     current_cycle = current_beacon_config.superframe_seq;
+#endif
+
+#if BRRS_CODE_DIAGNOSTIC
+                    if(!ho_synthetic) brrs_code_note_sync(current_beacon_config.superframe_seq,
+                                        current_owned_slot_count);
 #endif
 
                     /* ===== [NEW] DATA config로 전환 후 delayed-TX 예약 ===== */
@@ -2160,6 +2379,10 @@ int brrs_normal(void)
 #endif
                                     dwt_writesysstatuslo(DWT_INT_TXFRS_BIT_MASK);
                                     per_stats[my_slot_idx()].tx_count++;
+                                    if(ho_synthetic)ho_success++;
+#if BRRS_DIAG_SF_TRACE
+                                    brrs_sf_trace_tx(current_cycle);
+#endif
 #if BRRS_EXPERIMENT == 4
                                     exp4_record_tx_slot_error(
                                         exp4_tx_slot_error_ns(
@@ -2304,8 +2527,11 @@ int brrs_normal(void)
 #endif
                 total_rx_errors++;
                 dwt_writesysstatuslo(SYS_STATUS_ALL_RX_ERR);
+                bd_event(9U,0U,__LINE__); /* error-bit clear complete */
                 dwt_forcetrxoff();
+                bd_event(10U,0U,__LINE__); /* force-off complete */
                 dwt_writesysstatuslo(0xFFFFFFFF);
+                bd_event(11U,0U,__LINE__); /* full status clear complete */
 
                 if (config_is_sync) {
                     dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));

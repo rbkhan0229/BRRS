@@ -27,6 +27,7 @@ JLinkRTTLogger를 사용하지 않는다. J-Link DLL에 대한 연결을 하나�
 """
 
 import argparse
+import os
 import sys
 import time
 
@@ -151,6 +152,8 @@ def main():
                     help="capture 중 J-Link 단절 시 동일 프로브 재접속 횟수")
     ap.add_argument("--reconnect-delay", type=float, default=0.5,
                     help="J-Link 재접속 시도 간 대기 시간(초)")
+    ap.add_argument("--strict-connection", action="store_true", default=os.environ.get('BRRS_STRICT_CONNECTION') == '1',
+                    help="fail on connection errors during final RTT drain too")
     args = ap.parse_args()
 
     if args.reconnect_attempts < 0:
@@ -238,6 +241,8 @@ def main():
                         try:
                             tail = jl.rtt_read(args.channel, 16384)
                         except pylink.errors.JLinkException:
+                            if args.strict_connection:
+                                raise
                             tail = []
                         while tail:
                             tb = bytes(tail)
@@ -246,6 +251,8 @@ def main():
                             try:
                                 tail = jl.rtt_read(args.channel, 16384)
                             except pylink.errors.JLinkException:
+                                if args.strict_connection:
+                                    raise
                                 tail = []
                         end_seen = True
                         break
