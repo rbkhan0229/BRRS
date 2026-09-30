@@ -59,14 +59,21 @@ def prepare(a):
     cases = [c for c in plan(m, a.stage, capacity_candidates=(a.stage == 'exp4' and 'capacity_search' in m['exp4']),
              profile=getattr(a,'profile','preparation'),confirmation=getattr(a,'confirmation',False)) if c['id'] == a.case]
     if len(cases) != 1: raise ValueError('case must match one manifest condition')
+    return prepare_resolved(a, m, cases[0])
+
+def prepare_resolved(a, m, c):
+    """Package an independently validated case; campaign callers still use plan()."""
     root = a.bundle.resolve()
     root.mkdir(parents=True, exist_ok=False)
-    c = cases[0]
     c.update(boards=m['boards'], prepared_at=now(), source_api=str(API),
              manifest_file_sha256=sha(a.manifest), deployment='portable capture-only SDK; build on source host')
     c['source_git'],source_patch=git_provenance(API)
     (root/'provenance').mkdir()
     save(root/'provenance/source_git.json',c['source_git'])
+    toolchain={name:{'path':value,'sha256':sha(value)} for name,value in
+               [('EMBUILD',os.environ.get('EMBUILD')),('ARM_NM',NM)]
+               if value and Path(value).is_file()}
+    save(root/'provenance/build_toolchain.json',toolchain)
     if source_patch:(root/'provenance/source_git.patch').write_bytes(source_patch)
     runtime = root / 'sdk/Drivers/API'
     runtime.mkdir(parents=True)
@@ -79,6 +86,9 @@ def prepare(a):
     (runtime / project).parent.mkdir(parents=True)
     shutil.copy2(API / project, runtime / project)
     sources = ['Src/examples/ex_35a_brrs_init/brrs_init.c', 'Src/examples/ex_35b_brrs_normal/brrs_normal.c']
+    if c['conditions'].get('phy_fast_switch'):
+        sources += ['Shared/dwt_uwb_driver/'+name for name in
+                    ['brrs_phy_fast_switch.h','deca_compat.c','deca_interface.h','dw3000/dw3000_device.c']]
     c['firmware_source_sha256'] = {p: sha(API / p) for p in sources}
     for p in sources:
         target = root / 'provenance' / p
@@ -88,10 +98,10 @@ def prepare(a):
         env = dict(os.environ, **job['environment'], ARM_NM=NM, EMBUILD_THREADS=os.environ.get('EMBUILD_THREADS','8'))
         # Validate an exact cached image before rebuilding. Cached mismatch is
         # allowed to trigger a source build only without explicit --reuse.
-        cmd = job['build_only_argv'] + ['--no-build']
+        cmd = job['build_only_argv'] + ([] if getattr(a, 'source_build', False) else ['--no-build'])
         result = subprocess.run(cmd, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         cache_output=result.stdout
-        if result.returncode and not a.reuse:
+        if result.returncode and not a.reuse and not getattr(a, 'source_build', False):
             result = subprocess.run(job['build_only_argv'], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             result.stdout='[cache-check]\n'+cache_output+'\n[source-build]\n'+result.stdout
         (root / (job['physical_role'] + '.prepare.log')).write_text(result.stdout)
