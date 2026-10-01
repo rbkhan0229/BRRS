@@ -23,6 +23,16 @@ PROCESS_TOKENS = ('rtt_capture.py', 'brrs_stage0_capture.sh', 'brrs_exp1_capture
                   'brrs_exp2_capture', 'brrs_exp3_capture.sh', 'brrs_exp4_capture.sh',
                   'brrs_exp5_capture.sh', 'JLinkExe', 'JLinkRTT')
 
+
+def timing_mark(state, name, role=None, stamp_ns=None):
+    """Optional host-only phase marker; never samples the firmware/RF path."""
+    if os.environ.get('BRRS_HOST_PHASE_TIMING') != '1':
+        return
+    event = {'name': name, 'monotonic_ns': time.monotonic_ns() if stamp_ns is None else stamp_ns}
+    if role is not None:
+        event['role'] = role
+    state.setdefault('host_phase_timing', []).append(event)
+
 # Retain the shared Mac lock; Linux has no /private/tmp directory.
 LOCK_PATH = '/private/tmp/brrs-single-host-jlink.lock' if platform.system() == 'Darwin' else '/tmp/brrs-single-host-jlink.lock'
 
@@ -170,7 +180,9 @@ def supervise(root, c, state, spawn, ready_timeout=55, capture_timeout=200):
             if any(p.poll() is not None for _,p,_ in workers):
                 raise RuntimeError('a TX ended before RX setup completed')
             role = job['physical_role']
+            timing_mark(state, 'worker_spawn_begin', role)
             proc, console = spawn(job)
+            timing_mark(state, 'worker_process_started', role)
             workers.append((job, proc, console))
             state['workers'][role] = {'serial':job['serial'], 'pid':proc.pid, 'started_at':now(), 'console':str(console)}
             if job is rx:
@@ -184,17 +196,21 @@ def supervise(root, c, state, spawn, ready_timeout=55, capture_timeout=200):
                 if time.monotonic() > deadline: raise TimeoutError(role+' READY timeout')
                 time.sleep(.05)
             state['workers'][role]['ready_at'] = now()
+            timing_mark(state, 'worker_ready', role)
             if job is tx[-1]: state['all_tx_ready_at'] = now()
             persist()
         state['status'] = 'CAPTURING'; persist()
+        timing_mark(state, 'capture_begin')
         deadline = time.monotonic()+capture_timeout
         # A weak TX failing must not truncate the RX/other TX observation.
         while any(p.poll() is None for _,p,_ in workers):
             stop_requested()
             if time.monotonic()>deadline: raise TimeoutError('case timeout')
             time.sleep(.05)
+        timing_mark(state, 'workers_exited')
     finally:
         stop_workers([p for _,p,_ in workers])
+        timing_mark(state, 'workers_reaped')
         for job, proc, console in workers:
             state['workers'][job['physical_role']]['exit_code'] = proc.returncode
         persist()
@@ -279,10 +295,13 @@ def run(root, c, index, assessor=None):
     # Machine-wide lock; never kill or adopt another experiment's processes.
     with open(LOCK_PATH,'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        preflight_start_ns = time.monotonic_ns()
         info = preflight(root,c)
         out = root/'results'; out.mkdir(exist_ok=False)
         state = dict(started_at=now(), host=platform.node(), status='STARTING',
                      payload_index_sha256=index, preflight=info, workers={}, rf_runs_started=0)
+        timing_mark(state, 'preflight_begin', stamp_ns=preflight_start_ns)
+        timing_mark(state, 'preflight_done')
         handles = []
         def abort(sig, frame): raise RuntimeError('interrupted signal '+str(sig))
         for sig in (signal.SIGTERM,signal.SIGINT,signal.SIGHUP): signal.signal(sig,abort)
@@ -297,32 +316,45 @@ def run(root, c, index, assessor=None):
                                     stderr=subprocess.STDOUT, start_new_session=True), console
         try:
             if (root/'STOP').exists(): raise RuntimeError('explicit stop requested before run')
+            timing_mark(state, 'initial_halt_begin')
             halt(c,list(c['boards']))
+            timing_mark(state, 'initial_halt_done')
             supervise(root,c,state,spawn)
+            timing_mark(state, 'supervise_done')
         except BaseException as exc:
             state['error'] = repr(exc)
         finally:
             for h in handles: h.close()
+            timing_mark(state, 'metadata_begin')
             for job in c['jobs']:
                 worker = state['workers'].get(job['physical_role'])
                 if worker:
                     try: worker.update(metadata(root,c,job,Path(worker['console']).read_text()))
                     except Exception as exc: worker['metadata_error'] = repr(exc)
+            timing_mark(state, 'metadata_done')
+            timing_mark(state, 'park_begin')
             try:
                 state['halt_errors'] = park_all(c)
+                timing_mark(state, 'park_done')
+                timing_mark(state, 'snapshot_begin')
                 state['recovery'] = snapshot(root,c)
+                timing_mark(state, 'snapshot_done')
             except Exception as exc: state['recovery_error'] = repr(exc)
             good_workers = len(state['workers'])==len(c['jobs']) and all(w.get('exit_code')==0 and w.get('metadata_valid') for w in state['workers'].values())
             good_recovery = len(state.get('recovery',{}))==len(c['jobs']) and all(x.get('halted') and x.get('readback',{}).get('status')=='PASS' for x in state.get('recovery',{}).values())
             state['status'] = 'COLLECTION_AND_READBACK_PASS' if good_workers and good_recovery and not state.get('halt_errors') and 'error' not in state else 'FAIL'
             state['finished_at'] = now(); save(out/'status.json', state)
             if state['status']=='COLLECTION_AND_READBACK_PASS':
+                timing_mark(state, 'export_begin')
                 try:
                     export_cir_evidence(root,c,state)
+                    timing_mark(state, 'export_done')
                     if assessor is None:
                         from brrs_suite_results import assess
                         assessor = assess
+                    timing_mark(state, 'assessment_begin')
                     assessment=assessor(root);save(out/'ASSESSMENT.json',assessment)
+                    timing_mark(state, 'assessment_done')
                     state['assessment_verdict']=assessment['verdict']
                 except Exception as exc:
                     state['assessment_error']=repr(exc);state['status']='FAIL'
@@ -333,6 +365,8 @@ def run(root, c, index, assessor=None):
             try: save(out/'SUMMARY.json',summarize(root,c,state))
             except Exception as exc:
                 state['summary_error']=repr(exc); state['status']='FAIL'; save(out/'status.json',state)
+            timing_mark(state, 'run_done')
+            if 'host_phase_timing' in state: save(out/'status.json',state)
         print(json.dumps(state,indent=2),flush=True)
         return 0 if state['status']=='COLLECTION_AND_READBACK_PASS' else 1
 
