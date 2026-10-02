@@ -1,0 +1,11 @@
+--- reference/firmware/brrs_normal.c
++++ candidate_600us/brrs_normal.c
+@@ -1963,7 +1963,7 @@
+                 dwt_setrxtimeout(US_TO_UUS(SYNC_RX_TIMEOUT_US));
+                 dwt_writesysstatuslo(0xFFFFFFFF);
+                 if(ho_ready() && ho.seq<TARGET_CYCLES) {
+-                    uint32_t target=ho.last+ho.period-199680U; /* 800 us early */
++                    uint32_t target=ho.last+ho.period-149760U; /* 600 us early; M512 SHR ~529 us */
+                     dwt_setdelayedtrxtime(target);
+                     dwt_setrxtimeout(US_TO_UUS(2000));
+                     if(dwt_rxenable(DWT_START_RX_DELAYED | DWT_IDLE_ON_DLY_ERR)==DWT_SUCCESS)ho_rx_scheduled++;

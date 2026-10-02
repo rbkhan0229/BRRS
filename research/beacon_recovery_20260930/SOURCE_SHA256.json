@@ -1,0 +1,26 @@
+{
+  "files": {
+    "README_KR.md": "460da8101a553e9042ec2e99946c3bd7dbb267d320a485d0bc506a6549efc5f1",
+    "analysis/CLOCK_ANCHOR_EFFECT_ANALYSIS.json": "383974d34e6a5e1976b4af58c215d7d80623ff49b05931ebeb1042b13f0875ce",
+    "analysis/analyze_clock_and_effect.py": "15586ad8edf1eb0205cc7f2b01b9196e405886d93b5d0b288ca6b865cb0ae3f8",
+    "candidate_600us/SOURCE_DELTA.txt": "07a5588e3b72bec894268872010b14c9033ec381f44a45b7d87dd276dbd299c3",
+    "reference/controller/aux_capture.py": "27b620e905bec7fd61987f3dfc4eea19700390196aed0ec769b053bc49ca1f20",
+    "reference/controller/beacon_trace.py": "4b12a9cfbe898d96ea99fb81f45b643cca0379d17c170c08c4069c80b11e0d63",
+    "reference/controller/holdover_verify.py": "40ede9b0c804628b5a624f62352d2d8a8ba67bd560da0bd41a866d7d4ff02189",
+    "reference/controller/interference_host.py": "df82372377cdff3d42e6df70ed640b9b344805b4e9c136dd7001e067a27f8d87",
+    "reference/controller/interference_victim.py": "f66da61d63aa3a718e19f39a187403152707b90bf8d2e361f705af4eb841ea16",
+    "reference/controller/link_diagnostic.py": "e42791b6b9b6631def5089ab39a4f4937dda141552880bbe49f7d97963473170",
+    "reference/controller/safe_recovery.py": "b4dd87e98fc0c4ddc2eedc77d1b5d320268c713ac56b2971362c8a18594148e8",
+    "reference/controller/safe_run_case.sh": "deeda7831aacfaecfa86fb872366d9645529c805bcdc74ef513c6dc9b2de0474",
+    "reference/controller/sniffer_capture.py": "8fd16364897df2ff44aa3d2d068b7ea375e3360796b7b58e22f3d15d19850f58",
+    "reference/controller/study.py": "a12185c41c0fdf2e43f1a2288ef800fc2e1a233e56c11f34649853e264f0ba0b",
+    "reference/firmware/aux_firmware.c": "d3562023a781e1568df8f617deea20c12fb4b6ff7f709211918f3bde64b9f977",
+    "reference/firmware/brrs_beacon_trace.h": "e7a5039fc9bb2482165a549d93bca7993f81f83985a19b71055dafa692030593",
+    "reference/firmware/brrs_holdover.h": "236949a9635ca838d816d6ae1bcf4893c5e42428dfa15a763a76544457c528a7",
+    "reference/firmware/brrs_init.c": "4953868a00ab76b7e08ebdd7f05889898a6e3242614a37e2498a6646b213c1de",
+    "reference/firmware/brrs_normal.c": "a559ab779720ceeb5741f91acf43b94a4b2e65b849c38cfd5e67da47337464d3",
+    "reference/firmware/sniffer_firmware.c": "7e007cd97c0db405b366426448ad921ff974358b2faff5b997c8f7e798c97a8b",
+    "results/20260929_CH9_strong_aux_REPORT_KR.md": "708bbaed7f6c407c14832ce33866af75979b15e24a9e7ea23b9fa1fd773e8658",
+    "results/20260930_CH5_600us_REPORT_KR.md": "7b454aee4d5fbe587324a678995182c07702a6f37e3dcd519fffe3c552873cf3"
+  }
+}
