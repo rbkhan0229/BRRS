@@ -28,6 +28,18 @@ class Flow(unittest.TestCase):
   self.assertEqual(self.started,['N2','N3','N4','N5','N6','N7','init'])
   self.assertLessEqual(self.state['all_tx_ready_at'],self.state['rx_started_at'])
   self.assertTrue(all(w['exit_code']==0 for w in self.state['workers'].values()))
+ def test_phase_timing_opt_in(self):
+  with patch.dict(os.environ, {'BRRS_HOST_PHASE_TIMING':'0'}):
+   s.timing_mark(self.state,'ignored')
+  self.assertNotIn('host_phase_timing',self.state)
+  with patch.dict(os.environ, {'BRRS_HOST_PHASE_TIMING':'1'}):
+   s.supervise(self.r,CASE,self.state,self.spawn,ready_timeout=3,capture_timeout=3)
+  events=self.state['host_phase_timing']
+  names=[e['name'] for e in events]
+  self.assertEqual(names.count('worker_ready'),7)
+  self.assertLess(names.index('capture_begin'),names.index('workers_exited'))
+  self.assertLess(names.index('workers_exited'),names.index('workers_reaped'))
+  self.assertEqual([e['monotonic_ns'] for e in events],sorted(e['monotonic_ns'] for e in events))
  def test_failed_tx_does_not_cut_off_rx(self):
   s.supervise(self.r,CASE,self.state,lambda j:self.spawn(j,weak=True),ready_timeout=3,capture_timeout=3)
   self.assertEqual(self.state['workers']['N2']['exit_code'],2)
