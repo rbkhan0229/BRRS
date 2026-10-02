@@ -61,9 +61,25 @@ def profile_filters(m, config):
     return {stage: copy.deepcopy(supplied.get(stage, defaults[stage])) for stage in STAGES}
 
 
+def exp4_config(m, config):
+    """Apply explicit profile settings without altering legacy manifests."""
+    from brrs_suite_manifest import validate_exp4_phy
+    overrides = config.get('exp4_overrides', {})
+    allowed = {'guard_us','sync_buffer_us','sync_prep_us','phy_fast_switch','phy_fast_skip_pgf'}
+    if not isinstance(overrides, dict) or not set(overrides) <= allowed:
+        raise ValueError('unsupported Exp4 profile override')
+    e = copy.deepcopy(m['exp4'])
+    e.update(overrides)
+    validate_exp4_phy(e)
+    for key,low,high in [('guard_us',0,1000),('sync_buffer_us',1,9999),('sync_prep_us',1,9999)]:
+        if type(e[key]) is not int or not low <= e[key] <= high:
+            raise ValueError('invalid Exp4 profile timing: '+key)
+    return e
+
 def _validate_profile(m, name, config):
     from brrs_suite_manifest import max_slots
 
+    effective_exp4 = exp4_config(m, config)
     counts = config['repeats_by_stage']
     disabled = config.get('disabled_stages', [])
     if (not isinstance(disabled, list) or len(set(disabled)) != len(disabled) or
@@ -161,12 +177,13 @@ def _validate_profile(m, name, config):
     for plen in s6_preambles:
         values = slot_counts[str(plen)]
         if (not values or len(set(values)) != len(values) or
-                any(type(k) is not int or not 6 <= k <= max_slots(m['exp4'], plen)
+                any(type(k) is not int or not 6 <= k <= max_slots(effective_exp4, plen)
                     for k in values) or 6 not in values):
             raise ValueError(f'invalid {name} M{plen} S6 slot counts')
 
 
 def validate(m):
+    from brrs_suite_manifest import stage0_configs
     profiles = m.get('profiles')
     if profiles is not None:
         profile_names = set(profiles)
@@ -289,6 +306,19 @@ def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'
     validate(m)
     config = profile_config(m, profile)
     filters = profile_filters(m, config)
+    # An explicitly recorded partial campaign may execute only independently
+    # calibrated PHYs. Keep the complete Standard profile and all lead gates.
+    scope = m.get('execution_scope', {}).get('stage0_config_ids')
+    if scope is not None:
+        from brrs_suite_manifest import stage0_configs
+        allowed = {c['id'] for c in stage0_configs(m)}
+        if (profile != 'standard' or not isinstance(scope, list) or not scope or
+                len(set(scope)) != len(scope) or not set(scope) <= allowed):
+            raise ValueError('invalid explicit Standard execution scope')
+        if (stage == 'exp3' and 'm32_pac8' not in scope or
+                stage == 'exp5' and 'm1024_pac32' not in scope or
+                stage in ['exp1','exp2','exp4'] and not set(scope) & {'m32_pac4','m32_pac8'}):
+            return []
     result = []
     repeats = config['stage0_confirmation_repeats'] if confirmation else config['repeats_by_stage'][stage]
     for block in range(1, repeats + 1):
@@ -297,6 +327,7 @@ def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'
         for sensors in sensors_to_run:
             configured = copy.deepcopy(m)
             if stage == 'exp4':
+                configured['exp4'] = exp4_config(m, config)
                 exp4 = configured['exp4']
                 exp4['sensors'] = sensors
                 exp4.pop('capacity_search', None)
@@ -306,7 +337,7 @@ def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'
                 configured['pacs'] = list(filters['exp4']['pacs'])
                 exp4['slot_counts_by_preamble'] = {
                     str(plen): ([sensors] if sensors < 6 else
-                                capacity_counts({**m['exp4'], 'sensors': 6}, plen)
+                                capacity_counts({**exp4_config(m, config), 'sensors': 6}, plen)
                                 if capacity_candidates else
                                 config['s6_slot_counts_by_preamble'][str(plen)])
                     for plen in exp4_preambles
@@ -318,6 +349,11 @@ def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'
                     configured['single_link_tx_role'] = physical[0]
                 for logical, role in enumerate(physical, 2):
                     configured['boards'][f'N{logical}'] = copy.deepcopy(m['boards'][role])
+            if scope is not None:
+                if stage == 'stage0':
+                    configured['stage0']['phy_configs'] = [c for c in stage0_configs(m) if c['id'] in scope]
+                elif stage in ['exp1','exp2','exp4']:
+                    configured['pacs'] = [pac for pac in configured['pacs'] if f'm32_pac{pac}' in scope]
             raw = [case for case in base_plan(configured, stage)
                    if _selected(m, stage, case, filters)]
             if confirmation:
@@ -365,7 +401,7 @@ def plan(m, stage, capacity_candidates=False, confirmation=False, profile='full'
                         BRRS_SUITE_LOCATION=job['location'],
                         BRRS_SUITE_ASSIGNMENT_SHA256=case['assignment_sha256'])
                 batch.append(case)
-        if config['condition_order'] == 'alternating_rotated':
+        if batch and config['condition_order'] == 'alternating_rotated':
             offset = (block - 1) % len(batch)
             batch = batch[offset:] + batch[:offset]
             if block % 2 == 0:
