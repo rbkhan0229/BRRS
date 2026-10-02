@@ -16,6 +16,7 @@ Usage:
   $(basename "$0") <init|N2..N8> <32|64|128|256> <sensor-count:1..7> <run> <environment> [distance] [options]
 
 Options:
+  --uwb-channel <5|9> DATA and beacon UWB channel (default: 9).
   --guard <us>         Inter-slot guard used by every board (default: 200).
   --lead <us>          Coordinator RX lead margin (default: 15).
   --pac <4|8>          Coordinator DATA RX PAC size (default: 8).
@@ -91,6 +92,7 @@ TARGET_CYCLES=1000
 SYNC_BUFFER_US=3000
 SYNC_PREP_US=2500
 BEACON_PREAMBLE=512
+UWB_CHANNEL=9
 MAX_PER_PERCENT=5.0
 if (( $# > 0 )) && [[ "$1" != --* ]]; then
     DISTANCE="$1"
@@ -118,6 +120,9 @@ while (( $# > 0 )); do
             (( $# >= 2 )) || { echo "--sync-prep requires a value" >&2; exit 2; }
             SYNC_PREP_US="$2"; shift 2
             ;;
+        --uwb-channel)
+            (( $# >= 2 )) || { echo "--uwb-channel requires a value" >&2; exit 2; }
+            UWB_CHANNEL="$2"; shift 2 ;;
         --beacon-preamble)
             (( $# >= 2 )) || { echo "--beacon-preamble requires a value" >&2; exit 2; }
             BEACON_PREAMBLE="$2"; shift 2
@@ -179,6 +184,10 @@ fi
 case "${PAC}" in
     4|8) ;;
     *) echo "pac must be 4 or 8" >&2; exit 2 ;;
+esac
+case "${UWB_CHANNEL}" in
+    5|9) ;;
+    *) echo "UWB channel must be 5 or 9" >&2; exit 2 ;;
 esac
 case "${BEACON_PREAMBLE}" in
     32|64|128|256|512|1024) ;;
@@ -287,6 +296,7 @@ fi
 if (( TARGET_CYCLES != 1000 )); then
     IMAGE_DIR+="_cycles${TARGET_CYCLES}"
 fi
+if (( UWB_CHANNEL != 9 )); then IMAGE_DIR+="_ch${UWB_CHANNEL}"; fi
 IMAGE_BASE="exp4_${PREAMBLE}_s${SENSOR_COUNT}_${IMAGE_ROLE}"
 HEX_FILE="${IMAGE_DIR}/${IMAGE_BASE}.hex"
 ELF_FILE="${IMAGE_DIR}/${IMAGE_BASE}.elf"
@@ -451,7 +461,7 @@ if (( NO_BUILD == 0 )); then
     BUILD_CMD=("${SCRIPT_DIR}/brrs_exp4_build.sh"
         "${PREAMBLE}" "${SENSOR_COUNT}" "${GUARD_US}" "${IMAGE_ROLE}" "${LEAD_US}"
         --pac "${PAC}" --sync-buffer "${SYNC_BUFFER_US}" --sync-prep "${SYNC_PREP_US}"
-        --beacon-preamble "${BEACON_PREAMBLE}" --cycles "${TARGET_CYCLES}")
+        --beacon-preamble "${BEACON_PREAMBLE}" --cycles "${TARGET_CYCLES}" --uwb-channel "${UWB_CHANNEL}")
     [[ -n "${SEQUENCE}" ]] && BUILD_CMD+=(--sequence "${SEQUENCE}")
     (( SLOTTED_RX == 0 )) || BUILD_CMD+=(--slotted-rx)
     (( SPI_OPT == 0 )) || BUILD_CMD+=(--spi-opt)
@@ -477,19 +487,46 @@ RTT_ADDR="0x${RTT_SYMBOL}"
 echo "[rtt] control block @ ${RTT_ADDR}"
 if (( BUILD_ONLY )); then echo "[build-only] verified image ${HEX_FILE}; no board access"; exit 0; fi
 
+FLASH_MODE=flash_and_reset
+FLASH_ARGS=(--hex "${HEX_FILE}")
+if [[ "${BRRS_DIAGNOSTIC_NO_FLASH:-0}" == 1 ]]; then
+    [[ "${BRRS_SUITE_PROFILE:-}" == vehicle_diagnostic && "${NO_BUILD}" == 1 && -n "${SERIAL}" ]] \
+        || { echo "reset-only requires a diagnostic, existing image and fixed serial" >&2; exit 1; }
+    PYTHONPATH="${SCRIPT_DIR}${PYTHONPATH:+:${PYTHONPATH}}" python3 - "${SERIAL}" "${HEX_FILE}" <<'PY'
+import sys
+from pathlib import Path
+from brrs_suite_case import link, hex_chunks
+serial, image = sys.argv[1:]
+chunks = hex_chunks(Path(image))
+jl = link(serial)
+try:
+    if not jl.halted():
+        raise RuntimeError('reset-only target must already be parked')
+    for addr, data in chunks:
+        if bytes(jl.memory_read8(addr, len(data))) != data:
+            raise RuntimeError('reset-only installed firmware mismatch at '+hex(addr))
+finally:
+    jl.close()
+print('[no-flash] VERIFIED existing HEX bytes='+str(sum(len(data) for _, data in chunks)), flush=True)
+PY
+    FLASH_ARGS=()
+    FLASH_MODE=verified_existing_reset_only
+fi
+
 PYLINK_ARGS=(
     python3 "${SCRIPT_DIR}/rtt_capture.py"
-    --hex "${HEX_FILE}"
+    ${FLASH_ARGS[@]+"${FLASH_ARGS[@]}"}
     --rtt-address "${RTT_ADDR}"
     --channel 1
     --ready-marker "EXP_LOG_READY,channel=1"
     --end-marker "===== END STATS ====="
     --timeout "${TIMEOUT}"
-    --reconnect-attempts 20
+    --reconnect-attempts "${BRRS_RECONNECT_ATTEMPTS:-20}"
     --reconnect-delay 0.5
     --out "${RAW_LOG}"
 )
 [[ -n "${SERIAL}" ]] && PYLINK_ARGS+=(--serial "${SERIAL}")
+[[ "${BRRS_STRICT_CONNECTION:-0}" != 1 ]] || PYLINK_ARGS+=(--strict-connection)
 "${PYLINK_ARGS[@]}"
 
 VERIFY_SEQ_ARGS=()
@@ -576,6 +613,7 @@ fi
     printf 'suite_assignment_sha256=%s\n' "${BRRS_SUITE_ASSIGNMENT_SHA256:-standalone}"
     printf 'configuration=%s\n' "${CONFIG}"
     printf 'preamble_symbols=%s\n' "${PREAMBLE}"
+    printf 'uwb_channel=%s\n' "${UWB_CHANNEL}"
     printf 'beacon_preamble_symbols=%s\n' "${BEACON_PREAMBLE}"
     printf 'sensor_count=%s\n' "${SENSOR_COUNT}"
     printf 'guard_us=%s\n' "${GUARD_US}"
@@ -612,6 +650,7 @@ fi
     printf 'optimization=%s\n' "${OPTIMIZATION}"
     printf 'firmware_path=%s\n' "${HEX_FILE}"
     printf 'firmware_sha256=%s\n' "${FIRMWARE_SHA256}"
+    printf 'flash_mode=%s\n' "${FLASH_MODE}"
     printf 'rtt_address=%s\n' "${RTT_ADDR}"
     printf 'capture_method=pylink\n'
     printf 'probe_serial=%s\n' "${SERIAL:-auto-single-probe}"

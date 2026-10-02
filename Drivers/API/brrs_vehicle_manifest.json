@@ -29,7 +29,7 @@
       "location": "passenger_seat"
     },
     "N6": {
-      "serial": "1050227627",
+      "serial": "1050257038",
       "host": "s-macbook-air",
       "location": "trunk_A"
     },
@@ -40,7 +40,14 @@
     }
   },
   "single_link_tx_role": "N4",
-  "cir_link_tx_roles": ["N2", "N3", "N4", "N5", "N6", "N7"],
+  "cir_link_tx_roles": [
+    "N2",
+    "N3",
+    "N4",
+    "N5",
+    "N6",
+    "N7"
+  ],
   "pacs": [
     4,
     8
@@ -234,6 +241,13 @@
       }
     },
     "standard": {
+      "exp4_overrides": {
+        "guard_us": 200,
+        "sync_buffer_us": 1700,
+        "sync_prep_us": 2200,
+        "phy_fast_switch": true,
+        "phy_fast_skip_pgf": false
+      },
       "description": "Primary vehicle profile: Exp1 folded into rotating Exp4 S1, PAC4 limited to M32, S1-S6 scaling, and repeated link evidence",
       "disabled_stages": [
         "exp1"
@@ -380,11 +394,11 @@
       "s6_slot_counts_by_preamble": {
         "32": [
           6,
-          13
+          20
         ],
         "256": [
           6,
-          8
+          12
         ]
       }
     },
