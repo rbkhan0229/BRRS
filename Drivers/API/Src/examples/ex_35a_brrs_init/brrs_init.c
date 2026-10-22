@@ -205,6 +205,20 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
  * 32/64/128/256 sweep behavior, so the two get separate constants below. */
 #define ENABLE_CIR      (BRRS_EXPERIMENT == 2 || BRRS_EXPERIMENT == 5)
 
+/* Opt-in Exp2 pilot only. Keep the publication receiver unchanged by default. */
+#ifndef BRRS_EXP2_FAILED_CIR_DIAG
+#define BRRS_EXP2_FAILED_CIR_DIAG 0
+#endif
+#if BRRS_EXP2_FAILED_CIR_DIAG && BRRS_EXPERIMENT != 2
+#error "BRRS_EXP2_FAILED_CIR_DIAG is only supported in Exp2"
+#endif
+#if BRRS_EXP2_FAILED_CIR_DIAG
+#define FAIL_CIR_SAMPLES       64U
+#define FAIL_CIR_PRE_FP        16U
+#define FAIL_CIR_MAX_TOTAL     12U
+#define FAIL_CIR_MAX_PER_CAUSE 3U
+#endif
+
 #if BRRS_EXPERIMENT == 5
 #define CIR_ANALYSIS_SAMPLES    300
 #define CIR_LOG_PER_FRAME       0
@@ -2577,6 +2591,127 @@ static void failed_accum_hist_add(failed_accum_hist_entry_t *hist,
     }
 }
 
+#if BRRS_EXP2_FAILED_CIR_DIAG
+/* Candidate data only: even RXPRD+CIADONE cannot prove that a failed
+ * packet's accumulator belongs to the intended transmitter. */
+typedef struct {
+    uint32_t cycle;
+    uint32_t status;
+    uint16_t accum;
+    uint16_t fp_sample;
+    uint16_t sample_offs;
+    uint8_t owner_idx;
+    uint8_t cause;
+    uint8_t samples[FAIL_CIR_SAMPLES * 6U];
+} failed_cir_entry_t;
+
+static failed_cir_entry_t failed_cir_entries[FAIL_CIR_MAX_TOTAL];
+static uint8_t failed_cir_count = 0U;
+static uint8_t failed_cir_by_cause[FAIL_ACCUM_CAUSE_COUNT];
+static uint32_t failed_cir_events = 0U;
+static uint32_t failed_cir_no_preamble = 0U;
+static uint32_t failed_cir_invalid_accum = 0U;
+static uint32_t failed_cir_no_ciadone = 0U;
+static uint32_t failed_cir_cia_error = 0U;
+static uint32_t failed_cir_invalid_fp = 0U;
+static uint32_t failed_cir_capped = 0U;
+
+static void capture_failed_cir(uint32_t status_reg, uint8_t owner_idx,
+                               fail_accum_cause_t cause,
+                               const dwt_cirdiags_t *diag)
+{
+    uint16_t fp_sample;
+    failed_cir_entry_t *entry;
+
+    failed_cir_events++;
+    if ((status_reg & DWT_INT_RXPRD_BIT_MASK) == 0U) {
+        failed_cir_no_preamble++;
+        return;
+    }
+    if (diag->accumCount == 0U || diag->accumCount > PREAMBLE_SYMBOLS) {
+        failed_cir_invalid_accum++;
+        return;
+    }
+    if ((status_reg & DWT_INT_CIADONE_BIT_MASK) == 0U) {
+        failed_cir_no_ciadone++;
+        return;
+    }
+    if ((status_reg & DWT_INT_CIAERR_BIT_MASK) != 0U) {
+        failed_cir_cia_error++;
+        return;
+    }
+    fp_sample = (uint16_t)(diag->FpIndex >> 6);
+    if (fp_sample < FAIL_CIR_PRE_FP ||
+        fp_sample > (DWT_CIR_LEN_IP_PRF64 -
+                     (FAIL_CIR_SAMPLES - FAIL_CIR_PRE_FP))) {
+        failed_cir_invalid_fp++;
+        return;
+    }
+    if (failed_cir_count >= FAIL_CIR_MAX_TOTAL ||
+        failed_cir_by_cause[cause] >= FAIL_CIR_MAX_PER_CAUSE) {
+        failed_cir_capped++;
+        return;
+    }
+
+    entry = &failed_cir_entries[failed_cir_count];
+    entry->cycle = current_cycle;
+    entry->status = status_reg;
+    entry->accum = diag->accumCount;
+    entry->fp_sample = fp_sample;
+    entry->sample_offs = fp_sample - FAIL_CIR_PRE_FP;
+    entry->owner_idx = owner_idx;
+    entry->cause = (uint8_t)cause;
+    /* dwt_readcir returns void; SPI completion is not a per-event validity
+     * proof. Read before status clear, TRXOFF or the next RX arm. */
+    dwt_readcir((uint32_t *)(void *)entry->samples, DWT_ACC_IDX_IP_M,
+                entry->sample_offs, FAIL_CIR_SAMPLES, DWT_CIR_READ_FULL);
+    failed_cir_count++;
+    failed_cir_by_cause[cause]++;
+}
+
+static void dump_failed_cir(void)
+{
+    uint8_t i;
+    static char line[230];
+
+    snprintf(line, sizeof(line),
+             "FAIL_CIR_DUMP_START,version=1,experiment=2,samples=%u,max_total=%u,max_per_cause=%u,scope=candidate_only",
+             FAIL_CIR_SAMPLES, FAIL_CIR_MAX_TOTAL, FAIL_CIR_MAX_PER_CAUSE);
+    cir_log_info(line);
+    for (i = 0U; i < failed_cir_count; i++) {
+        failed_cir_entry_t *entry = &failed_cir_entries[i];
+        uint16_t tap;
+        snprintf(line, sizeof(line),
+                 "FAIL_CIR_HEADER,id=%u,cycle=%lu,node=%s,cause=%s,status=0x%08lX,rxprd=1,ciadone=1,accum=%u,fp_sample=%u,sample_offset=%u,n_samples=%u",
+                 (unsigned)(i + 1U), (unsigned long)entry->cycle,
+                 get_slot_description(entry->owner_idx),
+                 failed_accum_cause_name((fail_accum_cause_t)entry->cause),
+                 (unsigned long)entry->status, entry->accum,
+                 entry->fp_sample, entry->sample_offs, FAIL_CIR_SAMPLES);
+        cir_log_info(line);
+        for (tap = 0U; tap < FAIL_CIR_SAMPLES; tap++) {
+            const uint8_t *p = &entry->samples[tap * 6U];
+            snprintf(line, sizeof(line),
+                     "FAIL_CIR_RAW,%u,%u,%02X%02X%02X%02X%02X%02X",
+                     (unsigned)(i + 1U), (unsigned)tap,
+                     (unsigned)p[0], (unsigned)p[1], (unsigned)p[2],
+                     (unsigned)p[3], (unsigned)p[4], (unsigned)p[5]);
+            cir_log_info(line);
+        }
+        Sleep(CIR_SAMPLE_DUMP_DELAY_MS);
+    }
+    snprintf(line, sizeof(line),
+             "FAIL_CIR_DUMP_DONE,version=1,events=%lu,captured=%u,no_preamble=%lu,invalid_accum=%lu,no_ciadone=%lu,cia_error=%lu,invalid_fp=%lu,capped=%lu,samples_per_frame=%u",
+             (unsigned long)failed_cir_events, failed_cir_count,
+             (unsigned long)failed_cir_no_preamble,
+             (unsigned long)failed_cir_invalid_accum,
+             (unsigned long)failed_cir_no_ciadone,
+             (unsigned long)failed_cir_cia_error,
+             (unsigned long)failed_cir_invalid_fp,
+             (unsigned long)failed_cir_capped, FAIL_CIR_SAMPLES);
+    cir_log_info(line);
+}
+#endif
 static void capture_failed_accum(uint32_t status_reg)
 {
     uint8_t owner_idx = failed_accum_owner_index();
@@ -2594,6 +2729,9 @@ static void capture_failed_accum(uint32_t status_reg)
 
     stats->diag_read_ok++;
     raw_accum = diag.accumCount;
+#if BRRS_EXP2_FAILED_CIR_DIAG
+    capture_failed_cir(status_reg, owner_idx, cause, &diag);
+#endif
 
     if (!(status_reg & DWT_INT_RXPRD_BIT_MASK)) {
         stats->invalid_no_rxprd++;
@@ -5508,6 +5646,9 @@ int brrs_init(void)
 #if CIR_DUMP_SAMPLES_AT_END
                 dump_cir_samples();
 #else
+#if BRRS_EXP2_FAILED_CIR_DIAG
+                dump_failed_cir();
+#endif
                 print_exp2_done_marker();
 #endif
 #endif

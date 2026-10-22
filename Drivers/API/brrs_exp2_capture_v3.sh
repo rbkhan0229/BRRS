@@ -42,6 +42,7 @@ Options:
   --lead <us>                RX lead margin (default: 15).
   --serial <S/N>             Select a J-Link when multiple probes are attached.
   --build-only              Build/resolve images without board access.
+  --failed-cir-diag         Opt-in Exp2 RX candidate-CIR pilot (default: OFF).
   --no-build                 Reuse the existing ELF and HEX.
   --timeout <seconds>        Override the capture timeout.
   --method <pylink|telnet>   Capture backend (default: pylink).
@@ -61,7 +62,7 @@ fi
 
 ROLE="${1:?role tx|rx}"; PREAMBLE="${2:?preamble}"; RUN_NUMBER="${3:?run}"
 ENVIRONMENT="${4:?environment}"; shift 4
-DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="${BRRS_EXP2_CAPTURE_METHOD:-pylink}"; FORCE=0; LEAD_US=15; PAC=8; BEACON_PREAMBLE=512
+DISTANCE="na"; SERIAL=""; NO_BUILD=0; TIMEOUT=""; METHOD="${BRRS_EXP2_CAPTURE_METHOD:-pylink}"; FORCE=0; LEAD_US=15; PAC=8; BEACON_PREAMBLE=512; FAILED_CIR_DIAG=0
 if (( $# > 0 )) && [[ "${1}" != --* ]]; then DISTANCE="$1"; shift; fi
 while (( $# > 0 )); do
     case "$1" in
@@ -70,6 +71,7 @@ while (( $# > 0 )); do
         --lead)   (( $# >= 2 )) || { echo "--lead requires a value" >&2; exit 2; }; LEAD_US="$2"; shift 2 ;;
         --serial) (( $# >= 2 )) || { echo "--serial requires a value" >&2; exit 2; }; SERIAL="$2"; shift 2 ;;
         --build-only) BUILD_ONLY=1; shift ;;
+        --failed-cir-diag) FAILED_CIR_DIAG=1; shift ;;
         --no-build) NO_BUILD=1; shift ;;
         --timeout) TIMEOUT="$2"; shift 2 ;;
         --method)  METHOD="$2"; shift 2 ;;
@@ -104,11 +106,15 @@ case "${ROLE}" in
         TIMEOUT="${TIMEOUT:-600}" ;;
     *)  echo "role must be tx|rx" >&2; exit 2 ;;
 esac
+if (( FAILED_CIR_DIAG )) && [[ "${ROLE}" != "rx" ]]; then
+    echo "--failed-cir-diag is RX-only" >&2; exit 2
+fi
 
 HEX_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.hex"
 ELF_FILE="${OUTPUT_DIR}/${CONFIG}/Exe/dw3000_api.elf"
 LEAD_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_lead_us"
 PAC_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_rx_pac"
+FAIL_CIR_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_failed_cir_diag"
 BEACON_STAMP="${OUTPUT_DIR}/${CONFIG}/Exe/.brrs_sync_preamble_symbols"
 DATE_TAG="$(date '+%Y%m%d')"
 DISTANCE_TAG=""
@@ -189,6 +195,7 @@ if (( NO_BUILD == 0 )); then
     if [[ "${ROLE}" == "rx" ]]; then
         DEFS+=";BRRS_TARGET_CYCLES=${EXPECTED_SAMPLES}"
         DEFS+=";BRRS_RX_LEAD_MARGIN_US=${LEAD_US};BRRS_RX_PAC_SYMBOLS=${PAC}"
+        DEFS+=";BRRS_EXP2_FAILED_CIR_DIAG=${FAILED_CIR_DIAG}"
     fi
     BUILD_ARGS+=(-sproperty "c_preprocessor_definitions=${DEFS}")
     BUILD_ARGS+=(-config "${CONFIG}" -project dw3000_api -rebuild "${PROJECT}")
@@ -197,6 +204,7 @@ if (( NO_BUILD == 0 )); then
     if [[ "${ROLE}" == "rx" ]]; then
         printf '%s\n' "${LEAD_US}" >"${LEAD_STAMP}"
         printf '%s\n' "${PAC}" >"${PAC_STAMP}"
+        printf '%s\n' "${FAILED_CIR_DIAG}" >"${FAIL_CIR_STAMP}"
     fi
     printf '%s\n' "${BEACON_PREAMBLE}" >"${BEACON_STAMP}"
 fi
@@ -210,6 +218,10 @@ if (( NO_BUILD == 1 )) && [[ "${ROLE}" == "rx" ]]; then
     [[ -f "${PAC_STAMP}" && "$(<"${PAC_STAMP}")" == "${PAC}" ]] || { echo "cached ${CONFIG} PAC mismatch" >&2; exit 1; }
     [[ -f "${LEAD_STAMP}" && "$(<"${LEAD_STAMP}")" == "${LEAD_US}" ]] \
         || { echo "cached ${CONFIG} was not built with lead ${LEAD_US} us" >&2; exit 1; }
+    if (( FAILED_CIR_DIAG )) || [[ -f "${FAIL_CIR_STAMP}" ]]; then
+        [[ -f "${FAIL_CIR_STAMP}" && "$(<"${FAIL_CIR_STAMP}")" == "${FAILED_CIR_DIAG}" ]] \
+            || { echo "cached ${CONFIG} failed-CIR diagnostic mode mismatch" >&2; exit 1; }
+    fi
 fi
 
 # ELF에서 매 빌드마다 RTT 제어 블록 주소를 다시 추출 (주소 하드코딩 금지)
@@ -450,6 +462,17 @@ EOF
         echo "[verify] FAIL: firmware link/PER mismatch: ${EXP2_LINE}" >&2
         exit 3
     fi
+    FAILED_CIR_REPORT="${RAW_LOG%.log}.failed_cir.json"
+    if (( FAILED_CIR_DIAG )); then
+        python3 "${SCRIPT_DIR}/brrs_exp2_failed_cir_verify.py" "${RAW_LOG}" \
+            --out "${FAILED_CIR_REPORT}" || {
+            echo "[verify] FAIL: incomplete failed-CIR candidate dump" >&2
+            exit 3
+        }
+    elif grep -q '^FAIL_CIR_' "${RAW_LOG}"; then
+        echo "[verify] FAIL: failed-CIR markers in an OFF-mode RX image" >&2
+        exit 3
+    fi
     DETAIL="collection=PASS; expected=${DONE_EXPECTED}; rx=${DONE_RX}; CIR rows=${CSV_ROWS}; PER=${PER_PERCENT}%; link=${LINK_STATUS}; lead=${LEAD_US}us; firmware=PASS"
 else
     TX_DONE_LINE="$(grep '^EXP2_TX_DONE,' "${RAW_LOG}" | tail -1 || true)"
@@ -538,6 +561,7 @@ fi
     printf 'beacon_preamble_symbols=%s\n' "${BEACON_PREAMBLE}"
     printf 'pac=%s\n' "${PAC}"
     printf 'lead_us=%s\n' "${LEAD_US}"
+    printf 'failed_cir_diag=%s\n' "${FAILED_CIR_DIAG}"
     printf 'run_number=%s\n' "${RUN_NUMBER}"
     printf 'environment=%s\n' "${ENVIRONMENT}"
     printf 'distance_m=%s\n' "${DISTANCE}"
@@ -555,6 +579,9 @@ fi
         printf 'cir_csv_rows=%s\n' "${CSV_ROWS}"
         printf 'per_percent=%s\n' "${PER_PERCENT}"
         printf 'link_status=%s\n' "${LINK_STATUS}"
+        if (( FAILED_CIR_DIAG )); then
+            printf 'failed_cir_report=%s\n' "${FAILED_CIR_REPORT}"
+        fi
     else
         printf 'expected_cycles=%s\n' "${EXPECTED_SAMPLES}"
         printf 'tx_success=%s\n' "${TX_SUCCESS}"
