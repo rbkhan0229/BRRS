@@ -26,6 +26,7 @@ SAMPLE_FIELDS = [
     "peak_idx",
     "accum",
     "rssi_dbm",
+    "rssi_valid",
     "fp_dbm",
     "rssi_fp_gap_db",
     "fp_peak_power",
@@ -57,6 +58,7 @@ SUMMARY_FIELDS = [
     "fp_snr_db_median",
     "fp_snr_db_stdev",
     "rssi_dbm_mean",
+    "rssi_valid_n",
     "fp_dbm_mean",
     "processing_gain_db",
 ]
@@ -76,6 +78,22 @@ def to_int(value: str) -> int:
 
 def to_float(value: str) -> float:
     return float(value.strip())
+
+
+def optional_rssi(value: str) -> float:
+    """NA is new firmware; exact -128.00 is the legacy Q8.8 invalid sentinel."""
+    value = value.strip()
+    if value.upper() == "NA" or value == "":
+        return float("nan")
+    number = float(value)
+    return float("nan") if number == -128.0 else number
+
+
+def optional_rssi_x100(value: str) -> float:
+    value = value.strip()
+    if value.upper() == "NA" or value == "" or value == "-12800":
+        return float("nan")
+    return x100_to_float(to_int(value))
 
 
 def ratio_x1000_to_db(value: int) -> float:
@@ -116,6 +134,7 @@ def parse_log(path: Path, run: str, environment: str, distance_m: str) -> list[d
             rx_seq_i = to_int(rx_seq)
             cycle_i: int | str = to_int(cycle) if cycle else ""
             processing_gain_db = 10.0 * math.log10(127.0 * plen_i) if plen_i > 0 else float("nan")
+            rssi_value = optional_rssi(rssi_dbm)
 
             rows.append(
                 {
@@ -131,9 +150,10 @@ def parse_log(path: Path, run: str, environment: str, distance_m: str) -> list[d
                     "fp_sample": to_int(fp_sample),
                     "peak_idx": to_int(peak_idx),
                     "accum": to_int(accum),
-                    "rssi_dbm": to_float(rssi_dbm),
+                    "rssi_dbm": rssi_value,
+                    "rssi_valid": not math.isnan(rssi_value),
                     "fp_dbm": to_float(fp_dbm),
-                    "rssi_fp_gap_db": to_float(gap_db),
+                    "rssi_fp_gap_db": to_float(gap_db) if not math.isnan(rssi_value) else float("nan"),
                     "fp_peak_power": fp_peak_power,
                     "noise_floor_power": noise_floor_power,
                     "noise_samples": to_int(noise_samples),
@@ -290,6 +310,49 @@ def validate_raw_log(path: Path, rows: list[dict[str, object]], expected_samples
             )
 
 
+def validate_quality_schema(path: Path, samples: list[dict[str, object]]) -> None:
+    """Check validity accounting when the new firmware schema is present."""
+    schemas: list[str] = []
+    summaries: list[str] = []
+    with path.open("r", errors="replace") as source:
+        for raw_line in source:
+            line = clean_line(raw_line)
+            for prefix, target in (
+                ("CIR_QUALITY_SCHEMA,", schemas),
+                ("CIR_VALIDITY_SUMMARY,", summaries),
+            ):
+                offset = line.find(prefix)
+                if offset >= 0:
+                    target.append(line[offset:])
+    if not schemas:
+        if summaries:
+            raise ValueError(f"{path}: CIR validity summary without schema")
+        return  # Historical logs have no trustworthy validity accounting.
+    if len(schemas) != 1 or len(summaries) != 1:
+        raise ValueError(f"{path}: missing/duplicate CIR quality markers")
+    def fields(line: str) -> dict[str, str]:
+        return dict(part.split("=", 1) for part in
+                    next(csv.reader([line]))[1:] if "=" in part)
+    schema = fields(schemas[0])
+    summary = fields(summaries[0])
+    if schema.get("version") != "2" or schema.get("rssi_invalid") != "NA":
+        raise ValueError(f"{path}: unsupported CIR quality schema")
+    required = {"rx", "records", "rssi_valid", "rssi_invalid",
+                "fp_valid", "snr_valid", "diag_read_errors", "collection"}
+    if not required.issubset(summary):
+        raise ValueError(f"{path}: incomplete CIR validity summary")
+    total = len(samples)
+    valid = sum(bool(sample["rssi_valid"]) for sample in samples)
+    if (summary["collection"] != "PASS" or int(summary["rx"]) != total or
+        int(summary["records"]) != total or
+        int(summary["rssi_valid"]) != valid or
+        int(summary["rssi_invalid"]) != total - valid or
+        int(summary["fp_valid"]) != total or
+        int(summary["snr_valid"]) != total or
+        int(summary["diag_read_errors"]) != 0):
+        raise ValueError(f"{path}: CIR validity summary disagrees with samples")
+
+
 def validate_firmware_summary(path: Path,
                               raw_summaries: list[dict[str, object]],
                               firmware_summaries: list[dict[str, object]]) -> None:
@@ -354,7 +417,7 @@ def parse_summary_log(path: Path, run: str, environment: str, distance_m: str, e
                     "fp_snr_db_mean": ratio_x1000_to_db(snr_avg_i),
                     "fp_snr_db_median": float("nan"),
                     "fp_snr_db_stdev": float("nan"),
-                    "rssi_dbm_mean": x100_to_float(to_int(rssi_avg)),
+                    "rssi_dbm_mean": optional_rssi_x100(rssi_avg),
                     "fp_dbm_mean": x100_to_float(to_int(fp_avg)),
                     "processing_gain_db": 10.0 * math.log10(127.0 * plen_i) if plen_i > 0 else float("nan"),
                 }
@@ -405,7 +468,7 @@ def summarize(rows: list[dict[str, object]], expected_samples: int) -> list[dict
         ),
     ):
         snr_values = [float(row["fp_snr_db"]) for row in group_rows if not math.isnan(float(row["fp_snr_db"]))]
-        rssi_values = [float(row["rssi_dbm"]) for row in group_rows]
+        rssi_values = [float(row["rssi_dbm"]) for row in group_rows if not math.isnan(float(row["rssi_dbm"]))]
         fp_values = [float(row["fp_dbm"]) for row in group_rows]
         if not snr_values:
             continue
@@ -433,6 +496,7 @@ def summarize(rows: list[dict[str, object]], expected_samples: int) -> list[dict
                 "fp_snr_db_median": statistics.median(snr_values),
                 "fp_snr_db_stdev": statistics.stdev(snr_values) if len(snr_values) > 1 else 0.0,
                 "rssi_dbm_mean": statistics.fmean(rssi_values) if rssi_values else float("nan"),
+                "rssi_valid_n": len(rssi_values),
                 "fp_dbm_mean": statistics.fmean(fp_values) if fp_values else float("nan"),
                 "processing_gain_db": 10.0 * math.log10(127.0 * int(plen)),
             }
@@ -614,6 +678,7 @@ def main() -> int:
                 log_path, args.run, args.environment, args.distance_m
             )
             validate_raw_log(log_path, log_rows, args.expected_samples)
+            validate_quality_schema(log_path, log_rows)
             raw_summaries = summarize(log_rows, args.expected_samples)
             firmware_summaries = parse_summary_log(
                 log_path, args.run, args.environment, args.distance_m,

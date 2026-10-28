@@ -345,6 +345,27 @@ class PaperTests(unittest.TestCase):
         rx,tx,p=self.cir_fixture('exp2');self.assertEqual(results.validate_cir(rx,tx,p)[2]['cir_rows'],3)
         for bad in [rx[:-2]+rx[-1:],[s.replace('CIR_CSV,3,3,','CIR_CSV,3,2,') for s in rx],[s.replace('pac=8','pac=4') for s in rx]]:
             with self.assertRaises(ValueError):results.validate_cir(bad,tx,p)
+    def test_cir_rssi_validity_is_independent_of_fp_snr(self):
+        rx,tx,p=self.cir_fixture('exp2')
+        rx=[line.replace('100,-80,-81,1,100,1,5,1000',
+                         '100,NA,-81,NA,100,1,5,1000')
+            if line.startswith('CIR_CSV,1,') else line for line in rx]
+        rx.extend([
+            'CIR_QUALITY_SCHEMA,version=2,rssi_invalid=NA,fp_snr_independent=1',
+            'CIR_VALIDITY_SUMMARY,expected=3,rx=3,records=3,rssi_valid=2,'
+            'rssi_invalid=1,fp_valid=3,snr_valid=3,diag_read_errors=0,'
+            'rssi_power_zero=1,rssi_sentinel=1,rssi_api_errors=0,collection=PASS'])
+        extra=results.validate_cir(rx,tx,p)[2]
+        self.assertEqual((extra['rssi_valid'],extra['rssi_invalid']),(2,1))
+        bad=[line.replace('rssi_valid=2','rssi_valid=3')
+             if line.startswith('CIR_VALIDITY_SUMMARY,') else line for line in rx]
+        with self.assertRaises(ValueError):
+            results.validate_cir(bad,tx,p)
+        bad=[line.replace('100,NA,-81,NA','100,NA,-81,1')
+             if line.startswith('CIR_CSV,1,') else line for line in rx]
+        with self.assertRaises(ValueError):
+            results.validate_cir(bad,tx,p)
+
 
     def test_exp5_complete_raw_samples_required(self):
         rx,tx,p=self.cir_fixture('exp5');self.assertEqual(results.validate_cir(rx,tx,p)[2]['raw_cir_frames'],3)

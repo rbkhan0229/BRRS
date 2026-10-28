@@ -103,6 +103,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <limits.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -716,6 +717,10 @@ static bool cir_final_link_pass = false;
 static uint32_t cir_final_expected = 0;
 static uint32_t cir_final_rx = 0;
 static uint32_t cir_final_valid = 0;
+static uint32_t cir_diag_read_errors = 0;
+static uint32_t cir_rssi_power_zero = 0;
+static uint32_t cir_rssi_sentinel = 0;
+static uint32_t cir_rssi_api_errors = 0;
 
 static uint32_t cir_final_per_x1000(void)
 {
@@ -763,6 +768,7 @@ typedef struct {
     int32_t rssi_x100;
     int32_t fp_x100;
     int32_t gap_x100;
+    bool rssi_valid;
     uint64_t fp_peak_power;
     uint64_t noise_floor_power;
     uint16_t noise_samples;
@@ -848,6 +854,16 @@ static void format_x100(char *buf, size_t size, int32_t value_x100) {
     }
 }
 
+static void format_x100_or_na(char *buf, size_t size,
+                              int32_t value_x100, bool valid)
+{
+    if (valid) {
+        format_x100(buf, size, value_x100);
+    } else {
+        snprintf(buf, size, "NA");
+    }
+}
+
 static void print_cir_data(uint8_t *buf, int n_samples,
                            uint32_t frame_no, uint32_t cycle_no,
                            uint16_t sample_offs, uint16_t fp_sample) {
@@ -894,6 +910,7 @@ static void store_cir_sample(uint8_t src_idx,
                              int32_t rssi_x100,
                              int32_t fp_x100,
                              int32_t gap_x100,
+                             bool rssi_valid,
                              uint64_t fp_peak_power,
                              uint64_t noise_floor_power,
                              uint16_t noise_samples,
@@ -915,6 +932,7 @@ static void store_cir_sample(uint8_t src_idx,
     entry->rssi_x100 = rssi_x100;
     entry->fp_x100 = fp_x100;
     entry->gap_x100 = gap_x100;
+    entry->rssi_valid = rssi_valid;
     entry->fp_peak_power = fp_peak_power;
     entry->noise_floor_power = noise_floor_power;
     entry->noise_samples = noise_samples;
@@ -969,9 +987,9 @@ static void dump_cir_samples(void)
         cir_sample_log_t *entry = &cir_sample_logs[i];
         char rssi_str[16], fp_str[16], gap_str[16];
 
-        format_x100(rssi_str, sizeof(rssi_str), entry->rssi_x100);
+        format_x100_or_na(rssi_str, sizeof(rssi_str), entry->rssi_x100, entry->rssi_valid);
         format_x100(fp_str, sizeof(fp_str), entry->fp_x100);
-        format_x100(gap_str, sizeof(gap_str), entry->gap_x100);
+        format_x100_or_na(gap_str, sizeof(gap_str), entry->gap_x100, entry->rssi_valid);
 
         snprintf(csv_line, sizeof(csv_line),
                  "CIR_CSV,%lu,%lu,%s,%d,%u,%u,%u,%s,%s,%s,%llu,%llu,%u,%llu",
@@ -1168,25 +1186,41 @@ static void log_cir_quality(uint8_t src_idx, uint32_t frame_no, uint32_t cycle_n
     uint16_t noise_samples = 0;
     uint64_t snr_ratio_x1000 = 0;
     bool snr_valid;
+    bool rssi_valid;
+    int rssi_status;
 
     if (dwt_readdiagnostics_acc(&diag, DWT_ACC_IDX_IP_M) != DWT_SUCCESS) {
+        cir_diag_read_errors++;
         return;
     }
 
-    if (dwt_calculate_rssi(&diag, DWT_ACC_IDX_IP_M, &rssi_q8_8) != DWT_SUCCESS) {
-        return;
-    }
-    if (dwt_calculate_first_path_power(&diag, DWT_ACC_IDX_IP_M, &fp_q8_8) != DWT_SUCCESS) {
+    rssi_status = dwt_calculate_rssi(&diag, DWT_ACC_IDX_IP_M, &rssi_q8_8);
+    if (dwt_calculate_first_path_power(&diag, DWT_ACC_IDX_IP_M, &fp_q8_8) != DWT_SUCCESS ||
+        fp_q8_8 == INT16_MIN || diag.accumCount == 0U) {
         return;
     }
 
-    rssi_x100 = q8_8_to_x100(rssi_q8_8);
+    if (diag.power == 0U) {
+        cir_rssi_power_zero++;
+    }
+    if (rssi_q8_8 == INT16_MIN) {
+        cir_rssi_sentinel++;
+    }
+    if (rssi_status != DWT_SUCCESS) {
+        cir_rssi_api_errors++;
+    }
+    rssi_valid = (rssi_status == DWT_SUCCESS && diag.power != 0U &&
+                  diag.accumCount != 0U && rssi_q8_8 != INT16_MIN);
+    if (rssi_valid) {
+        rssi_x100 = q8_8_to_x100(rssi_q8_8);
+    }
     fp_x100 = q8_8_to_x100(fp_q8_8);
-    gap_x100 = rssi_x100 - fp_x100;
-
-    update_signal_stats(&rssi_stats[src_idx], rssi_x100);
+    if (rssi_valid) {
+        gap_x100 = rssi_x100 - fp_x100;
+        update_signal_stats(&rssi_stats[src_idx], rssi_x100);
+        update_signal_stats(&fp_gap_stats[src_idx], gap_x100);
+    }
     update_signal_stats(&fp_power_stats[src_idx], fp_x100);
-    update_signal_stats(&fp_gap_stats[src_idx], gap_x100);
 
     fp_sample = (uint16_t)(diag.FpIndex >> 6);
     sample_offs = (fp_sample > CIR_RAW_PRE_FP_SAMPLES) ?
@@ -1206,6 +1240,7 @@ static void log_cir_quality(uint8_t src_idx, uint32_t frame_no, uint32_t cycle_n
 
     store_cir_sample(src_idx, frame_no, cycle_no, fp_sample, diag.peakIndex, diag.accumCount,
                      rssi_x100, fp_x100, gap_x100,
+                     rssi_valid,
                      fp_peak_power, noise_floor_power, noise_samples, snr_ratio_x1000);
 
     store_cir_raw_frame(frame_no, cycle_no, sample_offs, fp_sample,
@@ -1216,9 +1251,9 @@ static void log_cir_quality(uint8_t src_idx, uint32_t frame_no, uint32_t cycle_n
         static char csv_line[360];
         char rssi_str[16], fp_str[16], gap_str[16];
 
-        format_x100(rssi_str, sizeof(rssi_str), rssi_x100);
+        format_x100_or_na(rssi_str, sizeof(rssi_str), rssi_x100, rssi_valid);
         format_x100(fp_str, sizeof(fp_str), fp_x100);
-        format_x100(gap_str, sizeof(gap_str), gap_x100);
+        format_x100_or_na(gap_str, sizeof(gap_str), gap_x100, rssi_valid);
         snprintf(csv_line, sizeof(csv_line),
                  "CIR_CSV,%lu,%lu,%s,%d,%u,%u,%u,%s,%s,%s,%llu,%llu,%u,%llu",
                  (unsigned long)frame_no,
@@ -4121,6 +4156,7 @@ int brrs_init(void)
     cir_log_info("CIR_CSV_HEADER,rx_seq,cycle,node,plen,fp_sample,peak_idx,accum,rssi_dbm,fp_dbm,rssi_fp_gap_db,fp_peak_power,noise_floor_power,noise_samples,fp_snr_ratio_x1000");
 #endif
 #if ENABLE_CIR
+    cir_log_info("CIR_QUALITY_SCHEMA,version=2,rssi_invalid=NA,fp_snr_independent=1");
     cir_log_info("CIR_SUMMARY_CSV_HEADER,node,plen,n,fp_snr_ratio_min_x1000,fp_snr_ratio_max_x1000,fp_snr_ratio_avg_x1000,rssi_min_x100,rssi_max_x100,rssi_avg_x100,fp_min_x100,fp_max_x100,fp_avg_x100");
 #endif
 
@@ -5441,6 +5477,8 @@ int brrs_init(void)
                 {
                     uint8_t i;
                     bool cir_has_expected = false;
+                    uint32_t rssi_valid_total = 0;
+                    uint32_t fp_valid_total = 0;
                     cir_final_collection_pass = run_end_ok;
                     cir_final_link_pass = true;
                     cir_final_expected = 0;
@@ -5463,9 +5501,11 @@ int brrs_init(void)
                         cir_has_expected = true;
                         cir_final_expected += expected;
                         cir_final_rx += received;
+                        rssi_valid_total += rssi_stats[i].count;
+                        fp_valid_total += fp_power_stats[i].count;
                         cir_final_valid += snr_count;
 
-                        node_collection_pass = (received == snr_count);
+                        node_collection_pass = (received == snr_count && received == fp_power_stats[i].count);
                         node_link_pass = (received == expected);
                         missed = (expected >= received) ? (expected - received) : 0U;
                         per_x1000 = (uint32_t)(((uint64_t)missed * 100000ULL +
@@ -5478,26 +5518,36 @@ int brrs_init(void)
                             cir_final_link_pass = false;
                         }
 
-                        if (rssi_stats[i].count > 0) {
-                            int32_t rssi_avg = (int32_t)(rssi_stats[i].sum_x100 / (int64_t)rssi_stats[i].count);
+                        if (fp_power_stats[i].count > 0) {
+                            int32_t rssi_avg = rssi_stats[i].count ? (int32_t)(rssi_stats[i].sum_x100 / (int64_t)rssi_stats[i].count) : 0;
                             int32_t fp_avg = (int32_t)(fp_power_stats[i].sum_x100 / (int64_t)fp_power_stats[i].count);
-                            int32_t gap_avg = (int32_t)(fp_gap_stats[i].sum_x100 / (int64_t)fp_gap_stats[i].count);
+                            int32_t gap_avg = fp_gap_stats[i].count ? (int32_t)(fp_gap_stats[i].sum_x100 / (int64_t)fp_gap_stats[i].count) : 0;
                             uint64_t snr_ratio_min = (snr_count > 0) ? fp_snr_ratio_stats[i].min_x1000 : 0;
                             uint64_t snr_ratio_max = (snr_count > 0) ? fp_snr_ratio_stats[i].max_x1000 : 0;
                             uint64_t snr_ratio_avg = (snr_count > 0) ?
                                                      (fp_snr_ratio_stats[i].sum_x1000 / snr_count) : 0;
                             char rssi_min[16], rssi_max[16], rssi_avg_s[16];
                             char fp_min[16], fp_max[16], fp_avg_s[16];
+                            char rssi_min_raw[16], rssi_max_raw[16], rssi_avg_raw[16];
                             char gap_avg_s[16];
                             static char s[320];
 
-                            format_x100(rssi_min, sizeof(rssi_min), rssi_stats[i].min_x100);
-                            format_x100(rssi_max, sizeof(rssi_max), rssi_stats[i].max_x100);
-                            format_x100(rssi_avg_s, sizeof(rssi_avg_s), rssi_avg);
+                            format_x100_or_na(rssi_min, sizeof(rssi_min), rssi_stats[i].min_x100, rssi_stats[i].count > 0);
+                            format_x100_or_na(rssi_max, sizeof(rssi_max), rssi_stats[i].max_x100, rssi_stats[i].count > 0);
+                            format_x100_or_na(rssi_avg_s, sizeof(rssi_avg_s), rssi_avg, rssi_stats[i].count > 0);
                             format_x100(fp_min, sizeof(fp_min), fp_power_stats[i].min_x100);
                             format_x100(fp_max, sizeof(fp_max), fp_power_stats[i].max_x100);
                             format_x100(fp_avg_s, sizeof(fp_avg_s), fp_avg);
-                            format_x100(gap_avg_s, sizeof(gap_avg_s), gap_avg);
+                            format_x100_or_na(gap_avg_s, sizeof(gap_avg_s), gap_avg, fp_gap_stats[i].count > 0);
+                            if (rssi_stats[i].count > 0) {
+                                snprintf(rssi_min_raw, sizeof(rssi_min_raw), "%ld", (long)rssi_stats[i].min_x100);
+                                snprintf(rssi_max_raw, sizeof(rssi_max_raw), "%ld", (long)rssi_stats[i].max_x100);
+                                snprintf(rssi_avg_raw, sizeof(rssi_avg_raw), "%ld", (long)rssi_avg);
+                            } else {
+                                snprintf(rssi_min_raw, sizeof(rssi_min_raw), "NA");
+                                snprintf(rssi_max_raw, sizeof(rssi_max_raw), "NA");
+                                snprintf(rssi_avg_raw, sizeof(rssi_avg_raw), "NA");
+                            }
 
                             snprintf(s, sizeof(s),
                                      "%s: RSSI min=%s max=%s avg=%sdBm | FP min=%s max=%s avg=%sdBm | RSSI-FP avg=%sdB | FP-SNR ratiox1000 min=%llu max=%llu avg=%llu (n=%lu)",
@@ -5512,15 +5562,15 @@ int brrs_init(void)
                             final_log_info(s);
 
                             snprintf(s, sizeof(s),
-                                     "CIR_SUMMARY_CSV,%s,%d,%lu,%llu,%llu,%llu,%ld,%ld,%ld,%ld,%ld,%ld",
+                                     "CIR_SUMMARY_CSV,%s,%d,%lu,%llu,%llu,%llu,%s,%s,%s,%ld,%ld,%ld",
                                      get_slot_description(i), PREAMBLE_SYMBOLS,
                                      (unsigned long)snr_count,
                                      (unsigned long long)snr_ratio_min,
                                      (unsigned long long)snr_ratio_max,
                                      (unsigned long long)snr_ratio_avg,
-                                     (long)rssi_stats[i].min_x100,
-                                     (long)rssi_stats[i].max_x100,
-                                     (long)rssi_avg,
+                                     rssi_min_raw,
+                                     rssi_max_raw,
+                                     rssi_avg_raw,
                                      (long)fp_power_stats[i].min_x100,
                                      (long)fp_power_stats[i].max_x100,
                                      (long)fp_avg);
@@ -5548,11 +5598,34 @@ int brrs_init(void)
                         data_config_errors != 0U ||
                         cir_final_rx == 0U ||
                         cir_sample_log_count != cir_final_valid ||
+                        fp_valid_total != cir_final_rx ||
+                        rssi_valid_total > cir_final_rx ||
+                        cir_diag_read_errors != 0U ||
                         cir_final_valid != cir_final_rx ||
                         cir_raw_frame_log_count !=
                             ((cir_final_valid < CIR_RAW_LOG_LIMIT) ?
                              cir_final_valid : CIR_RAW_LOG_LIMIT)) {
                         cir_final_collection_pass = false;
+                    }
+                    {
+                        static char s[320];
+                        uint32_t rssi_invalid = (rssi_valid_total <= cir_final_rx) ?
+                            (cir_final_rx - rssi_valid_total) : 0U;
+                        snprintf(s, sizeof(s),
+                                 "CIR_VALIDITY_SUMMARY,expected=%lu,rx=%lu,records=%lu,rssi_valid=%lu,rssi_invalid=%lu,fp_valid=%lu,snr_valid=%lu,diag_read_errors=%lu,rssi_power_zero=%lu,rssi_sentinel=%lu,rssi_api_errors=%lu,collection=%s",
+                                 (unsigned long)cir_final_expected,
+                                 (unsigned long)cir_final_rx,
+                                 (unsigned long)cir_sample_log_count,
+                                 (unsigned long)rssi_valid_total,
+                                 (unsigned long)rssi_invalid,
+                                 (unsigned long)fp_valid_total,
+                                 (unsigned long)cir_final_valid,
+                                 (unsigned long)cir_diag_read_errors,
+                                 (unsigned long)cir_rssi_power_zero,
+                                 (unsigned long)cir_rssi_sentinel,
+                                 (unsigned long)cir_rssi_api_errors,
+                                 cir_final_collection_pass ? "PASS" : "FAIL");
+                        final_log_info(s);
                     }
                 }
 #endif

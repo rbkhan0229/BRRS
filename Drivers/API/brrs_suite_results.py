@@ -48,6 +48,22 @@ def validate_cir(rx,tx,p):
     if {int(r[1]) for r in cir}!=set(range(1,received+1)) or len({r[2] for r in cir})!=received or any(not 1<=int(r[2])<=n for r in cir):
         raise ValueError('CIR frame/cycle identity mismatch')
     extra={'cir_rows':len(cir),'cir_scope':'successful receptions only; report PER alongside CIR'}
+    if any(l.startswith('CIR_QUALITY_SCHEMA,') for l in rx):
+        require(marker(rx,'CIR_QUALITY_SCHEMA,'),version=2,rssi_invalid='NA',fp_snr_independent=1)
+        validity=marker(rx,'CIR_VALIDITY_SUMMARY,')
+        valid=sum(r[8]!='NA' for r in cir)
+        invalid=received-valid
+        require(validity,expected=n,rx=received,records=received,rssi_valid=valid,
+            rssi_invalid=invalid,fp_valid=received,snr_valid=received,
+            diag_read_errors=0,collection='PASS')
+        if any((r[8]=='NA')!=(r[10]=='NA') for r in cir):
+            raise ValueError('RSSI and RSSI-FP gap validity disagree')
+        extra.update(rssi_valid=valid,rssi_invalid=invalid,
+            rssi_power_zero=int(validity.get('rssi_power_zero',0)),
+            rssi_sentinel=int(validity.get('rssi_sentinel',0)),
+            rssi_api_errors=int(validity.get('rssi_api_errors',0)))
+    elif any(l.startswith('CIR_VALIDITY_SUMMARY,') for l in rx):
+        raise ValueError('CIR validity summary without schema')
     if stage=='exp5':
         expected=min(received,30);done=marker(rx,'CIR_RAW_DUMP_DONE,');require(done,plen=m,count=expected,samples_per_frame=300)
         headers=[parse_kv_marker(l,'CIR_RAW_HEADER,') for l in rx if l.startswith('CIR_RAW_HEADER,')]
