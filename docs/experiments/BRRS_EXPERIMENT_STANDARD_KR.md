@@ -1,3 +1,18 @@
+2026-09-13 N6 보드 교체: 현재 J-Link serial은 `1050257038` (이전 `1050227627`). 이전 실행의 manifest·원본·평가는 변경하지 않는다. 위치 표는 Standard 배치 기준이며, 새 차량의 실제 장착 위치 확인과 별개다.
+
+## 2026-09-12 야간 실행 승인 및 오류 복구 정책
+
+사용자가 Standard 시작과 자율 오류 복구·동일 조건 재시도·반복 실패 분리 후 나머지 진행을 승인했다. 아래 과거 중단/재시도 금지 설명보다 이번 실행에는 이 정책을 우선한다.
+
+- 실행 root: `/home/chieon/DWM3000/logs/vehicle_standard_ev6_overnight_20260912_022601_a03aea`. 기본 계획은 489개이며 재시도는 추가 attempt로 별도 집계한다. SB1700/SP2200/guard200 µs, fast PHY ON/PGF 유지, S6 최대 부하 M32 K20·M256 K12.
+- 기존 `air_control.py` (`stage0-accum-grid-v2`)의 `--one-case`, 직렬 빌드·flash, TX READY 후 INIT, 수집·metadata·종료·readback·공식 verifier를 유지한다. 외부 `standard_overnight.py` 정책은 `standard-immutable-retry-once-continue-v1`이다.
+- 동일 논리 case는 최대 2 attempt(원래 1회+재시도 1회), 각각 새 root 및 고유 attempt ID를 사용한다. 공식 조건/논리 case ID는 동일 조건 검증을 위해 유지한다. 원본·실패·STOP을 덮어쓰거나 삭제하지 않는다.
+- 유효하게 수집된 PER 실패는 재시도가 좋아도 첫 유효 관측을 공식 결과에 유지한다. 수집/제어가 무효인 attempt의 대체만 명시적인 제외 기록과 함께 허용한다. 재시도 성공으로 원래 실패를 숨기지 않는다.
+- Stage0 grid의 높은 PER 자체는 정상 탐색 자료라서 재시도하지 않는다. 각 PHY는 기존 selector로 전체 grid, confirmation 5회 모두 PER<1%, pooled Wilson95 상한<1%를 만족해야 동결한다. 특정 PHY 실패 시 `execution_scope`에 검증된 PHY만 명시하고 의존하는 case만 보류한다. 부분 완료를 전체 Stage0/Standard 완료로 표시하지 않는다.
+- 연결/전원/USB 일시 오류는 RF 없이 최대 30분 연결 복구를 기다린다. 수집이 살아 있으면 종료를 확인하기 전 중복 실행하지 않는다. 필요하면 기존 halt/readback API로 최대 3회 복구하고 7대 정지가 확인된 뒤 새 attempt를 준비한다. metadata/timeout/late/SPI/RDB/overrun 오류는 계속 실패로 기록한다.
+- 사용자/현장 환경 STOP과 소유권이 다른 ACTIVE는 자동 해제하지 않는다. 현재 실험의 제어권·7대 정지를 회복할 수 없는 경우에는 RF를 보류하고 원본과 복구 사유를 보존한다.
+- 상태: `sequence-status.json`, 전체 attempt/제외 기록: `ATTEMPT_LEDGER.json`, 최종: `sequence-finished.json`, 복구 불가: `sequence-failure.json`. 정상 case마다 분석/plot/사용자 대기 없이 다음 case로 진행한다.
+
 # BRRS Standard profile — 489 case
 
 이 문서는 다른 profile 문서를 읽지 않아도 Standard 차량 실험을 이해하고 운영할 수
@@ -7,7 +22,7 @@ Standard는 실제 차량 논문의 기본 profile이다. Full의 1045 case보�
 Essential에 없는 S1~S5 노드 수 그래프와 여섯 물리 링크의 반복 근거를 유지한다.
 별도 Exp1은 실행하지 않는다. 같은 최종 TDMA 송수신 경로를 사용하는 Exp4 S1에서
 M32/PAC4·PAC8 및 M64/128/256/PAC8을 측정하고, block마다 송신 보드를 바꾸어 프리앰블 비교와
-차량 위치 차이를 함께 검증한다. 전체 범위는 `full > standard > essential > lite`다.
+차량 위치 차이를 함께 검증한다. 각 profile은 비교 범위와 반복 수가 다르며, 이번 Standard 최대 슬롯 갱신은 다른 profile의 부하값을 자동 변경하지 않는다.
 
 ## 공통 용어
 
@@ -31,7 +46,7 @@ Block이 바뀌어도 차량에 고정한 보드 위치·방향·케이블은 �
 | N3 | 1050273888 | bumper_B |
 | N4 | 1050282818 | driver_seat |
 | N5 | 1050208509 | passenger_seat |
-| N6 | 1050227627 | trunk_A |
+| N6 | 1050257038 | trunk_A |
 | N7 | 1050204212 | trunk_B |
 
 Stage0과 Exp3의 단일 TX는 물리 N4를 사용한다. Exp2와 Exp5는 N2~N7을 한 대씩
@@ -41,24 +56,44 @@ Stage0과 Exp3의 단일 TX는 물리 N4를 사용한다. Exp2와 Exp5는 N2~N7�
 
 ## 공통 무선·펌웨어 조건
 
-| 항목 | 현재 manifest 기준 |
+| 항목 | Standard profile의 현재 유효 설정 |
 |---|---|
 | 슈퍼프레임 | 10,000 us |
 | 비컨 프리앰블 | M512 |
 | DATA payload | application 16 B, 전체 PSDU 26 B |
 | DATA 프리앰블 | S1 M32/64/128/256, S2~S6 M32/M256 |
 | DATA PAC | M32는 PAC4/PAC8, M64 이상은 PAC8 |
-| Exp4 guard | 250 us |
-| Exp4 SB/SP | 3000/2500 us |
+| Exp4 guard | 200 us |
+| Exp4 SB/SP | 1700/2200 us |
 | Exp4 수신 | 슬롯별 scheduled delayed-RX |
 | Exp4 SPI | persistent-SPIM 최적화 ON |
+| Exp4 PHY 전환 | delta fast switch ON, PGF calibration 유지 |
 | 목표 | 모든 물리 노드의 각 run PER < 1%, 시스템 오류 0 |
 
 환경, 거리, 위치, 유전원 허브·어댑터·포트·케이블과 차량 상태를 차량용 manifest에
 기록하고 실험 도중 바꾸지 않는다. Lead는 차량 Stage0 결과로 PHY 설정별 선정·동결하기
 전까지 Exp2~Exp5에 임의 적용하지 않는다.
 
+2026-09-12 차량 진단에서 M32/PAC8 S6/K13, 위 타이밍과 fast PHY/PGF 유지 조합은
+13,000/13,000 수신, 모든 물리 노드 PER 0%, 시스템 오류 0으로 1회 통과했다.
+이는 다른 PHY·PAC·활성 노드 수의 반복 검증이나 차량 Stage0 완료 근거가 아니다.
+Standard의 Exp4 전체에 같은 구현과 타이밍을 적용해 본 실험에서 검증한다.
+설정은 `profiles.standard.exp4_overrides`에 명시하며 다른 profile의 기본값은 유지한다.
+실제 case 조건·build/capture 인자·metadata·PHY self-test까지 적용 여부를 검증한다.
+
 ## 전체 case 수
+
+**최대 후보 반영:** 사용자의 최대 수용량 검증 지시에 따라 S6의 고부하를
+M32 K13→K20, M256 K8→K12로 교체했다. K6 기준점과 비교 조건 개수는 그대로이므로
+총 489 case를 유지한다. M32는 PAC4/PAC8 각각 K6/K20, M256은 PAC8 K6/K12다.
+
+새 타이밍에서 계산상 최대는 M32 K20, M64 K18, M128 K15, M256 K12다.
+Standard S6는 M32/M256만 비교하므로 M64/M128의 높은 부하는 포함하지 않는다.
+계산상 최대 후보의 실제 PER 통과는 실측으로 판정한다. 후보가 실패하면 최대 수용량을
+확정할 수 없으며 더 낮은 K의 추가 탐색은 위 고정 489개에 포함되지 않는다.
+임시 lead27로 별도 실행하는 M32/PAC8 K20 진단은 Standard/Stage0에 합산하지 않는다.
+2026-09-12 별도 K20 진단1회는20,000/20,000 수신,전노드PER0%,시스템오류0으로통과했다.
+M32/PAC4 K20 및 M256/PAC8 K12의 Standard 반복 검증은 아직 실행하지 않았다.
 
 | 구분 | 조건과 반복 | case |
 |---|---:|---:|
@@ -123,14 +158,18 @@ M별 포화 후보를 비교한다.
 | S3 | M32/PAC4·8 + M256/PAC8, K3 | 3 |
 | S4 | M32/PAC4·8 + M256/PAC8, K4 | 3 |
 | S5 | M32/PAC4·8 + M256/PAC8, K5 | 3 |
-| S6 | M32/PAC4·8 K6/K13 + M256/PAC8 K6/K8 | 6 |
+| S6 | M32/PAC4·8 K6/K20 + M256/PAC8 K6/K12 | 6 |
 | **합계** |  | **23** |
 
 PAC8로 고정한 M32~M256은 순수 프리앰블 길이 비교 곡선을 만들고, M32/PAC4는
 제조사 권장 짧은 프리앰블 조합과 PAC8을 직접 비교한다. M64 이상에는 PAC4를 적용하지
 않는다. S2~S6은 M32와 M256 끝점만 사용해
-노드 수에 따른 이용률·PER 변화를 보여준다. S6/K13과 S6/K8은 각 PHY의 포화 처리량을
-검증한다. Block 1~6에서 설치표를 한 칸씩 순환하고 block 7~12에서 같은 회전을 한 번 더
+노드 수에 따른 이용률·PER 변화를 보여준다. S6/K20과 S6/K12는 새 타이밍의 최대 후보다.
+모든 물리 노드의 반복 PER와 시스템 오류 검증을 통과한 경우에만 해당 조건의 수용 근거로 사용한다.
+M32 K20 기본 sequence는23456723456723456723, M256 K12는234567234567이다.
+M32 K20의 논리 N2/N3 offered는각4000, N4~N7은각3000으로 합20000이며,
+block 회전으로 추가 슬롯의 물리 노드 배정을 순환한다. M256 K12는각2000으로 합12000이다.
+Block 1~6에서 설치표를 한 칸씩 순환하고 block 7~12에서 같은 회전을 한 번 더
 반복한다. 따라서 S1은 모든 물리 링크를 두 번씩, S2~S6은 가능한 논리 슬롯 역할을
 두 주기 경험한다. 총 23 × 12 = 276 case다.
 
@@ -160,6 +199,15 @@ Case당 준비·flash·READY·약 10초 RF·수집 검증을 합쳐 평균 1분 
 따라 달라진다. 한 번에 끝낼 필요는 없으며 case, stage 또는 round 경계에서 중단한다.
 
 ## 계획·실행·재개
+
+Ubuntu 제어/Air 수집 환경에서는 `/home/chieon/DWM3000/setup/ubuntu_air_20260911/brrs-env.sh`를
+source하고 같은 디렉터리의 `standard_sequence.py`/`air_control.py`를 사용한다.
+모든 보드는 Air에 있으므로 차량 manifest의 host는 Air 기준 `local`이다.
+`standard_sequence.py prepare --root <새 Standard root>`는 첫 Stage0 case만 빌드·검증하고
+flash/RF를 하지 않는다. `prepared-start.json`의 source/manifest/payload hash가 같을 때만
+후속 실행에서 이 첫 case를 재사용한다. 나머지 case는 실제 Stage0 lead 선정·confirmation·
+frozen 검증에 맞춰 실행 직전에 준비한다. 임시 진단 lead를 채워 전체 이미지를 미리 만들지 않는다.
+준비 완료는 RF 시작 승인이 아니며, 기존 STOP/STOP_ALL은 보존한다.
 
 명령은 `Drivers/API`에서 실행한다. 아래는 Exp4 block 1 계획 확인 예다.
 
