@@ -85,7 +85,8 @@ def main():
     with evidence.open('x') as f:json.dump(report,f,indent=2)
     with target.open('x') as f:json.dump(result,f,indent=2)
     print(json.dumps({'manifest':str(target),'evidence':str(evidence),'selection':result['lead_selection'],
-        'candidates':result['lead_candidates_us_by_pac'],'rf_execution_performed':False},indent=2))
+        'candidates':result.get('lead_candidates_us_by_config',result.get('lead_candidates_us_by_pac')),
+        'rf_execution_performed':False},indent=2))
 
 if __name__=='__main__':
     try:raise SystemExit(main())

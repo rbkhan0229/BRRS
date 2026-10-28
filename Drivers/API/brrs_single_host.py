@@ -150,6 +150,9 @@ def metadata(root, c, job, console):
         expected.update(suite_profile=c['conditions']['profile'],suite_block=str(c['conditions']['run']),
             suite_rotation_index=str(c['conditions']['rotation_index']),physical_location=job['location'],
             suite_assignment_sha256=c['assignment_sha256'])
+    if c['conditions']['stage']=='exp4' and 'phy_fast_switch' in c['conditions']:
+        expected.update(phy_fast_switch='enabled' if c['conditions']['phy_fast_switch'] else 'disabled',
+                        phy_fast_skip_pgf='disabled')
     result['metadata_valid'] = all(meta.get(k) == v for k,v in expected.items())
     result['metadata_mismatches'] = {k: {'actual':meta.get(k), 'expected':v} for k,v in expected.items() if meta.get(k)!=v}
     return result
@@ -272,7 +275,7 @@ def export_cir_evidence(root,c,state):
         'payload_index_sha256':state['payload_index_sha256'],'all_tx_ready_at':state['all_tx_ready_at'],
         'started_at':state['started_at'],'finished_at':state['finished_at'],'execution_mode':'single_host'})
 
-def run(root, c, index):
+def run(root, c, index, assessor=None):
     # Machine-wide lock; never kill or adopt another experiment's processes.
     with open(LOCK_PATH,'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -288,6 +291,8 @@ def run(root, c, index):
             handle = console.open('x'); handles.append(handle)
             cmd = ['bash',str(root/'sdk/Drivers/API'/job['script']),*job['args']]
             env = dict(os.environ, **job['environment'], ARM_NM=NM, PYTHONDONTWRITEBYTECODE='1')
+            if c['conditions'].get('profile') == 'standard':
+                env.update(BRRS_RECONNECT_ATTEMPTS='0', BRRS_STRICT_CONNECTION='1')
             return subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL, stdout=handle,
                                     stderr=subprocess.STDOUT, start_new_session=True), console
         try:
@@ -314,8 +319,10 @@ def run(root, c, index):
             if state['status']=='COLLECTION_AND_READBACK_PASS':
                 try:
                     export_cir_evidence(root,c,state)
-                    from brrs_suite_results import assess
-                    assessment=assess(root);save(out/'ASSESSMENT.json',assessment)
+                    if assessor is None:
+                        from brrs_suite_results import assess
+                        assessor = assess
+                    assessment=assessor(root);save(out/'ASSESSMENT.json',assessment)
                     state['assessment_verdict']=assessment['verdict']
                 except Exception as exc:
                     state['assessment_error']=repr(exc);state['status']='FAIL'

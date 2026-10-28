@@ -35,14 +35,14 @@ def assess_bundle(root, expected_case):
     init_job=next(j for j in c['jobs'] if j['logical_node']==1)
     rx_lines=lines_by_role[init_job['physical_role']]
     verify.verify_init(rx_lines,p['preamble'],p['sensors'],p['guard_us'],p['lead_us'],p['rx_pac'],
-        p['sync_buffer_us'],p['sync_prep_us'],100,p['slot_owners'],spi_opt=p['spi_opt'],slotted_rx=p['slotted_rx'],expected_cycles=p['cycles'])
+        p['sync_buffer_us'],p['sync_prep_us'],100,p['slot_owners'],spi_opt=p['spi_opt'],slotted_rx=p['slotted_rx'],expected_cycles=p['cycles'],phy_fast=p.get('phy_fast_switch',False),phy_fast_skip_pgf=p.get('phy_fast_skip_pgf',False))
     rows={f[1]:f for f in (l.split(',') for l in rx_lines if l.startswith('EXP4_NODE_CSV,'))}
     nodes={}
     for job in c['jobs']:
         node=job['logical_node']
         if node==1: continue
         tx_lines=lines_by_role[job['physical_role']]
-        verify.verify_sensor(tx_lines,p['preamble'],p['sensors'],node,p['guard_us'],p['sync_buffer_us'],p['sync_prep_us'],p['slot_owners'],p['cycles'])
+        verify.verify_sensor(tx_lines,p['preamble'],p['sensors'],node,p['guard_us'],p['sync_buffer_us'],p['sync_prep_us'],p['slot_owners'],p['cycles'],phy_fast=p.get('phy_fast_switch',False),phy_fast_skip_pgf=p.get('phy_fast_skip_pgf',False))
         tx=verify.csv_fields(verify.last_line(tx_lines,'EXP4_TX_RESULT_CSV,'))
         rx=rows[f'N{node}']; offered=p['cycles']*p['slot_owners'].count(str(node))
         if int(rx[3])!=offered: raise ValueError('offered denominator mismatch')

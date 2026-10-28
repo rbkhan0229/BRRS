@@ -59,6 +59,7 @@
 #include "deca_probe_interface.h"
 #include <deca_device_api.h>
 #include <deca_spi.h>
+#include <dw3000_deca_regs.h>
 #include <example_selection.h>
 #include <port.h>
 #include <shared_defines.h>
@@ -400,8 +401,15 @@ _Static_assert(CONFIG_SWITCH_US < BRRS_SUPERFRAME_US,
 #define CYCLES_PER_US  (CPU_FREQ_MHZ)
 
 /* Default communication configuration */
+#ifndef BRRS_UWB_CHANNEL
+#define BRRS_UWB_CHANNEL 9
+#endif
+#if BRRS_UWB_CHANNEL != 5 && BRRS_UWB_CHANNEL != 9
+#error "BRRS_UWB_CHANNEL must be 5 or 9"
+#endif
+
 static dwt_config_t config_data = {
-    9, DATA_PLEN, DATA_PAC,
+    BRRS_UWB_CHANNEL, DATA_PLEN, DATA_PAC,
     9, 9, DATA_SFD_TYPE,
     DWT_BR_6M8, DWT_PHRMODE_STD, DATA_PHR_RATE,
     (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - DATA_PAC_SYMBOLS),
@@ -450,7 +458,7 @@ static bool brrs_apply_beacon_data_phy(uint16_t symbols)
 }
 
 static dwt_config_t config_sync = {
-    9, SYNC_PLEN, DWT_PAC8,
+    BRRS_UWB_CHANNEL, SYNC_PLEN, DWT_PAC8,
     10, 10, 1,
     DWT_BR_6M8, DWT_PHRMODE_STD, DWT_PHRRATE_STD,
     (SYNC_PREAMBLE_SYMBOLS + 1 + 8 - 8),
@@ -1319,7 +1327,8 @@ int brrs_normal(void)
     power_indexes.input[2] = USE_TX_POWER_INDEX;
     power_indexes.input[3] = USE_TX_POWER_INDEX;
 
-    if (dwt_calculate_linear_tx_setting((int)config_sync.chan, &power_indexes, &linear_results) == DWT_SUCCESS) {
+    int32_t linear_tx_status = dwt_calculate_linear_tx_setting((int)config_sync.chan, &power_indexes, &linear_results);
+    if (linear_tx_status == DWT_SUCCESS) {
         linear_txconfig.power = linear_results.tx_frame_cfg.tx_power_setting;
         linear_txconfig.PGcount = txconfig_options.PGcount;
         linear_txconfig.PGdly = txconfig_options.PGdly;
@@ -1328,6 +1337,19 @@ int brrs_normal(void)
     } else {
         dwt_configuretxrf(&txconfig_options);
     }
+#if BRRS_EXPERIMENT == 4
+    {
+        char rf_line[240];
+        uint32_t chan_ctrl = dwt_read_reg(CHAN_CTRL_ID);
+        snprintf(rf_line, sizeof(rf_line),
+                 "EXP4_RF_CONFIG_CSV,data_channel=%u,sync_channel=%u,hardware_channel=%u,tx_power_index=%u,linear_tx_status=%ld,tx_power_reg=%08lx,pg_delay=%u",
+                 (unsigned)config_data.chan, (unsigned)config_sync.chan,
+                 (unsigned)((chan_ctrl & CHAN_CTRL_RF_CHAN_BIT_MASK) ? 9U : 5U),
+                 (unsigned)USE_TX_POWER_INDEX, (long)linear_tx_status,
+                 (unsigned long)dwt_read_reg(TX_POWER_ID), (unsigned)txconfig_options.PGdly);
+        exp_log_info(rf_line);
+    }
+#endif
 
     dwt_setrxaftertxdelay(TX_TO_RX_DELAY_UUS);
     /* 초기/복구 SYNC 대기는 50 ms 유한 timeout 뒤 즉시 다시 연다. */

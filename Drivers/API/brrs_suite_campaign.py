@@ -53,7 +53,7 @@ def make_campaign(a):
         if bundle.exists():
             old=checked(bundle)
             if old['manifest_file_sha256']!=spec['manifest_sha256'] or old['conditions']!=c['conditions']:raise ValueError('existing bundle does not match campaign')
-        else:prepare(SimpleNamespace(manifest=a.manifest,stage=a.stage,case=c['id'],profile=a.profile,confirmation=a.confirmation,reuse=a.reuse,bundle=bundle))
+        else:prepare(SimpleNamespace(manifest=a.manifest,stage=a.stage,case=c['id'],profile=a.profile,confirmation=a.confirmation,reuse=a.reuse,bundle=bundle,source_build=getattr(a,'source_build',False)))
         state['bundles'][c['id']]={'path':str(bundle),'payload_index_sha256':sha(bundle/'payload_hashes.json')}
         save(index,state)
     print(json.dumps({'campaign':str(index),'prepared_cases':len(state['bundles']),'rf_execution_performed':False},indent=2))

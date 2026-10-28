@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Extract BRRS RX totals and report Wilson confidence intervals for PER."""
+from __future__ import annotations
 
 import argparse
 import csv

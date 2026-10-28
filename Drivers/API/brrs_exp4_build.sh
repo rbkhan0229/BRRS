@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--beacon-preamble <32|64|128|256|512|1024>] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--cycles <n>] [--sequence <digits>] [--spi-opt] [--irq] [--phy-profile] [--rx-path-profile] [--spim-start-end-profile] [--rx-error-diag] [--slotted-rx] [--phy-fast-switch] [--phy-fast-skip-pgf]"
+    echo "Usage: $0 <32|64|128|256> <sensor-count:1..7> [guard-us] [all|tx|init|N2..N8] [lead-us] [--uwb-channel <5|9>] [--beacon-preamble <32|64|128|256|512|1024>] [--pac <4|8>] [--sync-buffer <us>] [--sync-prep <us>] [--cycles <n>] [--sequence <digits>] [--spi-opt] [--irq] [--phy-profile] [--rx-path-profile] [--spim-start-end-profile] [--rx-error-diag] [--slotted-rx] [--phy-fast-switch] [--phy-fast-skip-pgf]"
     echo "Example: $0 32 2 200 N3 15"
     echo "Example (custom slot schedule): $0 64 2 200 all 15 --sequence 2323232323232"
     echo
@@ -31,6 +31,7 @@ TARGET_CYCLES=1000
 SYNC_BUFFER_US=3000
 SYNC_PREP_US=2500
 BEACON_PREAMBLE=512
+UWB_CHANNEL=9
 ARGS=()
 while (( $# > 0 )); do
     case "$1" in
@@ -46,6 +47,9 @@ while (( $# > 0 )); do
         --sync-prep)
             (( $# >= 2 )) || { echo "--sync-prep requires a value" >&2; exit 2; }
             SYNC_PREP_US="$2"; shift 2 ;;
+        --uwb-channel)
+            (( $# >= 2 )) || { echo "--uwb-channel requires a value" >&2; exit 2; }
+            UWB_CHANNEL="$2"; shift 2 ;;
         --beacon-preamble)
             (( $# >= 2 )) || { echo "--beacon-preamble requires a value" >&2; exit 2; }
             BEACON_PREAMBLE="$2"; shift 2 ;;
@@ -83,6 +87,10 @@ lead_us="${5:-15}"
 case "${PAC}" in
     4|8) ;;
     *) echo "ERROR: pac must be 4 or 8" >&2; exit 2 ;;
+esac
+case "${UWB_CHANNEL}" in
+    5|9) ;;
+    *) echo "UWB channel must be 5 or 9" >&2; exit 2 ;;
 esac
 case "${BEACON_PREAMBLE}" in
     32|64|128|256|512|1024) ;;
@@ -221,6 +229,8 @@ if (( TARGET_CYCLES != 1000 )); then
     dest_dir+="_cycles${TARGET_CYCLES}"
 fi
 
+if (( UWB_CHANNEL != 9 )); then dest_dir+="_ch${UWB_CHANNEL}"; fi
+
 if [[ -n "${EMBUILD:-}" ]]; then
     embuild="${EMBUILD}"
 elif command -v emBuild >/dev/null 2>&1; then
@@ -242,7 +252,7 @@ build_image() {
     local node_define="$3"
     local base="exp4_${plen}_s${sensor_count}_${role}"
     local macros
-    local extra_defs=";BRRS_EXP4_IRQ_PENDING=${IRQ_PENDING}"
+    local extra_defs=";BRRS_EXP4_IRQ_PENDING=${IRQ_PENDING};BRRS_UWB_CHANNEL=${UWB_CHANNEL}"
     local role_spim_start_end_profile=0
     # PAC sweeps change coordinator DATA reception only. Keep TX firmware
     # identical across the two RX PAC conditions, as in the verified campaign.

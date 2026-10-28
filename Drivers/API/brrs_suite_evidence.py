@@ -46,6 +46,9 @@ def read_evidence(root,expected_case):
                   'suite_case_id':c['id'],'suite_conditions_sha256':c['conditions_sha256'],
                   'suite_manifest_sha256':expected_case['jobs'][0]['environment']['BRRS_SUITE_MANIFEST_SHA256'],
                   'firmware_sha256':job['hex_sha256'],'raw_sha256':sha(raw),'collection_status':'PASS'}
+        if p['stage']=='exp4' and 'phy_fast_switch' in p:
+            expected.update(phy_fast_switch='enabled' if p['phy_fast_switch'] else 'disabled',
+                            phy_fast_skip_pgf='disabled')
         if is_publication_profile(p.get('profile')):
             expected.update(suite_profile=p['profile'],suite_block=str(p['run']),suite_rotation_index=str(p['rotation_index']),
                 physical_location=job['location'],suite_assignment_sha256=expected_case['assignment_sha256'],run_number=str(p['run']))

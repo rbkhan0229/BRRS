@@ -33,6 +33,13 @@ def lead_candidate_map(m):
             for pac, value in ((int(key), value)
                                for key, value in m['lead_candidates_us_by_pac'].items())}
 
+def validate_exp4_phy(e):
+    for key in ['phy_fast_switch', 'phy_fast_skip_pgf']:
+        if key in e and type(e[key]) is not bool:
+            raise ValueError(key + ' must be boolean')
+    if e.get('phy_fast_skip_pgf', False):
+        raise ValueError('campaign slotted RX requires PGF calibration retained')
+
 def load(path):
     m = json.loads(Path(path).read_text())
     if m.get('schema_version') != 1 or set(m['boards']) != set(ROLES):
@@ -90,6 +97,7 @@ def load(path):
           'lead_us_by_pac' not in m['lead_selection']):
         raise ValueError('Stage0 lead candidate and selection maps are missing')
     e = m['exp4']
+    validate_exp4_phy(e)
     if type(e['sensors']) is not int or not 1 <= e['sensors'] <= 6:
         raise ValueError('physical sensor count must be 1..6')
     if not e['slotted_rx'] or not e['spi_opt']:
@@ -199,6 +207,7 @@ def plan(m, stage, *, capacity_candidates=False, profile='preparation', confirma
             if lead > e['guard_us']:
                 raise ValueError('Exp4 lead exceeds guard')
             conditions.update({k: e[k] for k in ['sensors','guard_us','sync_buffer_us','sync_prep_us','slotted_rx','spi_opt']})
+            conditions.update({k:e[k] for k in ['phy_fast_switch','phy_fast_skip_pgf'] if k in e})
             conditions['rx_window_us'] = AIRTIME_US[plen] + lead
             conditions['fwto_uus'] = (conditions['rx_window_us'] * 10000 + 10255) // 10256
             conditions['max_slots'] = max_slots(e, plen)
@@ -225,6 +234,7 @@ def plan(m, stage, *, capacity_candidates=False, profile='preparation', confirma
                 script = 'brrs_exp4_capture.sh'; args = [role, str(plen), str(e['sensors']), '1', m['environment'],
                     '--lead', str(lead), '--pac', str(pac), '--guard', str(e['guard_us']), '--sync-buffer', str(e['sync_buffer_us']),
                     '--sync-prep', str(e['sync_prep_us']), '--cycles', str(cycles), '--sequence', owners, '--slotted-rx', '--spi-opt', '--max-per-percent', '100']
+                if e.get('phy_fast_switch', False):args += ['--phy-fast-switch']
             args += ['--serial', board['serial']]
             if m.get('distance_m') is not None:
                 args.insert(args.index(m['environment']) + 1, str(m['distance_m']))

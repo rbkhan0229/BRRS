@@ -19,7 +19,7 @@ ERRORS=(KeyError,IndexError,TypeError,OSError,ValueError,VerificationError)
 _plans={}
 
 def context_hash(m):
-    return digest({k:v for k,v in m.items() if k not in ['lead_selection','lead_candidates_us_by_pac']})
+    return digest({k:v for k,v in m.items() if k not in ['lead_selection','lead_candidates_us_by_pac','lead_candidates_us_by_config']})
 
 def marker(lines,prefix):
     rows=[l for l in lines if l.startswith(prefix)]

@@ -300,8 +300,11 @@ extern unsigned SEGGER_RTT_WriteString(unsigned BufferIndex, const char* s);
 #if BRRS_EXP4_SLOTTED_RX != 0 && BRRS_EXP4_SLOTTED_RX != 1
 #error "BRRS_EXP4_SLOTTED_RX must be 0 or 1"
 #endif
-#if BRRS_EXP4_SLOTTED_RX && (BRRS_EXPERIMENT != 4 || BRRS_EXP4_IRQ_PENDING || BRRS_OPT_RX_PATH_PROFILE || BRRS_OPT_RX_ERROR_DIAG || BRRS_OPT_PHY_CONFIG_PROFILE || BRRS_OPT_SPIM_START_END_PROFILE || BRRS_OPT_PHY_FAST_SWITCH)
-#error "Slotted RX A/B requires Exp4 polling without diagnostics, profiling or PHY fast switch"
+/* Delta switching happens outside the DATA SPI burst and uses the same
+ * slot scheduler. Keep boot register equivalence checks and PGF calibration
+ * for this combination; calibration skipping remains unsupported here. */
+#if BRRS_EXP4_SLOTTED_RX && (BRRS_EXPERIMENT != 4 || BRRS_EXP4_IRQ_PENDING || BRRS_OPT_RX_PATH_PROFILE || BRRS_OPT_RX_ERROR_DIAG || BRRS_OPT_PHY_CONFIG_PROFILE || BRRS_OPT_SPIM_START_END_PROFILE || BRRS_OPT_PHY_FAST_SWITCH_SKIP_PGF)
+#error "Slotted RX requires Exp4 polling without diagnostics, profiling or PGF skipping"
 #endif
 #if BRRS_EXP4_SLOTTED_RX
 #define EXP4_DATA_RX_MODE "per_slot_delayed_bounded_single_attempt"
@@ -527,8 +530,15 @@ _Static_assert(CONFIG_SWITCH_US < BRRS_SUPERFRAME_US,
 #define US_TO_UUS(us)          (((uint32_t)(us) * 10000UL + 10255UL) / 10256UL)
 
 /* Default communication configuration for DATA */
+#ifndef BRRS_UWB_CHANNEL
+#define BRRS_UWB_CHANNEL 9
+#endif
+#if BRRS_UWB_CHANNEL != 5 && BRRS_UWB_CHANNEL != 9
+#error "BRRS_UWB_CHANNEL must be 5 or 9"
+#endif
+
 static dwt_config_t config_data = {
-    9, DATA_PLEN, DATA_PAC,
+    BRRS_UWB_CHANNEL, DATA_PLEN, DATA_PAC,
     9, 9, DATA_SFD_TYPE,
     DWT_BR_6M8, DWT_PHRMODE_STD, DATA_PHR_RATE,
     (PREAMBLE_SYMBOLS + 1 + SFD_SYMBOLS - DATA_PAC_SYMBOLS),
@@ -536,7 +546,7 @@ static dwt_config_t config_data = {
 };
 
 static dwt_config_t config_sync = {
-    9, SYNC_PLEN, DWT_PAC8,
+    BRRS_UWB_CHANNEL, SYNC_PLEN, DWT_PAC8,
     10, 10, 1,
     DWT_BR_6M8, DWT_PHRMODE_STD, DWT_PHRRATE_STD,
     (SYNC_PREAMBLE_SYMBOLS + 1 + 8 - 8),
@@ -3800,7 +3810,8 @@ int brrs_init(void)
     power_indexes.input[2] = USE_TX_POWER_INDEX;
     power_indexes.input[3] = USE_TX_POWER_INDEX;
 
-    if (dwt_calculate_linear_tx_setting((int)config_sync.chan, &power_indexes, &linear_results) == DWT_SUCCESS) {
+    int32_t linear_tx_status = dwt_calculate_linear_tx_setting((int)config_sync.chan, &power_indexes, &linear_results);
+    if (linear_tx_status == DWT_SUCCESS) {
         linear_txconfig.power = linear_results.tx_frame_cfg.tx_power_setting;
         linear_txconfig.PGcount = txconfig_options.PGcount;
         linear_txconfig.PGdly = txconfig_options.PGdly;
@@ -3809,6 +3820,19 @@ int brrs_init(void)
     } else {
         dwt_configuretxrf(&txconfig_options);
     }
+#if BRRS_EXPERIMENT == 4
+    {
+        char rf_line[240];
+        uint32_t chan_ctrl = dwt_read_reg(CHAN_CTRL_ID);
+        snprintf(rf_line, sizeof(rf_line),
+                 "EXP4_RF_CONFIG_CSV,data_channel=%u,sync_channel=%u,hardware_channel=%u,tx_power_index=%u,linear_tx_status=%ld,tx_power_reg=%08lx,pg_delay=%u",
+                 (unsigned)config_data.chan, (unsigned)config_sync.chan,
+                 (unsigned)((chan_ctrl & CHAN_CTRL_RF_CHAN_BIT_MASK) ? 9U : 5U),
+                 (unsigned)USE_TX_POWER_INDEX, (long)linear_tx_status,
+                 (unsigned long)dwt_read_reg(TX_POWER_ID), (unsigned)txconfig_options.PGdly);
+        cir_log_info(rf_line);
+    }
+#endif
 
     dwt_setrxaftertxdelay(TX_TO_RX_DELAY_UUS);
     /* dwt_setrxtimeout은 schedule_delayed_rx()에서 설정 */
