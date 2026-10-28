@@ -1,0 +1,199 @@
+{
+  "scope": "CH5 M64/PAC8 home isolated comparison, not vehicle or Standard; no new RF in analysis",
+  "radio_time_method": "W1C=0 then bracketed SYS_TIME read once per CRC-good beacon; interpolate CPU events between adjacent measured anchors",
+  "limitations": [
+    "RF-ready state inside DW3000 is not directly observed",
+    "first beacon without adjacent anchors is unclassified",
+    "OFF/ON observations are at different times; two ON cases do not prove causal improvement",
+    "SYS_TIME read occurs after valid beacon processing and may perturb timing; both compared variants use identical instrumentation"
+  ],
+  "conditions": {
+    "800us": {
+      "off_a": {
+        "case_id": "interference_victim_home_beacon_rearm_timing_20260930_215100_d11_s10_l44_ch5_m64_off_a_a1",
+        "official_verdict": "PASS",
+        "offered_per_percent": 0.0,
+        "offered": 2000,
+        "actual_tx": 2000,
+        "data_rx": 2000,
+        "unsent": 0,
+        "post_tx_loss": 0,
+        "beacon_missed": 1,
+        "predicted_tx_attempts": 1,
+        "system_status": "COLLECTION_AND_READBACK_PASS",
+        "return_code": 0,
+        "trace_gaps": 1,
+        "clock_records": [
+          {
+            "seq": 1376,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.8348614,
+            "anchor_max_read_width_us": 42.313,
+            "error_status_hex": "0x1300",
+            "error_offset_from_expected_rmarker_us": 117.014,
+            "rearm_offset_from_expected_rmarker_us": 441.533
+          }
+        ]
+      },
+      "on_a": {
+        "case_id": "interference_victim_home_beacon_rearm_timing_20260930_215100_d11_s10_l44_ch5_m64_on_a_a1",
+        "official_verdict": "FAIL_PER",
+        "offered_per_percent": 1.1,
+        "offered": 2000,
+        "actual_tx": 2000,
+        "data_rx": 1978,
+        "unsent": 0,
+        "post_tx_loss": 22,
+        "beacon_missed": 9,
+        "predicted_tx_attempts": 9,
+        "system_status": "COLLECTION_AND_READBACK_PASS",
+        "return_code": 0,
+        "trace_gaps": 9,
+        "clock_records": [
+          {
+            "seq": 226,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.8388179,
+            "anchor_max_read_width_us": 42.356,
+            "error_status_hex": "0x1300",
+            "error_offset_from_expected_rmarker_us": 73.239,
+            "rearm_offset_from_expected_rmarker_us": 398.031
+          },
+          {
+            "seq": 286,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.8377251,
+            "anchor_max_read_width_us": 42.344,
+            "error_status_hex": "0x4000100",
+            "error_offset_from_expected_rmarker_us": 105.364,
+            "rearm_offset_from_expected_rmarker_us": 430.125
+          },
+          {
+            "seq": 765,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.83666947,
+            "anchor_max_read_width_us": 42.332,
+            "error_status_hex": "0x4000100",
+            "error_offset_from_expected_rmarker_us": 123.901,
+            "rearm_offset_from_expected_rmarker_us": 448.573
+          },
+          {
+            "seq": 787,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.83661396,
+            "anchor_max_read_width_us": 42.332,
+            "error_status_hex": "0x4000100",
+            "error_offset_from_expected_rmarker_us": -4.724,
+            "rearm_offset_from_expected_rmarker_us": 319.882
+          },
+          {
+            "seq": 873,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.83593916,
+            "anchor_max_read_width_us": 42.324,
+            "error_status_hex": "0x4000100",
+            "error_offset_from_expected_rmarker_us": 105.465,
+            "rearm_offset_from_expected_rmarker_us": 430.013
+          },
+          {
+            "seq": 1255,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.83680488,
+            "anchor_max_read_width_us": 42.334,
+            "error_status_hex": "0x10f00",
+            "error_offset_from_expected_rmarker_us": -83.145,
+            "rearm_offset_from_expected_rmarker_us": 241.477
+          },
+          {
+            "seq": 1275,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.83673783,
+            "anchor_max_read_width_us": 42.333,
+            "error_status_hex": "0x4000100",
+            "error_offset_from_expected_rmarker_us": 89.93,
+            "rearm_offset_from_expected_rmarker_us": 414.607
+          },
+          {
+            "seq": 1618,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.83492179,
+            "anchor_max_read_width_us": 42.313,
+            "error_status_hex": "0x4000100",
+            "error_offset_from_expected_rmarker_us": 108.52,
+            "rearm_offset_from_expected_rmarker_us": 432.983
+          },
+          {
+            "seq": 1701,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.83606899,
+            "anchor_max_read_width_us": 42.326,
+            "error_status_hex": "0x4000100",
+            "error_offset_from_expected_rmarker_us": 118.077,
+            "rearm_offset_from_expected_rmarker_us": 442.699
+          }
+        ],
+        "auxiliary_overlap": {
+          "status": "PASS",
+          "first_tx_before_init": true,
+          "samples": 197,
+          "observed_tx_in_window": 24872,
+          "capture_start": "2026-09-30T13:15:04.694146+00:00",
+          "capture_end": "2026-09-30T13:15:29.435919+00:00",
+          "scope": "host sampled TXFRS counters, not per-victim-packet collision proof"
+        },
+        "aux_tx_count_total": 27093
+      }
+    },
+    "600us": {
+      "off_a": {
+        "case_id": "interference_victim_home_beacon_rearm_window600_20260930_222000_d11_s10_l44_ch5_m64_off_a_a1",
+        "official_verdict": "PASS",
+        "offered_per_percent": 0.0,
+        "offered": 2000,
+        "actual_tx": 2000,
+        "data_rx": 2000,
+        "unsent": 0,
+        "post_tx_loss": 0,
+        "beacon_missed": 0,
+        "predicted_tx_attempts": 0,
+        "system_status": "COLLECTION_AND_READBACK_PASS",
+        "return_code": 0,
+        "trace_gaps": 0,
+        "clock_records": []
+      },
+      "on_a": {
+        "case_id": "interference_victim_home_beacon_rearm_window600_20260930_222000_d11_s10_l44_ch5_m64_on_a_a1",
+        "official_verdict": "FAIL_PER",
+        "offered_per_percent": 1.75,
+        "offered": 2000,
+        "actual_tx": 2000,
+        "data_rx": 1965,
+        "unsent": 0,
+        "post_tx_loss": 35,
+        "beacon_missed": 2,
+        "predicted_tx_attempts": 2,
+        "system_status": "COLLECTION_AND_READBACK_PASS",
+        "return_code": 0,
+        "trace_gaps": 2,
+        "clock_records": [
+          {
+            "seq": 1005,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.83277443,
+            "anchor_max_read_width_us": 42.397,
+            "error_status_hex": "0x10f00",
+            "error_offset_from_expected_rmarker_us": 117.555,
+            "rearm_offset_from_expected_rmarker_us": 441.944
+          },
+          {
+            "seq": 1341,
+            "clock_slope_radio_ticks_per_cpu_cycle": 3.83374699,
+            "anchor_max_read_width_us": 42.408,
+            "error_status_hex": "0x1300",
+            "error_offset_from_expected_rmarker_us": 79.017,
+            "rearm_offset_from_expected_rmarker_us": 403.55
+          }
+        ],
+        "auxiliary_overlap": {
+          "status": "PASS",
+          "first_tx_before_init": true,
+          "samples": 197,
+          "observed_tx_in_window": 24489,
+          "capture_start": "2026-09-30T13:29:25.230341+00:00",
+          "capture_end": "2026-09-30T13:29:49.653522+00:00",
+          "scope": "host sampled TXFRS counters, not per-victim-packet collision proof"
+        },
+        "aux_tx_count_total": 26790
+      }
+    }
+  }
+}
