@@ -1,0 +1,344 @@
+{
+  "absolute": [
+    {
+      "variant": "A",
+      "sfd_symbols": 8,
+      "phr": "STD",
+      "theory_parts_ns": {
+        "preamble": 32565,
+        "sfd": 8142,
+        "phr": 21539,
+        "psdu": 32822
+      },
+      "theory_ns": 95068,
+      "measured_mean_ns": 95922.009,
+      "min_ns": 95688,
+      "max_ns": 96063,
+      "difference_ns": 854.0090000000055,
+      "difference_percent": 0.8983138385155945,
+      "captures": 1000,
+      "tx": 1000,
+      "rx": 1000,
+      "per_percent": 0,
+      "case_id": "standard_exp3_m32_pac8_l23_A_ch5_b01",
+      "time": "2026-09-14T13:39:01.023740+09:00",
+      "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/157_exp3_a1_6b2609",
+      "raw_logs": {
+        "N4": {
+          "serial": "1050282818",
+          "pid": 15947,
+          "started_at": "2026-09-14T04:38:54.428006+00:00",
+          "console": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/157_exp3_a1_6b2609/standard_exp3_m32_pac8_l23_A_ch5_b01/bundle/results/N4.console.log",
+          "ready_at": "2026-09-14T04:39:01.012328+00:00",
+          "exit_code": 0,
+          "paths": {
+            "raw": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/157_exp3_a1_6b2609/standard_exp3_m32_pac8_l23_A_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_A_ch5_b01/exp3_A_l23_r1_tx.log",
+            "meta": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/157_exp3_a1_6b2609/standard_exp3_m32_pac8_l23_A_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_A_ch5_b01/exp3_A_l23_r1_tx.meta.txt"
+          },
+          "raw_sha256": "629d4645a6f2b5dc7b477cc3c6c0bc7ac932813ae775af4c3d3236528b920c17",
+          "end_stats": true,
+          "metadata_valid": true,
+          "metadata_mismatches": {}
+        },
+        "init": {
+          "serial": "1050270933",
+          "pid": 15972,
+          "started_at": "2026-09-14T04:39:01.023740+00:00",
+          "console": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/157_exp3_a1_6b2609/standard_exp3_m32_pac8_l23_A_ch5_b01/bundle/results/init.console.log",
+          "ready_at": "2026-09-14T04:39:07.627250+00:00",
+          "exit_code": 0,
+          "paths": {
+            "raw": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/157_exp3_a1_6b2609/standard_exp3_m32_pac8_l23_A_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_A_ch5_b01/exp3_A_l23_r1_rx.log",
+            "meta": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/157_exp3_a1_6b2609/standard_exp3_m32_pac8_l23_A_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_A_ch5_b01/exp3_A_l23_r1_rx.meta.txt"
+          },
+          "raw_sha256": "fb5200b59abef3d6c6c62c65dace7d7d4268da3988e60f3a0ad1d47128a31172",
+          "end_stats": true,
+          "metadata_valid": true,
+          "metadata_mismatches": {}
+        }
+      },
+      "diagnostic_lines": {
+        "rx": [
+          "RX timeouts=0 (fwto=0 pto=0)  RX errors=0 (sfdto=0 phe=0 fce=0 fsl=0)  delayed schedule late=0  data config errors=0"
+        ],
+        "tx": [
+          "My TX: success=1000 attempts=1000 delayed_late=0 (PER -> INIT)",
+          "SYNC loss: 0 timeouts  RX errors=0  beacon_config_errors=0  data_config_errors=0"
+        ]
+      }
+    },
+    {
+      "variant": "B",
+      "sfd_symbols": 16,
+      "phr": "STD",
+      "theory_parts_ns": {
+        "preamble": 32565,
+        "sfd": 16283,
+        "phr": 21539,
+        "psdu": 32822
+      },
+      "theory_ns": 103209,
+      "measured_mean_ns": 104135.799,
+      "min_ns": 103813,
+      "max_ns": 104250,
+      "difference_ns": 926.7989999999991,
+      "difference_percent": 0.8979827340638888,
+      "captures": 1000,
+      "tx": 1000,
+      "rx": 1000,
+      "per_percent": 0,
+      "case_id": "standard_exp3_m32_pac8_l23_B_ch5_b01",
+      "time": "2026-09-14T13:40:11.702645+09:00",
+      "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/158_exp3_a1_5de879",
+      "raw_logs": {
+        "N4": {
+          "serial": "1050282818",
+          "pid": 16777,
+          "started_at": "2026-09-14T04:40:07.286792+00:00",
+          "console": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/158_exp3_a1_5de879/standard_exp3_m32_pac8_l23_B_ch5_b01/bundle/results/N4.console.log",
+          "ready_at": "2026-09-14T04:40:11.693415+00:00",
+          "exit_code": 0,
+          "paths": {
+            "raw": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/158_exp3_a1_5de879/standard_exp3_m32_pac8_l23_B_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_B_ch5_b01/exp3_B_l23_r1_tx.log",
+            "meta": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/158_exp3_a1_5de879/standard_exp3_m32_pac8_l23_B_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_B_ch5_b01/exp3_B_l23_r1_tx.meta.txt"
+          },
+          "raw_sha256": "28d0e32db4505598037af197690d2ded90e14124a5f1b6525a535421a3a336d9",
+          "end_stats": true,
+          "metadata_valid": true,
+          "metadata_mismatches": {}
+        },
+        "init": {
+          "serial": "1050270933",
+          "pid": 16802,
+          "started_at": "2026-09-14T04:40:11.702645+00:00",
+          "console": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/158_exp3_a1_5de879/standard_exp3_m32_pac8_l23_B_ch5_b01/bundle/results/init.console.log",
+          "ready_at": "2026-09-14T04:40:16.130286+00:00",
+          "exit_code": 0,
+          "paths": {
+            "raw": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/158_exp3_a1_5de879/standard_exp3_m32_pac8_l23_B_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_B_ch5_b01/exp3_B_l23_r1_rx.log",
+            "meta": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/158_exp3_a1_5de879/standard_exp3_m32_pac8_l23_B_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_B_ch5_b01/exp3_B_l23_r1_rx.meta.txt"
+          },
+          "raw_sha256": "c1a5e42ebac2aa168cb80b63d5de82d62d0f78891c1c71b6a23ee875f1b994df",
+          "end_stats": true,
+          "metadata_valid": true,
+          "metadata_mismatches": {}
+        }
+      },
+      "diagnostic_lines": {
+        "rx": [
+          "RX timeouts=0 (fwto=0 pto=0)  RX errors=0 (sfdto=0 phe=0 fce=0 fsl=0)  delayed schedule late=0  data config errors=0"
+        ],
+        "tx": [
+          "My TX: success=1000 attempts=1000 delayed_late=0 (PER -> INIT)",
+          "SYNC loss: 0 timeouts  RX errors=0  beacon_config_errors=0  data_config_errors=0"
+        ]
+      }
+    },
+    {
+      "variant": "C",
+      "sfd_symbols": 8,
+      "phr": "DTA",
+      "theory_parts_ns": {
+        "preamble": 32565,
+        "sfd": 8142,
+        "phr": 2693,
+        "psdu": 32822
+      },
+      "theory_ns": 76222,
+      "measured_mean_ns": 76950.92,
+      "min_ns": 76813,
+      "max_ns": 77063,
+      "difference_ns": 728.9199999999983,
+      "difference_percent": 0.9563118259819977,
+      "captures": 1000,
+      "tx": 1000,
+      "rx": 1000,
+      "per_percent": 0,
+      "case_id": "standard_exp3_m32_pac8_l23_C_ch5_b01",
+      "time": "2026-09-14T13:41:20.072785+09:00",
+      "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/159_exp3_a1_a38fb7",
+      "raw_logs": {
+        "N4": {
+          "serial": "1050282818",
+          "pid": 17615,
+          "started_at": "2026-09-14T04:41:15.710695+00:00",
+          "console": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/159_exp3_a1_a38fb7/standard_exp3_m32_pac8_l23_C_ch5_b01/bundle/results/N4.console.log",
+          "ready_at": "2026-09-14T04:41:20.062330+00:00",
+          "exit_code": 0,
+          "paths": {
+            "raw": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/159_exp3_a1_a38fb7/standard_exp3_m32_pac8_l23_C_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_C_ch5_b01/exp3_C_l23_r1_tx.log",
+            "meta": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/159_exp3_a1_a38fb7/standard_exp3_m32_pac8_l23_C_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_C_ch5_b01/exp3_C_l23_r1_tx.meta.txt"
+          },
+          "raw_sha256": "0e7563d048fa235be831e0b98619ea8c013f043e21dee4ade65fe4fb26e2ada4",
+          "end_stats": true,
+          "metadata_valid": true,
+          "metadata_mismatches": {}
+        },
+        "init": {
+          "serial": "1050270933",
+          "pid": 17640,
+          "started_at": "2026-09-14T04:41:20.072785+00:00",
+          "console": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/159_exp3_a1_a38fb7/standard_exp3_m32_pac8_l23_C_ch5_b01/bundle/results/init.console.log",
+          "ready_at": "2026-09-14T04:41:24.425141+00:00",
+          "exit_code": 0,
+          "paths": {
+            "raw": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/159_exp3_a1_a38fb7/standard_exp3_m32_pac8_l23_C_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_C_ch5_b01/exp3_C_l23_r1_rx.log",
+            "meta": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/159_exp3_a1_a38fb7/standard_exp3_m32_pac8_l23_C_ch5_b01/bundle/sdk/../logs/exp3_new_vehicle_ch5_air_recovery_103508_20260914/standard_exp3_m32_pac8_l23_C_ch5_b01/exp3_C_l23_r1_rx.meta.txt"
+          },
+          "raw_sha256": "d6883e5964c0a1d945bb56dec7e7787de1002ce2efdc2cc4355eadb6e5a543ae",
+          "end_stats": true,
+          "metadata_valid": true,
+          "metadata_mismatches": {}
+        }
+      },
+      "diagnostic_lines": {
+        "rx": [
+          "RX timeouts=0 (fwto=0 pto=0)  RX errors=0 (sfdto=0 phe=0 fce=0 fsl=0)  delayed schedule late=0  data config errors=0"
+        ],
+        "tx": [
+          "My TX: success=1000 attempts=1000 delayed_late=0 (PER -> INIT)",
+          "SYNC loss: 0 timeouts  RX errors=0  beacon_config_errors=0  data_config_errors=0"
+        ]
+      }
+    }
+  ],
+  "differential": [
+    {
+      "comparison": "B−A",
+      "meaning": "SFD 8→16 symbol 증가분",
+      "theory_ns": 8141,
+      "measured_ns": 8213.789999999994,
+      "error_ns": 72.7899999999936,
+      "error_percent": 0.8941162019407148
+    },
+    {
+      "comparison": "A−C",
+      "meaning": "PHR STD→DTA 단축분",
+      "theory_ns": 18846,
+      "measured_ns": 18971.089000000007,
+      "error_ns": 125.08900000000722,
+      "error_percent": 0.6637429693304002
+    }
+  ],
+  "performance": {
+    "cases": [
+      {
+        "preamble": 32,
+        "slots": 20,
+        "rx": 20000,
+        "offered": 20000,
+        "goodput_kbps": 256.0,
+        "case_id": "standard_exp4_m32_pac8_l23_k20_ch5_s6_b01",
+        "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/180_exp4_a1_089560",
+        "time": "2026-09-14T14:22:43.315042+09:00",
+        "conditions": {
+          "stage": "exp4",
+          "preamble": 32,
+          "rx_pac": 8,
+          "lead_us": 23,
+          "tail_us": 0,
+          "cycles": 1000,
+          "variant": null,
+          "slot_owners": "23456723456723456723",
+          "run": 1,
+          "uwb_channel": 5,
+          "rf_config_schema_version": 1,
+          "sensors": 6,
+          "guard_us": 200,
+          "sync_buffer_us": 1700,
+          "sync_prep_us": 2200,
+          "slotted_rx": true,
+          "spi_opt": true,
+          "phy_fast_switch": true,
+          "phy_fast_skip_pgf": false,
+          "rx_window_us": 120,
+          "fwto_uus": 118,
+          "max_slots": 20,
+          "profile": "standard",
+          "rotation_index": 0,
+          "phase": "main",
+          "active_physical_roles": [
+            "N2",
+            "N3",
+            "N4",
+            "N5",
+            "N6",
+            "N7"
+          ]
+        }
+      },
+      {
+        "preamble": 256,
+        "slots": 12,
+        "rx": 12000,
+        "offered": 12000,
+        "goodput_kbps": 153.6,
+        "case_id": "standard_exp4_m256_pac8_l23_k12_ch5_s6_b01",
+        "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/182_exp4_a1_e8cb0f",
+        "time": "2026-09-14T14:28:23.767662+09:00",
+        "conditions": {
+          "stage": "exp4",
+          "preamble": 256,
+          "rx_pac": 8,
+          "lead_us": 23,
+          "tail_us": 0,
+          "cycles": 1000,
+          "variant": null,
+          "slot_owners": "234567234567",
+          "run": 1,
+          "uwb_channel": 5,
+          "rf_config_schema_version": 1,
+          "sensors": 6,
+          "guard_us": 200,
+          "sync_buffer_us": 1700,
+          "sync_prep_us": 2200,
+          "slotted_rx": true,
+          "spi_opt": true,
+          "phy_fast_switch": true,
+          "phy_fast_skip_pgf": false,
+          "rx_window_us": 348,
+          "fwto_uus": 340,
+          "max_slots": 12,
+          "profile": "standard",
+          "rotation_index": 0,
+          "phase": "main",
+          "active_physical_roles": [
+            "N2",
+            "N3",
+            "N4",
+            "N5",
+            "N6",
+            "N7"
+          ]
+        }
+      }
+    ],
+    "goodput_ratio": 1.6666666666666667,
+    "nominal_duration_s": 10,
+    "payload_bytes": 16,
+    "theory_m256_ns": 323017,
+    "theoretical_airtime_ratio": 3.3977468759203937,
+    "estimated_m256_exttxe_ns": 323871.009,
+    "estimated_airtime_ratio": 3.3763993516858055,
+    "m256_exttxe_directly_measured": false,
+    "estimate_assumption": "M32 A EXTTXE-minus-model offset is unchanged for M256",
+    "headerless_m32_vs_ordinary_m256": {
+      "theory_m32_ns": 65387,
+      "theory_m256_ns": 323017,
+      "theoretical_ratio": 4.940079832382584,
+      "inferred_sfd8_ns": 8213.789999999994,
+      "assumed_dta_phr_ns": 2693,
+      "estimated_m32_ns": 66044.13,
+      "estimated_m256_ns": 323871.009,
+      "estimated_ratio": 4.903857602484884,
+      "direct_headerless_rf_measurement": false,
+      "assumptions": [
+        "B−A estimates SFD8 duration; variant-dependent hardware offsets are negligible",
+        "Residual DTA PHR uses the firmware theoretical duration",
+        "M256 uses the same EXTTXE-minus-model offset as M32 A",
+        "Same PSDU26B and application payload16B; no replacement header overhead",
+        "Frame-only efficiency excludes guard, beacons, and scheduling overhead"
+      ]
+    }
+  }
+}

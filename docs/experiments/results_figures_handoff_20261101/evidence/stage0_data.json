@@ -1,0 +1,4474 @@
+[
+  {
+    "case_id": "standard_stage0_m32_pac4_l20_ch5_b01",
+    "time_kst": "2026-09-14T10:56:26.114802+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 20,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 18.0,
+    "success_accum_min": 18,
+    "success_accum_max": 18,
+    "success_histogram": [
+      [
+        18,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/001_stage0/standard_stage0_m32_pac4_l20_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l20_ch5_b01/stage0_m32_l20_t0_pac4_r1_rx.log",
+    "source_sha256": "d7c7e058a84f1be5247238a82c159f3b2fdf0ec9bfae17dcbf30487810ff14a6",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/001_stage0"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l0_ch5_b01",
+    "time_kst": "2026-09-14T10:57:32.768437+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 0,
+    "offered": 2000,
+    "rx": 0,
+    "per_percent": 100.0,
+    "pdr_percent": 0.0,
+    "success_accum_n": 0,
+    "success_accum_mean": null,
+    "success_accum_min": null,
+    "success_accum_max": null,
+    "success_histogram": [],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 2000,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        0,
+        2000
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/002_stage0_a1_ab683c/standard_stage0_m32_pac4_l0_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l0_ch5_b01/stage0_m32_l0_t0_pac4_r1_rx.log",
+    "source_sha256": "550a1ed4285fd530457fe13166ea82bfa8c8a003d98f2f44c4e290bad3d8e4ab",
+    "official": "FAIL_PER",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/002_stage0_a1_ab683c"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l40_ch5_b01",
+    "time_kst": "2026-09-14T10:58:37.114974+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 40,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 20.896,
+    "success_accum_min": 17,
+    "success_accum_max": 21,
+    "success_histogram": [
+      [
+        17,
+        52
+      ],
+      [
+        21,
+        1948
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/003_stage0_a1_0c95ac/standard_stage0_m32_pac4_l40_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l40_ch5_b01/stage0_m32_l40_t0_pac4_r1_rx.log",
+    "source_sha256": "caebdb3fa43fe1a54f5cdfaf8537b3ac5a8e6341132b3e8f33f20aef2eb7c7d9",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/003_stage0_a1_0c95ac"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l10_ch5_b01",
+    "time_kst": "2026-09-14T10:59:42.268750+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 10,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 16.0,
+    "success_accum_min": 16,
+    "success_accum_max": 16,
+    "success_histogram": [
+      [
+        16,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/004_stage0_a1_0628be/standard_stage0_m32_pac4_l10_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l10_ch5_b01/stage0_m32_l10_t0_pac4_r1_rx.log",
+    "source_sha256": "ff8c016e1d768dacbd89499e42e02b7a3a8e62b773cc95212ebd7a4a23ee2840",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/004_stage0_a1_0628be"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l30_ch5_b01",
+    "time_kst": "2026-09-14T11:00:46.668209+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 30,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 20.0,
+    "success_accum_min": 20,
+    "success_accum_max": 20,
+    "success_histogram": [
+      [
+        20,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/005_stage0_a1_eaff0f/standard_stage0_m32_pac4_l30_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l30_ch5_b01/stage0_m32_l30_t0_pac4_r1_rx.log",
+    "source_sha256": "250bb96e42020d881ae0fbf275629263eeb98dbee774359b2c0bcd355d019a12",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/005_stage0_a1_eaff0f"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l5_ch5_b01",
+    "time_kst": "2026-09-14T11:01:50.261482+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 5,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 11.0,
+    "success_accum_min": 11,
+    "success_accum_max": 11,
+    "success_histogram": [
+      [
+        11,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/006_stage0_a1_4042a7/standard_stage0_m32_pac4_l5_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l5_ch5_b01/stage0_m32_l5_t0_pac4_r1_rx.log",
+    "source_sha256": "ebb3c48575f91d1dc8fcc6fb0cfa789ba2569f1f5a662cfa2a3a90d8b5337ed5",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/006_stage0_a1_4042a7"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l25_ch5_b01",
+    "time_kst": "2026-09-14T11:02:54.037810+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 25,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/007_stage0_a1_714d83/standard_stage0_m32_pac4_l25_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l25_ch5_b01/stage0_m32_l25_t0_pac4_r1_rx.log",
+    "source_sha256": "bc911e90ee26b944d528b886872eb020ae077af459fc629620e53a6e4fe2350d",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/007_stage0_a1_714d83"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l15_ch5_b01",
+    "time_kst": "2026-09-14T11:04:00.003124+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 15,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 17.656,
+    "success_accum_min": 17,
+    "success_accum_max": 21,
+    "success_histogram": [
+      [
+        17,
+        1672
+      ],
+      [
+        21,
+        328
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/008_stage0_a1_825248/standard_stage0_m32_pac4_l15_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l15_ch5_b01/stage0_m32_l15_t0_pac4_r1_rx.log",
+    "source_sha256": "94c2144754434bfb8877849a2e91cc30598fe4726578510aa068b949557d71dd",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/008_stage0_a1_825248"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l35_ch5_b01",
+    "time_kst": "2026-09-14T11:05:03.342101+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 35,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 21.0,
+    "success_accum_min": 21,
+    "success_accum_max": 21,
+    "success_histogram": [
+      [
+        21,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/009_stage0_a1_fd851e/standard_stage0_m32_pac4_l35_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l35_ch5_b01/stage0_m32_l35_t0_pac4_r1_rx.log",
+    "source_sha256": "8a64e3d81a3ee27a642e8fcd161e7a4042a7cc29cdd1805791c9bbb5af4e8a48",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/009_stage0_a1_fd851e"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l2_ch5_b01",
+    "time_kst": "2026-09-14T11:06:07.108713+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 2,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 8.0,
+    "success_accum_min": 8,
+    "success_accum_max": 8,
+    "success_histogram": [
+      [
+        8,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/010_stage0_a1_b8be73/standard_stage0_m32_pac4_l2_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l2_ch5_b01/stage0_m32_l2_t0_pac4_r1_rx.log",
+    "source_sha256": "a5e4a8aa78415da3171a84143c9eb9ed60d0d686c4a800f1f33a559dbb762024",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/010_stage0_a1_b8be73"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l22_ch5_b01",
+    "time_kst": "2026-09-14T11:07:11.004885+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 22,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 20.0,
+    "success_accum_min": 20,
+    "success_accum_max": 20,
+    "success_histogram": [
+      [
+        20,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/011_stage0_a1_0cd306/standard_stage0_m32_pac4_l22_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l22_ch5_b01/stage0_m32_l22_t0_pac4_r1_rx.log",
+    "source_sha256": "6cc216e739a08b20c3f1d7427e06de5f3a48e609b85b7a0d2997c61655c085db",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/011_stage0_a1_0cd306"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l12_ch5_b01",
+    "time_kst": "2026-09-14T11:08:15.962797+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 12,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 18.0,
+    "success_accum_min": 18,
+    "success_accum_max": 18,
+    "success_histogram": [
+      [
+        18,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/012_stage0_a1_05ae79/standard_stage0_m32_pac4_l12_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l12_ch5_b01/stage0_m32_l12_t0_pac4_r1_rx.log",
+    "source_sha256": "664b0dd06aebcc8951e4e928624c812d4e150925f1279ed74e6cbea9b418443e",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/012_stage0_a1_05ae79"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l32_ch5_b01",
+    "time_kst": "2026-09-14T11:09:19.418217+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 32,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 21.872,
+    "success_accum_min": 18,
+    "success_accum_max": 22,
+    "success_histogram": [
+      [
+        18,
+        64
+      ],
+      [
+        22,
+        1936
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/013_stage0_a1_2caf42/standard_stage0_m32_pac4_l32_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l32_ch5_b01/stage0_m32_l32_t0_pac4_r1_rx.log",
+    "source_sha256": "b6a6a078f01c175e17b2c720f9b5959aa91e15c2228d19fd86053bd37aae917d",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/013_stage0_a1_2caf42"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l7_ch5_b01",
+    "time_kst": "2026-09-14T11:10:24.301927+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 7,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 13.0,
+    "success_accum_min": 13,
+    "success_accum_max": 13,
+    "success_histogram": [
+      [
+        13,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/014_stage0_a1_6dbc70/standard_stage0_m32_pac4_l7_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l7_ch5_b01/stage0_m32_l7_t0_pac4_r1_rx.log",
+    "source_sha256": "68dc57f670899418dc9d794cc15bf833d34f9e8abdb341d15cdb0aa32ecca076",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/014_stage0_a1_6dbc70"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l27_ch5_b01",
+    "time_kst": "2026-09-14T11:11:27.619053+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 27,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 21.0,
+    "success_accum_min": 21,
+    "success_accum_max": 21,
+    "success_histogram": [
+      [
+        21,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/015_stage0_a1_3f47ca/standard_stage0_m32_pac4_l27_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l27_ch5_b01/stage0_m32_l27_t0_pac4_r1_rx.log",
+    "source_sha256": "11cb0c2623d7e772e619af868719bdc471b7cd3f39a8ac82fb444a035e096e28",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/015_stage0_a1_3f47ca"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l17_ch5_b01",
+    "time_kst": "2026-09-14T11:12:31.261080+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 17,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/016_stage0_a1_837e54/standard_stage0_m32_pac4_l17_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l17_ch5_b01/stage0_m32_l17_t0_pac4_r1_rx.log",
+    "source_sha256": "07c56240a7b29f45551886e0bd1f1ec20f74161d0c7fad5246b004409a7e5f1c",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/016_stage0_a1_837e54"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l37_ch5_b01",
+    "time_kst": "2026-09-14T11:13:34.976179+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 37,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 18.0,
+    "success_accum_min": 18,
+    "success_accum_max": 18,
+    "success_histogram": [
+      [
+        18,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/017_stage0_a1_7c81a2/standard_stage0_m32_pac4_l37_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l37_ch5_b01/stage0_m32_l37_t0_pac4_r1_rx.log",
+    "source_sha256": "e42b104394b779d608945746e2973bc7b6fce13f87d42dcb2f7aa88f0853d97a",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/017_stage0_a1_7c81a2"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l4_ch5_b01",
+    "time_kst": "2026-09-14T11:14:38.761883+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 4,
+    "offered": 2000,
+    "rx": 1999,
+    "per_percent": 0.05,
+    "pdr_percent": 99.95,
+    "success_accum_n": 1999,
+    "success_accum_mean": 10.0,
+    "success_accum_min": 10,
+    "success_accum_max": 10,
+    "success_histogram": [
+      [
+        10,
+        1999
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 1,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        0,
+        1
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/018_stage0_a1_e3b18e/standard_stage0_m32_pac4_l4_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l4_ch5_b01/stage0_m32_l4_t0_pac4_r1_rx.log",
+    "source_sha256": "d2ca6a336c578e62c905a1d81c400c2ad84f76ad78743826204b15733cd246d4",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/018_stage0_a1_e3b18e"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l24_ch5_b01",
+    "time_kst": "2026-09-14T11:15:42.467200+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 24,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 21.904,
+    "success_accum_min": 18,
+    "success_accum_max": 22,
+    "success_histogram": [
+      [
+        18,
+        48
+      ],
+      [
+        22,
+        1952
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/019_stage0_a1_21a798/standard_stage0_m32_pac4_l24_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l24_ch5_b01/stage0_m32_l24_t0_pac4_r1_rx.log",
+    "source_sha256": "8327a8a89974669cd71c1d05ecaf2f4f25b2eee243d16ec52590ce14e3a9dd70",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/019_stage0_a1_21a798"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l14_ch5_b01",
+    "time_kst": "2026-09-14T11:16:46.421231+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 14,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 20.0,
+    "success_accum_min": 20,
+    "success_accum_max": 20,
+    "success_histogram": [
+      [
+        20,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/020_stage0_a1_ac32f1/standard_stage0_m32_pac4_l14_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l14_ch5_b01/stage0_m32_l14_t0_pac4_r1_rx.log",
+    "source_sha256": "4d31a391d0e6ac044f5645da105845e4a19f6764409041ff3be72959dd87165a",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/020_stage0_a1_ac32f1"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l34_ch5_b01",
+    "time_kst": "2026-09-14T11:17:51.218481+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 34,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 20.0,
+    "success_accum_min": 20,
+    "success_accum_max": 20,
+    "success_histogram": [
+      [
+        20,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/021_stage0_a1_15cb92/standard_stage0_m32_pac4_l34_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l34_ch5_b01/stage0_m32_l34_t0_pac4_r1_rx.log",
+    "source_sha256": "5351044ddb2757038fbe4508bb1dbbd1755ad45db172c3bb3f00e7184f108221",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/021_stage0_a1_15cb92"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l9_ch5_b01",
+    "time_kst": "2026-09-14T11:18:54.780515+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 9,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 15.0,
+    "success_accum_min": 15,
+    "success_accum_max": 15,
+    "success_histogram": [
+      [
+        15,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/022_stage0_a1_8a5253/standard_stage0_m32_pac4_l9_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l9_ch5_b01/stage0_m32_l9_t0_pac4_r1_rx.log",
+    "source_sha256": "fbafcb2520b8c6eb215ce6ae12b292a563237649ebac41bcfaef8041c200bb8e",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/022_stage0_a1_8a5253"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l29_ch5_b01",
+    "time_kst": "2026-09-14T11:19:58.444094+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 29,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/023_stage0_a1_b28c69/standard_stage0_m32_pac4_l29_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l29_ch5_b01/stage0_m32_l29_t0_pac4_r1_rx.log",
+    "source_sha256": "ab7165ccb44f618a4a12e4aea826be3b700f99eaf76a898cb6fa4650e91bf87a",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/023_stage0_a1_b28c69"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l19_ch5_b01",
+    "time_kst": "2026-09-14T11:21:03.032516+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 19,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 20.566,
+    "success_accum_min": 17,
+    "success_accum_max": 21,
+    "success_histogram": [
+      [
+        17,
+        217
+      ],
+      [
+        21,
+        1783
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/024_stage0_a1_b34ad5/standard_stage0_m32_pac4_l19_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l19_ch5_b01/stage0_m32_l19_t0_pac4_r1_rx.log",
+    "source_sha256": "d716406934e4887e1d942f215a43a531e0d3b46b66f2dbee3a9661f4a4693c83",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/024_stage0_a1_b34ad5"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l39_ch5_b01",
+    "time_kst": "2026-09-14T11:22:07.210207+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 39,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 20.0,
+    "success_accum_min": 20,
+    "success_accum_max": 20,
+    "success_histogram": [
+      [
+        20,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/025_stage0_a1_bf2ad5/standard_stage0_m32_pac4_l39_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l39_ch5_b01/stage0_m32_l39_t0_pac4_r1_rx.log",
+    "source_sha256": "6dca3a743fc4c05b991c62d5258cdfa3bc8b7c0ad00440d52f4445d53f757d81",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/025_stage0_a1_bf2ad5"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l1_ch5_b01",
+    "time_kst": "2026-09-14T11:23:10.841304+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 1,
+    "offered": 2000,
+    "rx": 0,
+    "per_percent": 100.0,
+    "pdr_percent": 0.0,
+    "success_accum_n": 0,
+    "success_accum_mean": null,
+    "success_accum_min": null,
+    "success_accum_max": null,
+    "success_histogram": [],
+    "failed_valid_n": 1346,
+    "failed_valid_mean": 6.0,
+    "failed_valid_histogram": [
+      [
+        "fwto",
+        6,
+        142
+      ],
+      [
+        "phe",
+        6,
+        1170
+      ],
+      [
+        "fce",
+        6,
+        3
+      ],
+      [
+        "fsl",
+        6,
+        31
+      ]
+    ],
+    "failed_invalid_raw_n": 654,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        0,
+        2
+      ],
+      [
+        "fwto",
+        6,
+        639
+      ],
+      [
+        "phe",
+        0,
+        13
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/026_stage0_a1_a03455/standard_stage0_m32_pac4_l1_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l1_ch5_b01/stage0_m32_l1_t0_pac4_r1_rx.log",
+    "source_sha256": "2c4dd6322a6dc7958bb712cac919c412b697f60c9d76c0b85b564956ca0b8286",
+    "official": "FAIL_PER",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/026_stage0_a1_a03455"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l21_ch5_b01",
+    "time_kst": "2026-09-14T11:24:14.909544+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "offered": 2000,
+    "rx": 1999,
+    "per_percent": 0.05,
+    "pdr_percent": 99.95,
+    "success_accum_n": 1999,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        1999
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 1,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        19,
+        1
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/027_stage0_a1_3fef87/standard_stage0_m32_pac4_l21_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l21_ch5_b01/stage0_m32_l21_t0_pac4_r1_rx.log",
+    "source_sha256": "50760a578b5084fce8e6dfc17aa62213595e739af3472d7ec652ec4bad82a530",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/027_stage0_a1_3fef87"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l11_ch5_b01",
+    "time_kst": "2026-09-14T11:25:18.972520+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 11,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 17.0,
+    "success_accum_min": 17,
+    "success_accum_max": 17,
+    "success_histogram": [
+      [
+        17,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/028_stage0_a1_447d70/standard_stage0_m32_pac4_l11_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l11_ch5_b01/stage0_m32_l11_t0_pac4_r1_rx.log",
+    "source_sha256": "c9b0c03ce84c4f1d04ec0faee0924929cb0a4ad29cc9f04126082363bd569db8",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/028_stage0_a1_447d70"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l31_ch5_b01",
+    "time_kst": "2026-09-14T11:26:23.624524+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 31,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 21.0,
+    "success_accum_min": 21,
+    "success_accum_max": 21,
+    "success_histogram": [
+      [
+        21,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/029_stage0_a1_064f99/standard_stage0_m32_pac4_l31_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l31_ch5_b01/stage0_m32_l31_t0_pac4_r1_rx.log",
+    "source_sha256": "8aaec654e082b110c9f0290b6991d254f361f84c7b7cd34f34f14caffde5c37f",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/029_stage0_a1_064f99"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l6_ch5_b01",
+    "time_kst": "2026-09-14T11:27:28.923268+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 6,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 12.0,
+    "success_accum_min": 12,
+    "success_accum_max": 12,
+    "success_histogram": [
+      [
+        12,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/030_stage0_a1_0027a7/standard_stage0_m32_pac4_l6_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l6_ch5_b01/stage0_m32_l6_t0_pac4_r1_rx.log",
+    "source_sha256": "ddaeb35d458f8ed7c5a323a58ef6be8532191c4477b42a7eb0abef235bacd269",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/030_stage0_a1_0027a7"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l26_ch5_b01",
+    "time_kst": "2026-09-14T11:28:33.271523+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 26,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 20.0,
+    "success_accum_min": 20,
+    "success_accum_max": 20,
+    "success_histogram": [
+      [
+        20,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/031_stage0_a1_597b72/standard_stage0_m32_pac4_l26_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l26_ch5_b01/stage0_m32_l26_t0_pac4_r1_rx.log",
+    "source_sha256": "74ddc48a0cf195eeb218fd38bac25de029764e4e816c15eb2fcfbc20da0edfc7",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/031_stage0_a1_597b72"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l16_ch5_b01",
+    "time_kst": "2026-09-14T11:29:39.684336+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 16,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 18.0,
+    "success_accum_min": 18,
+    "success_accum_max": 18,
+    "success_histogram": [
+      [
+        18,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/032_stage0_a1_572362/standard_stage0_m32_pac4_l16_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l16_ch5_b01/stage0_m32_l16_t0_pac4_r1_rx.log",
+    "source_sha256": "120262a68d8d6a14972b4d5bf5f353f6b92022e009c48a5cbfb58a7764580760",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/032_stage0_a1_572362"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l36_ch5_b01",
+    "time_kst": "2026-09-14T11:30:43.080018+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 36,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 21.914,
+    "success_accum_min": 18,
+    "success_accum_max": 22,
+    "success_histogram": [
+      [
+        18,
+        43
+      ],
+      [
+        22,
+        1957
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/033_stage0_a1_6a0014/standard_stage0_m32_pac4_l36_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l36_ch5_b01/stage0_m32_l36_t0_pac4_r1_rx.log",
+    "source_sha256": "cc7f1099d4c55523ad686624d8eaa6d5b230faaab114e5b4ebb795dfbeba195e",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/033_stage0_a1_6a0014"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l3_ch5_b01",
+    "time_kst": "2026-09-14T11:31:46.427361+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 3,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 9.0,
+    "success_accum_min": 9,
+    "success_accum_max": 9,
+    "success_histogram": [
+      [
+        9,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/034_stage0_a1_a5a20c/standard_stage0_m32_pac4_l3_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l3_ch5_b01/stage0_m32_l3_t0_pac4_r1_rx.log",
+    "source_sha256": "c0cff551e3f6fd183f20ab1d841dabe517cd6f86ffdb39e6e240a485d0e64ccd",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/034_stage0_a1_a5a20c"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l23_ch5_b01",
+    "time_kst": "2026-09-14T11:32:49.820480+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 23,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 21.0,
+    "success_accum_min": 21,
+    "success_accum_max": 21,
+    "success_histogram": [
+      [
+        21,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/035_stage0_a1_2f4096/standard_stage0_m32_pac4_l23_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l23_ch5_b01/stage0_m32_l23_t0_pac4_r1_rx.log",
+    "source_sha256": "c1beb44e68fa7fe3efaafe84c22c3c89b1ede47c88366b9e4bff34b93f220cf5",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/035_stage0_a1_2f4096"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l13_ch5_b01",
+    "time_kst": "2026-09-14T11:33:54.200237+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 13,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/036_stage0_a1_b3a56f/standard_stage0_m32_pac4_l13_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l13_ch5_b01/stage0_m32_l13_t0_pac4_r1_rx.log",
+    "source_sha256": "b092445de494d5a18b80700a6b90c287524127423ed815acbba4552553b7b9ad",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/036_stage0_a1_b3a56f"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l33_ch5_b01",
+    "time_kst": "2026-09-14T11:34:57.671885+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 33,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/037_stage0_a1_6990a4/standard_stage0_m32_pac4_l33_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l33_ch5_b01/stage0_m32_l33_t0_pac4_r1_rx.log",
+    "source_sha256": "53566d311458929e13e3a69cbc37730d9c845131d6d18822b944041ce3703409",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/037_stage0_a1_6990a4"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l8_ch5_b01",
+    "time_kst": "2026-09-14T11:36:01.563272+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 8,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 14.0,
+    "success_accum_min": 14,
+    "success_accum_max": 14,
+    "success_histogram": [
+      [
+        14,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/038_stage0_a1_a337fd/standard_stage0_m32_pac4_l8_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l8_ch5_b01/stage0_m32_l8_t0_pac4_r1_rx.log",
+    "source_sha256": "043f616d205591189bd5e969d80f3ae370bdacaf55ae8a0f45b9a514c419a27c",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/038_stage0_a1_a337fd"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l28_ch5_b01",
+    "time_kst": "2026-09-14T11:37:05.279411+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 28,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 21.892,
+    "success_accum_min": 18,
+    "success_accum_max": 22,
+    "success_histogram": [
+      [
+        18,
+        54
+      ],
+      [
+        22,
+        1946
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/039_stage0_a1_238eec/standard_stage0_m32_pac4_l28_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l28_ch5_b01/stage0_m32_l28_t0_pac4_r1_rx.log",
+    "source_sha256": "935841a84ac3affd9428d3e36e5b20c5d69ef7c2333c5f2ce54c15105ef7891d",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/039_stage0_a1_238eec"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l18_ch5_b01",
+    "time_kst": "2026-09-14T11:38:08.869961+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 18,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 20.0,
+    "success_accum_min": 20,
+    "success_accum_max": 20,
+    "success_histogram": [
+      [
+        20,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/040_stage0_a1_974f5d/standard_stage0_m32_pac4_l18_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l18_ch5_b01/stage0_m32_l18_t0_pac4_r1_rx.log",
+    "source_sha256": "a8c6d61ed1021152064920c880885b1ce5b57f4279d9a8a0b4c8ba2c9a928eeb",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/040_stage0_a1_974f5d"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l38_ch5_b01",
+    "time_kst": "2026-09-14T11:39:13.952214+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 38,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/041_stage0_a1_030e7c/standard_stage0_m32_pac4_l38_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l38_ch5_b01/stage0_m32_l38_t0_pac4_r1_rx.log",
+    "source_sha256": "44312218e523a3494baae58c86ac4272d0d50350971c63b37a0fc49a419aa13b",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/041_stage0_a1_030e7c"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l20_ch5_b01",
+    "time_kst": "2026-09-14T11:40:19.157823+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 20,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 14.0,
+    "success_accum_min": 14,
+    "success_accum_max": 14,
+    "success_histogram": [
+      [
+        14,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/042_stage0_a1_22e717/standard_stage0_m32_pac8_l20_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l20_ch5_b01/stage0_m32_l20_t0_pac8_r1_rx.log",
+    "source_sha256": "26d594f650eb3aa5dc5fd674381eb1caecf7f0881c0de0a4acbfce0e5f895189",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/042_stage0_a1_22e717"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l0_ch5_b01",
+    "time_kst": "2026-09-14T11:41:26.005376+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 0,
+    "offered": 2000,
+    "rx": 0,
+    "per_percent": 100.0,
+    "pdr_percent": 0.0,
+    "success_accum_n": 0,
+    "success_accum_mean": null,
+    "success_accum_min": null,
+    "success_accum_max": null,
+    "success_histogram": [],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 2000,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        0,
+        2000
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/043_stage0_a1_36b09f/standard_stage0_m32_pac8_l0_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l0_ch5_b01/stage0_m32_l0_t0_pac8_r1_rx.log",
+    "source_sha256": "5437ed902fc47db26af1adccaf4dc712f23351a32935c6db35657070c1b8d5d0",
+    "official": "FAIL_PER",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/043_stage0_a1_36b09f"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l40_ch5_b01",
+    "time_kst": "2026-09-14T11:42:29.121391+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 40,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 16.968,
+    "success_accum_min": 9,
+    "success_accum_max": 17,
+    "success_histogram": [
+      [
+        9,
+        8
+      ],
+      [
+        17,
+        1992
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/044_stage0_a1_b24103/standard_stage0_m32_pac8_l40_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l40_ch5_b01/stage0_m32_l40_t0_pac8_r1_rx.log",
+    "source_sha256": "1f0f4496f009e6c9eae9b5ccb908d6d3c2e079ce4880d31481793ffdd2be921a",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/044_stage0_a1_b24103"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l10_ch5_b01",
+    "time_kst": "2026-09-14T11:43:32.703645+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 10,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 12.0,
+    "success_accum_min": 12,
+    "success_accum_max": 12,
+    "success_histogram": [
+      [
+        12,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/045_stage0_a1_aa1fd4/standard_stage0_m32_pac8_l10_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l10_ch5_b01/stage0_m32_l10_t0_pac8_r1_rx.log",
+    "source_sha256": "024c15dab27951d77aa44e6ecacf67435939d4d8706a745fad091a402fb09178",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/045_stage0_a1_aa1fd4"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l30_ch5_b01",
+    "time_kst": "2026-09-14T11:44:36.366273+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 30,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 16.0,
+    "success_accum_min": 16,
+    "success_accum_max": 16,
+    "success_histogram": [
+      [
+        16,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/046_stage0_a1_bedb5b/standard_stage0_m32_pac8_l30_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l30_ch5_b01/stage0_m32_l30_t0_pac8_r1_rx.log",
+    "source_sha256": "efdafc7c98c00f7031a77b994bffc11476c7b6bc5ba853acd6021fd3cb3ae35a",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/046_stage0_a1_bedb5b"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l5_ch5_b01",
+    "time_kst": "2026-09-14T11:45:41.107599+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 5,
+    "offered": 2000,
+    "rx": 0,
+    "per_percent": 100.0,
+    "pdr_percent": 0.0,
+    "success_accum_n": 0,
+    "success_accum_mean": null,
+    "success_accum_min": null,
+    "success_accum_max": null,
+    "success_histogram": [],
+    "failed_valid_n": 1422,
+    "failed_valid_mean": 6.0,
+    "failed_valid_histogram": [
+      [
+        "fwto",
+        6,
+        167
+      ],
+      [
+        "phe",
+        6,
+        1205
+      ],
+      [
+        "fce",
+        6,
+        6
+      ],
+      [
+        "fsl",
+        6,
+        44
+      ]
+    ],
+    "failed_invalid_raw_n": 578,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        6,
+        578
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/047_stage0_a1_534638/standard_stage0_m32_pac8_l5_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l5_ch5_b01/stage0_m32_l5_t0_pac8_r1_rx.log",
+    "source_sha256": "6bbd640a354e6af7ef4debdb3c0ea9186cd221c1a0497764d429306ec0358fdb",
+    "official": "FAIL_PER",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/047_stage0_a1_534638"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l25_ch5_b01",
+    "time_kst": "2026-09-14T11:46:45.825675+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 25,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 11.004,
+    "success_accum_min": 11,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        11,
+        1999
+      ],
+      [
+        19,
+        1
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/048_stage0_a1_c11b2d/standard_stage0_m32_pac8_l25_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l25_ch5_b01/stage0_m32_l25_t0_pac8_r1_rx.log",
+    "source_sha256": "ce32b2a60820d76c251baf7fa81aa9683544283a571a27a103bba4d7a97f652e",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/048_stage0_a1_c11b2d"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l15_ch5_b01",
+    "time_kst": "2026-09-14T11:47:52.251019+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 15,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 9.0,
+    "success_accum_min": 9,
+    "success_accum_max": 9,
+    "success_histogram": [
+      [
+        9,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/049_stage0_a1_b46784/standard_stage0_m32_pac8_l15_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l15_ch5_b01/stage0_m32_l15_t0_pac8_r1_rx.log",
+    "source_sha256": "d85a5a3fd8ded868f9d1630209178748e849c21e6b18b0cc38b011b99496f395",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/049_stage0_a1_b46784"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l35_ch5_b01",
+    "time_kst": "2026-09-14T11:48:56.065225+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 35,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 13.004,
+    "success_accum_min": 13,
+    "success_accum_max": 21,
+    "success_histogram": [
+      [
+        13,
+        1999
+      ],
+      [
+        21,
+        1
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/050_stage0_a1_b034e2/standard_stage0_m32_pac8_l35_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l35_ch5_b01/stage0_m32_l35_t0_pac8_r1_rx.log",
+    "source_sha256": "10acbc7cd0fabbc52ee8adf785b523d2277aa5c112a39fc6e9e1960a2ba810a5",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/050_stage0_a1_b034e2"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l2_ch5_b01",
+    "time_kst": "2026-09-14T11:49:59.845456+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 2,
+    "offered": 2000,
+    "rx": 0,
+    "per_percent": 100.0,
+    "pdr_percent": 0.0,
+    "success_accum_n": 0,
+    "success_accum_mean": null,
+    "success_accum_min": null,
+    "success_accum_max": null,
+    "success_histogram": [],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 2000,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        0,
+        2000
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/051_stage0_a1_b4b970/standard_stage0_m32_pac8_l2_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l2_ch5_b01/stage0_m32_l2_t0_pac8_r1_rx.log",
+    "source_sha256": "63b50e410fe87179200d9865ec7a3b044712157fe9cd7f7638a7a261d704e53c",
+    "official": "FAIL_PER",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/051_stage0_a1_b4b970"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l22_ch5_b01",
+    "time_kst": "2026-09-14T11:51:04.891131+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 22,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 16.0,
+    "success_accum_min": 16,
+    "success_accum_max": 16,
+    "success_histogram": [
+      [
+        16,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/052_stage0_a1_4f1b06/standard_stage0_m32_pac8_l22_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l22_ch5_b01/stage0_m32_l22_t0_pac8_r1_rx.log",
+    "source_sha256": "81f72f329d3b16c8a3d24468be6f475f7d47054484209d5469477b70aa54aa6e",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/052_stage0_a1_4f1b06"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l12_ch5_b01",
+    "time_kst": "2026-09-14T11:52:09.503168+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 12,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 14.0,
+    "success_accum_min": 14,
+    "success_accum_max": 14,
+    "success_histogram": [
+      [
+        14,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/053_stage0_a1_4f0f46/standard_stage0_m32_pac8_l12_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l12_ch5_b01/stage0_m32_l12_t0_pac8_r1_rx.log",
+    "source_sha256": "bd346ba9f04068374c01b3653e4d95cafe25e2c4c4379613b712750d7a37154b",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/053_stage0_a1_4f0f46"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l32_ch5_b01",
+    "time_kst": "2026-09-14T11:53:13.115850+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 32,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 17.98,
+    "success_accum_min": 10,
+    "success_accum_max": 18,
+    "success_histogram": [
+      [
+        10,
+        5
+      ],
+      [
+        18,
+        1995
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/054_stage0_a1_b2a24a/standard_stage0_m32_pac8_l32_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l32_ch5_b01/stage0_m32_l32_t0_pac8_r1_rx.log",
+    "source_sha256": "49be62d61dcca638f8acdd0a8756048ac07a623db498d9124d1480a7a3ed61f6",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/054_stage0_a1_b2a24a"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l7_ch5_b01",
+    "time_kst": "2026-09-14T11:54:16.586770+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 7,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 9.0,
+    "success_accum_min": 9,
+    "success_accum_max": 9,
+    "success_histogram": [
+      [
+        9,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/055_stage0_a1_317251/standard_stage0_m32_pac8_l7_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l7_ch5_b01/stage0_m32_l7_t0_pac8_r1_rx.log",
+    "source_sha256": "963252f29ca4cb26a891a5d064dfe71992132144cfe9a8e43a8d2e56d0dc8c50",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/055_stage0_a1_317251"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l27_ch5_b01",
+    "time_kst": "2026-09-14T11:55:20.826960+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 27,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 13.0,
+    "success_accum_min": 13,
+    "success_accum_max": 13,
+    "success_histogram": [
+      [
+        13,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/056_stage0_a1_d8dd26/standard_stage0_m32_pac8_l27_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l27_ch5_b01/stage0_m32_l27_t0_pac8_r1_rx.log",
+    "source_sha256": "5a2f0d0c8fc2b2d177857acf185f1d32d34e93e7671557b667dd55f391ddf18f",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/056_stage0_a1_d8dd26"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l17_ch5_b01",
+    "time_kst": "2026-09-14T11:56:24.290046+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 17,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 11.0,
+    "success_accum_min": 11,
+    "success_accum_max": 11,
+    "success_histogram": [
+      [
+        11,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/057_stage0_a1_4efa91/standard_stage0_m32_pac8_l17_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l17_ch5_b01/stage0_m32_l17_t0_pac8_r1_rx.log",
+    "source_sha256": "9a89d0338c920f69c258454ddffc50b2de7590b16aad4601fd0605207aa17824",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/057_stage0_a1_4efa91"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l37_ch5_b01",
+    "time_kst": "2026-09-14T11:57:28.483756+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 37,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 14.0125,
+    "success_accum_min": 14,
+    "success_accum_max": 23,
+    "success_histogram": [
+      [
+        14,
+        1997
+      ],
+      [
+        22,
+        2
+      ],
+      [
+        23,
+        1
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/058_stage0_a1_4b3970/standard_stage0_m32_pac8_l37_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l37_ch5_b01/stage0_m32_l37_t0_pac8_r1_rx.log",
+    "source_sha256": "802aec7e1c817712d52e5c3e08d2a6e5480d2917892f40e93155c2ceb3c22adc",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/058_stage0_a1_4b3970"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l4_ch5_b01",
+    "time_kst": "2026-09-14T11:58:31.918926+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 4,
+    "offered": 2000,
+    "rx": 0,
+    "per_percent": 100.0,
+    "pdr_percent": 0.0,
+    "success_accum_n": 0,
+    "success_accum_mean": null,
+    "success_accum_min": null,
+    "success_accum_max": null,
+    "success_histogram": [],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 2000,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        0,
+        2000
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/059_stage0_a1_c78087/standard_stage0_m32_pac8_l4_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l4_ch5_b01/stage0_m32_l4_t0_pac8_r1_rx.log",
+    "source_sha256": "416500e831115fbca8859f62a407e748c8510d99c60a6e41132e70c2ff5a38eb",
+    "official": "FAIL_PER",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/059_stage0_a1_c78087"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l24_ch5_b01",
+    "time_kst": "2026-09-14T11:59:38.052423+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 24,
+    "offered": 2000,
+    "rx": 1999,
+    "per_percent": 0.05,
+    "pdr_percent": 99.95,
+    "success_accum_n": 1999,
+    "success_accum_mean": 17.935967983991997,
+    "success_accum_min": 10,
+    "success_accum_max": 18,
+    "success_histogram": [
+      [
+        10,
+        16
+      ],
+      [
+        18,
+        1983
+      ]
+    ],
+    "failed_valid_n": 1,
+    "failed_valid_mean": 18.0,
+    "failed_valid_histogram": [
+      [
+        "fsl",
+        18,
+        1
+      ]
+    ],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/060_stage0_a1_64c88f/standard_stage0_m32_pac8_l24_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l24_ch5_b01/stage0_m32_l24_t0_pac8_r1_rx.log",
+    "source_sha256": "878115d8fbc76dd2b6cb5155c9d7c6f49c8155ecadf7126d47866281c8098cd1",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/060_stage0_a1_64c88f"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l14_ch5_b01",
+    "time_kst": "2026-09-14T12:00:41.655648+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 14,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 15.828,
+    "success_accum_min": 8,
+    "success_accum_max": 16,
+    "success_histogram": [
+      [
+        8,
+        43
+      ],
+      [
+        16,
+        1957
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/061_stage0_a1_d5b9e8/standard_stage0_m32_pac8_l14_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l14_ch5_b01/stage0_m32_l14_t0_pac8_r1_rx.log",
+    "source_sha256": "da584cc552683df52f7da09fa4689fa5d1d3133ae1471612dc9159216708c85d",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/061_stage0_a1_d5b9e8"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l34_ch5_b01",
+    "time_kst": "2026-09-14T12:01:45.182413+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 34,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 12.004,
+    "success_accum_min": 12,
+    "success_accum_max": 20,
+    "success_histogram": [
+      [
+        12,
+        1999
+      ],
+      [
+        20,
+        1
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/062_stage0_a1_1dbd2f/standard_stage0_m32_pac8_l34_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l34_ch5_b01/stage0_m32_l34_t0_pac8_r1_rx.log",
+    "source_sha256": "4ed107a9f842b1b99b72dd035f803354bf8cdb1ea8659447eda08a53583b475f",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/062_stage0_a1_1dbd2f"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l9_ch5_b01",
+    "time_kst": "2026-09-14T12:02:48.833099+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 9,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 11.0,
+    "success_accum_min": 11,
+    "success_accum_max": 11,
+    "success_histogram": [
+      [
+        11,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/063_stage0_a1_e960b5/standard_stage0_m32_pac8_l9_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l9_ch5_b01/stage0_m32_l9_t0_pac8_r1_rx.log",
+    "source_sha256": "efbf6242fe4ff838ea28216bafcec5544aa103d856635844c7583c9dc377cc98",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/063_stage0_a1_e960b5"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l29_ch5_b01",
+    "time_kst": "2026-09-14T12:03:52.340275+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 29,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 15.004,
+    "success_accum_min": 15,
+    "success_accum_max": 23,
+    "success_histogram": [
+      [
+        15,
+        1999
+      ],
+      [
+        23,
+        1
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/064_stage0_a1_002842/standard_stage0_m32_pac8_l29_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l29_ch5_b01/stage0_m32_l29_t0_pac8_r1_rx.log",
+    "source_sha256": "1e65c4b2ff3a30bf082d5f1060698c6d1ee8f66bc7c87e85e0b85606402887af",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/064_stage0_a1_002842"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l19_ch5_b01",
+    "time_kst": "2026-09-14T12:04:57.615567+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 19,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 13.0,
+    "success_accum_min": 13,
+    "success_accum_max": 13,
+    "success_histogram": [
+      [
+        13,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/065_stage0_a1_6158b2/standard_stage0_m32_pac8_l19_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l19_ch5_b01/stage0_m32_l19_t0_pac8_r1_rx.log",
+    "source_sha256": "dcd49f1ca2ed32b8c6ec0d455d3e03f6a67defc5039951bb7a6550c198c19497",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/065_stage0_a1_6158b2"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l39_ch5_b01",
+    "time_kst": "2026-09-14T12:06:01.298309+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 39,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 16.004,
+    "success_accum_min": 16,
+    "success_accum_max": 24,
+    "success_histogram": [
+      [
+        16,
+        1999
+      ],
+      [
+        24,
+        1
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/066_stage0_a1_9f5404/standard_stage0_m32_pac8_l39_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l39_ch5_b01/stage0_m32_l39_t0_pac8_r1_rx.log",
+    "source_sha256": "73256a1964d285f3176f9de0fab05738e9bbb71d20b22ff315490fca22429201",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/066_stage0_a1_9f5404"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l1_ch5_b01",
+    "time_kst": "2026-09-14T12:07:04.660321+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 1,
+    "offered": 2000,
+    "rx": 0,
+    "per_percent": 100.0,
+    "pdr_percent": 0.0,
+    "success_accum_n": 0,
+    "success_accum_mean": null,
+    "success_accum_min": null,
+    "success_accum_max": null,
+    "success_histogram": [],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 2000,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        0,
+        2000
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/067_stage0_a1_7600d6/standard_stage0_m32_pac8_l1_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l1_ch5_b01/stage0_m32_l1_t0_pac8_r1_rx.log",
+    "source_sha256": "d0fba21c729a19399c39a86f3e58eb4ee53911f905b9aa91579cfb9099c0fcea",
+    "official": "FAIL_PER",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/067_stage0_a1_7600d6"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l21_ch5_b01",
+    "time_kst": "2026-09-14T12:08:09.569390+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 21,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 15.0,
+    "success_accum_min": 15,
+    "success_accum_max": 15,
+    "success_histogram": [
+      [
+        15,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/068_stage0_a1_497e1c/standard_stage0_m32_pac8_l21_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l21_ch5_b01/stage0_m32_l21_t0_pac8_r1_rx.log",
+    "source_sha256": "bae2f256bce966b1d1731e5d126f246ef36691bd3959d22dcbe29c56d6d553ed",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/068_stage0_a1_497e1c"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l11_ch5_b01",
+    "time_kst": "2026-09-14T12:09:13.480129+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 11,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 13.0,
+    "success_accum_min": 13,
+    "success_accum_max": 13,
+    "success_histogram": [
+      [
+        13,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/069_stage0_a1_139ba8/standard_stage0_m32_pac8_l11_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l11_ch5_b01/stage0_m32_l11_t0_pac8_r1_rx.log",
+    "source_sha256": "be1b80cf173d2935611a4df214736534977aff167949b61c7e52379019b577d9",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/069_stage0_a1_139ba8"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l31_ch5_b01",
+    "time_kst": "2026-09-14T12:10:17.533739+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 31,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 17.0,
+    "success_accum_min": 17,
+    "success_accum_max": 17,
+    "success_histogram": [
+      [
+        17,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/070_stage0_a1_ec767f/standard_stage0_m32_pac8_l31_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l31_ch5_b01/stage0_m32_l31_t0_pac8_r1_rx.log",
+    "source_sha256": "2707ebda55cdbecb1fc84890c4d85e26fdbf28f699a3a56e4369a72937530811",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/070_stage0_a1_ec767f"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l6_ch5_b01",
+    "time_kst": "2026-09-14T12:11:21.316743+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 6,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 8.0,
+    "success_accum_min": 8,
+    "success_accum_max": 8,
+    "success_histogram": [
+      [
+        8,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/071_stage0_a1_faeb2d/standard_stage0_m32_pac8_l6_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l6_ch5_b01/stage0_m32_l6_t0_pac8_r1_rx.log",
+    "source_sha256": "031ecfe9b8a1a535be16a463197cbbabc1775cabe8907aed79cea15ef48bbf5c",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/071_stage0_a1_faeb2d"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l26_ch5_b01",
+    "time_kst": "2026-09-14T12:12:25.534071+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 26,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 12.004,
+    "success_accum_min": 12,
+    "success_accum_max": 20,
+    "success_histogram": [
+      [
+        12,
+        1999
+      ],
+      [
+        20,
+        1
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/072_stage0_a1_8a6848/standard_stage0_m32_pac8_l26_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l26_ch5_b01/stage0_m32_l26_t0_pac8_r1_rx.log",
+    "source_sha256": "7916adf32aa5a6c8d5046e81e2d96ef92ff16b38b97d7c92a1dec0b119e13ae6",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/072_stage0_a1_8a6848"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l16_ch5_b01",
+    "time_kst": "2026-09-14T12:13:29.819818+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 16,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 10.0,
+    "success_accum_min": 10,
+    "success_accum_max": 10,
+    "success_histogram": [
+      [
+        10,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/073_stage0_a1_3da15e/standard_stage0_m32_pac8_l16_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l16_ch5_b01/stage0_m32_l16_t0_pac8_r1_rx.log",
+    "source_sha256": "51b6a7bad4318103a8f21bf321653b340ee1b64fd2c8936e22f6977752bb7de0",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/073_stage0_a1_3da15e"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l36_ch5_b01",
+    "time_kst": "2026-09-14T12:14:34.076284+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 36,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 14.012,
+    "success_accum_min": 14,
+    "success_accum_max": 22,
+    "success_histogram": [
+      [
+        14,
+        1997
+      ],
+      [
+        22,
+        3
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/074_stage0_a1_00cd83/standard_stage0_m32_pac8_l36_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l36_ch5_b01/stage0_m32_l36_t0_pac8_r1_rx.log",
+    "source_sha256": "03d02c0b87d68c2c18b8465ace893e275d969a8f2148b425301ba062bb470970",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/074_stage0_a1_00cd83"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l3_ch5_b01",
+    "time_kst": "2026-09-14T12:15:37.521765+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 3,
+    "offered": 2000,
+    "rx": 0,
+    "per_percent": 100.0,
+    "pdr_percent": 0.0,
+    "success_accum_n": 0,
+    "success_accum_mean": null,
+    "success_accum_min": null,
+    "success_accum_max": null,
+    "success_histogram": [],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 2000,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        0,
+        2000
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/075_stage0_a1_78a02b/standard_stage0_m32_pac8_l3_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l3_ch5_b01/stage0_m32_l3_t0_pac8_r1_rx.log",
+    "source_sha256": "a0be73bfde7b1537da6bef56fe4950d9847321a5c1fed10d1a38ae5ab497dc58",
+    "official": "FAIL_PER",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/075_stage0_a1_78a02b"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l23_ch5_b01",
+    "time_kst": "2026-09-14T12:16:41.433836+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 17.0,
+    "success_accum_min": 17,
+    "success_accum_max": 17,
+    "success_histogram": [
+      [
+        17,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/076_stage0_a1_e2a2fe/standard_stage0_m32_pac8_l23_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l23_ch5_b01/stage0_m32_l23_t0_pac8_r1_rx.log",
+    "source_sha256": "bbe17ab1a048ad3658a99c0dfad3684478a956dd889744ae24174c5b3b36c26b",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/076_stage0_a1_e2a2fe"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l13_ch5_b01",
+    "time_kst": "2026-09-14T12:17:44.878477+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 13,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 15.0,
+    "success_accum_min": 15,
+    "success_accum_max": 15,
+    "success_histogram": [
+      [
+        15,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/077_stage0_a1_340503/standard_stage0_m32_pac8_l13_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l13_ch5_b01/stage0_m32_l13_t0_pac8_r1_rx.log",
+    "source_sha256": "567f653560cccd46f367f3a35c39c68158fadb7f4138675e9c1bc205e0d78776",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/077_stage0_a1_340503"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l33_ch5_b01",
+    "time_kst": "2026-09-14T12:18:48.425097+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 33,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 11.008,
+    "success_accum_min": 11,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        11,
+        1998
+      ],
+      [
+        19,
+        2
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/078_stage0_a1_8bf060/standard_stage0_m32_pac8_l33_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l33_ch5_b01/stage0_m32_l33_t0_pac8_r1_rx.log",
+    "source_sha256": "43e326d46ef859e6069e0fde3716b79a59801979da87d5c7db152d0a35634a40",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/078_stage0_a1_8bf060"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l8_ch5_b01",
+    "time_kst": "2026-09-14T12:19:53.732798+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 8,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 10.0,
+    "success_accum_min": 10,
+    "success_accum_max": 10,
+    "success_histogram": [
+      [
+        10,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/079_stage0_a1_64e454/standard_stage0_m32_pac8_l8_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l8_ch5_b01/stage0_m32_l8_t0_pac8_r1_rx.log",
+    "source_sha256": "91a507b038d3fa928222a0181d49b31d8cf24710f8264bc71555d8b8883ef7d9",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/079_stage0_a1_64e454"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l28_ch5_b01",
+    "time_kst": "2026-09-14T12:20:58.265127+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 28,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 14.004,
+    "success_accum_min": 14,
+    "success_accum_max": 22,
+    "success_histogram": [
+      [
+        14,
+        1999
+      ],
+      [
+        22,
+        1
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/080_stage0_a1_418c27/standard_stage0_m32_pac8_l28_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l28_ch5_b01/stage0_m32_l28_t0_pac8_r1_rx.log",
+    "source_sha256": "571f23c18aad78373caaff4540d58062e9a4c15ade83ddc1482ec87ab799954c",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/080_stage0_a1_418c27"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l18_ch5_b01",
+    "time_kst": "2026-09-14T12:22:01.997924+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 18,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 12.0,
+    "success_accum_min": 12,
+    "success_accum_max": 12,
+    "success_histogram": [
+      [
+        12,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/081_stage0_a1_f25f5e/standard_stage0_m32_pac8_l18_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l18_ch5_b01/stage0_m32_l18_t0_pac8_r1_rx.log",
+    "source_sha256": "7bc976c3ea7fc8ffebb0fbe31ef40d6f55bec47c422b58c00ddd3c5527546b28",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/081_stage0_a1_f25f5e"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l38_ch5_b01",
+    "time_kst": "2026-09-14T12:23:05.356199+09:00",
+    "phase": "main",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 38,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 15.0085,
+    "success_accum_min": 15,
+    "success_accum_max": 24,
+    "success_histogram": [
+      [
+        15,
+        1998
+      ],
+      [
+        23,
+        1
+      ],
+      [
+        24,
+        1
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/082_stage0_a1_cbaae2/standard_stage0_m32_pac8_l38_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l38_ch5_b01/stage0_m32_l38_t0_pac8_r1_rx.log",
+    "source_sha256": "6196e3fed26507278bc8ae0db9f83fe56e85222033d253f74433234bbdcce04d",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/082_stage0_a1_cbaae2"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l20_ch5_b01",
+    "time_kst": "2026-09-14T12:24:26.376861+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 20,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 966.0,
+    "success_accum_min": 966,
+    "success_accum_max": 966,
+    "success_histogram": [
+      [
+        966,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/083_stage0_a1_7821f7/standard_stage0_m1024_pac32_l20_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l20_ch5_b01/stage0_m1024_l20_t0_pac32_r1_rx.log",
+    "source_sha256": "4a31be3674d448c94c3fc132d3bfa6c5bfd81bcbb07033de7c573378d6a64710",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/083_stage0_a1_7821f7"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l0_ch5_b01",
+    "time_kst": "2026-09-14T12:25:33.185441+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 0,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 947.0,
+    "success_accum_min": 947,
+    "success_accum_max": 947,
+    "success_histogram": [
+      [
+        947,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/084_stage0_a1_b0d127/standard_stage0_m1024_pac32_l0_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l0_ch5_b01/stage0_m1024_l0_t0_pac32_r1_rx.log",
+    "source_sha256": "8c95b675936bcfefaba86958a0f66375f07e8cdbd735736529ed1f8c2cae3fac",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/084_stage0_a1_b0d127"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l40_ch5_b01",
+    "time_kst": "2026-09-14T12:26:36.794974+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 40,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 954.0,
+    "success_accum_min": 954,
+    "success_accum_max": 954,
+    "success_histogram": [
+      [
+        954,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/085_stage0_a1_605466/standard_stage0_m1024_pac32_l40_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l40_ch5_b01/stage0_m1024_l40_t0_pac32_r1_rx.log",
+    "source_sha256": "ac2d145862a19581fcaff7fb54fb6b2f20b8e1240a429636cc0a3ad2ce279c2b",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/085_stage0_a1_605466"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l10_ch5_b01",
+    "time_kst": "2026-09-14T12:27:40.997798+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 10,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 956.0,
+    "success_accum_min": 956,
+    "success_accum_max": 956,
+    "success_histogram": [
+      [
+        956,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/086_stage0_a1_76777e/standard_stage0_m1024_pac32_l10_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l10_ch5_b01/stage0_m1024_l10_t0_pac32_r1_rx.log",
+    "source_sha256": "fc0b0ac0f1899bde93723373bb1c643026038439739dbcebaddb7a8c543baa1d",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/086_stage0_a1_76777e"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l30_ch5_b01",
+    "time_kst": "2026-09-14T12:28:44.511971+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 30,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 976.0,
+    "success_accum_min": 976,
+    "success_accum_max": 976,
+    "success_histogram": [
+      [
+        976,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/087_stage0_a1_216d52/standard_stage0_m1024_pac32_l30_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l30_ch5_b01/stage0_m1024_l30_t0_pac32_r1_rx.log",
+    "source_sha256": "8cd8ab5a821802adda23df02a27ef5b99a172a4958faa040ec7007c0bfbe9140",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/087_stage0_a1_216d52"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l5_ch5_b01",
+    "time_kst": "2026-09-14T12:29:51.528882+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 5,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 952.0,
+    "success_accum_min": 952,
+    "success_accum_max": 952,
+    "success_histogram": [
+      [
+        952,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/088_stage0_a1_21d8f0/standard_stage0_m1024_pac32_l5_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l5_ch5_b01/stage0_m1024_l5_t0_pac32_r1_rx.log",
+    "source_sha256": "1a79fe2375462fa9b3833ed46abb7d7828c9991f271dd8eed3c324f1e829ed6a",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/088_stage0_a1_21d8f0"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l25_ch5_b01",
+    "time_kst": "2026-09-14T12:30:54.525011+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 25,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 971.0,
+    "success_accum_min": 971,
+    "success_accum_max": 971,
+    "success_histogram": [
+      [
+        971,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/089_stage0_a1_319be5/standard_stage0_m1024_pac32_l25_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l25_ch5_b01/stage0_m1024_l25_t0_pac32_r1_rx.log",
+    "source_sha256": "5239d42b8f2ecb482f4b50791a1c50f9b059e720c3e0e4930850e9ce4f6cb870",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/089_stage0_a1_319be5"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l15_ch5_b01",
+    "time_kst": "2026-09-14T12:31:59.586235+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 15,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 961.0,
+    "success_accum_min": 961,
+    "success_accum_max": 961,
+    "success_histogram": [
+      [
+        961,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/090_stage0_a1_814a81/standard_stage0_m1024_pac32_l15_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l15_ch5_b01/stage0_m1024_l15_t0_pac32_r1_rx.log",
+    "source_sha256": "f2c550b5bc030224e3ea8d49b45361a8679b9264699d21b22c3c0a533dfd5c82",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/090_stage0_a1_814a81"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l35_ch5_b01",
+    "time_kst": "2026-09-14T12:33:05.119099+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 35,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 981.0,
+    "success_accum_min": 981,
+    "success_accum_max": 981,
+    "success_histogram": [
+      [
+        981,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/091_stage0_a1_d038c2/standard_stage0_m1024_pac32_l35_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l35_ch5_b01/stage0_m1024_l35_t0_pac32_r1_rx.log",
+    "source_sha256": "5ddd84edc4881d4cfac2922daae62abd834b6afdded3f2c7f3cc96b70262c97e",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/091_stage0_a1_d038c2"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l2_ch5_b01",
+    "time_kst": "2026-09-14T12:34:08.488483+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 2,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 949.0,
+    "success_accum_min": 949,
+    "success_accum_max": 949,
+    "success_histogram": [
+      [
+        949,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/092_stage0_a1_4a4576/standard_stage0_m1024_pac32_l2_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l2_ch5_b01/stage0_m1024_l2_t0_pac32_r1_rx.log",
+    "source_sha256": "1f72591dfd9cdc629c9b33b4581f623a6e0b83f3e36cb002420565ed58334918",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/092_stage0_a1_4a4576"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l22_ch5_b01",
+    "time_kst": "2026-09-14T12:35:11.944981+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 22,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 968.0,
+    "success_accum_min": 968,
+    "success_accum_max": 968,
+    "success_histogram": [
+      [
+        968,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/093_stage0_a1_af791f/standard_stage0_m1024_pac32_l22_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l22_ch5_b01/stage0_m1024_l22_t0_pac32_r1_rx.log",
+    "source_sha256": "0607b5fea3c01e9b5e527968821a0db6ef419f1f0bbb190094c935a141baee17",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/093_stage0_a1_af791f"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l12_ch5_b01",
+    "time_kst": "2026-09-14T12:36:16.013560+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 12,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 958.0,
+    "success_accum_min": 958,
+    "success_accum_max": 958,
+    "success_histogram": [
+      [
+        958,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/094_stage0_a1_c725b1/standard_stage0_m1024_pac32_l12_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l12_ch5_b01/stage0_m1024_l12_t0_pac32_r1_rx.log",
+    "source_sha256": "acb14715ba77f75f0b8ca89ef7dd73f16d1ec9d8aabf8103cca8ae97ea765041",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/094_stage0_a1_c725b1"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l32_ch5_b01",
+    "time_kst": "2026-09-14T12:37:19.968307+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 32,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 978.0,
+    "success_accum_min": 978,
+    "success_accum_max": 978,
+    "success_histogram": [
+      [
+        978,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/095_stage0_a1_fb9882/standard_stage0_m1024_pac32_l32_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l32_ch5_b01/stage0_m1024_l32_t0_pac32_r1_rx.log",
+    "source_sha256": "edaa0c5c745425f6624249f0a47bbf5f3832e43957c1c1e8d745605f6d82a2b2",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/095_stage0_a1_fb9882"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l7_ch5_b01",
+    "time_kst": "2026-09-14T12:38:23.415421+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 7,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 954.0,
+    "success_accum_min": 954,
+    "success_accum_max": 954,
+    "success_histogram": [
+      [
+        954,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/096_stage0_a1_58cb9d/standard_stage0_m1024_pac32_l7_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l7_ch5_b01/stage0_m1024_l7_t0_pac32_r1_rx.log",
+    "source_sha256": "40e851805b478d50601adbb98786009438128316024a8fe098f025c67f1a69fc",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/096_stage0_a1_58cb9d"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l27_ch5_b01",
+    "time_kst": "2026-09-14T12:39:29.831509+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 27,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 973.0,
+    "success_accum_min": 973,
+    "success_accum_max": 973,
+    "success_histogram": [
+      [
+        973,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/097_stage0_a1_d3202b/standard_stage0_m1024_pac32_l27_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l27_ch5_b01/stage0_m1024_l27_t0_pac32_r1_rx.log",
+    "source_sha256": "1888a681333c670862674da2c89ea1ac769a3dc7256181542033f2142a194898",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/097_stage0_a1_d3202b"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l17_ch5_b01",
+    "time_kst": "2026-09-14T12:40:33.492968+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 17,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 963.0,
+    "success_accum_min": 963,
+    "success_accum_max": 963,
+    "success_histogram": [
+      [
+        963,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/098_stage0_a1_7934d6/standard_stage0_m1024_pac32_l17_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l17_ch5_b01/stage0_m1024_l17_t0_pac32_r1_rx.log",
+    "source_sha256": "15f4a1ace222d6be7260844130703b6025146c730068fa2ac9bc0732c5794e3f",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/098_stage0_a1_7934d6"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l37_ch5_b01",
+    "time_kst": "2026-09-14T12:41:36.863714+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 37,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 983.0,
+    "success_accum_min": 983,
+    "success_accum_max": 983,
+    "success_histogram": [
+      [
+        983,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/099_stage0_a1_6a71ac/standard_stage0_m1024_pac32_l37_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l37_ch5_b01/stage0_m1024_l37_t0_pac32_r1_rx.log",
+    "source_sha256": "50256b55ab99f163b5dbe52ee5a8caf313a2fdbe8b8451507490c10738ab719a",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/099_stage0_a1_6a71ac"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l4_ch5_b01",
+    "time_kst": "2026-09-14T12:42:41.807660+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 4,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 951.0,
+    "success_accum_min": 951,
+    "success_accum_max": 951,
+    "success_histogram": [
+      [
+        951,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/100_stage0_a1_f98c72/standard_stage0_m1024_pac32_l4_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l4_ch5_b01/stage0_m1024_l4_t0_pac32_r1_rx.log",
+    "source_sha256": "8a2b5464ead2dfdab06c63ea92e777490436a6837cd5226f263029467bc1208c",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/100_stage0_a1_f98c72"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l24_ch5_b01",
+    "time_kst": "2026-09-14T12:43:46.276203+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 24,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 970.0,
+    "success_accum_min": 970,
+    "success_accum_max": 970,
+    "success_histogram": [
+      [
+        970,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/101_stage0_a1_97805a/standard_stage0_m1024_pac32_l24_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l24_ch5_b01/stage0_m1024_l24_t0_pac32_r1_rx.log",
+    "source_sha256": "684f0ffdd407c4b3a7283e494df2e5c22cdb750f2912196ceb6fa6fb21ff7c60",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/101_stage0_a1_97805a"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l14_ch5_b01",
+    "time_kst": "2026-09-14T12:44:50.769242+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 14,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 960.0,
+    "success_accum_min": 960,
+    "success_accum_max": 960,
+    "success_histogram": [
+      [
+        960,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/102_stage0_a1_c1229f/standard_stage0_m1024_pac32_l14_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l14_ch5_b01/stage0_m1024_l14_t0_pac32_r1_rx.log",
+    "source_sha256": "9969b7e2a3458dcf7707ac6c7ffabd50ff1cf12e205732d57fdca890032f6b58",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/102_stage0_a1_c1229f"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l34_ch5_b01",
+    "time_kst": "2026-09-14T12:45:55.044780+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 34,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 980.0,
+    "success_accum_min": 980,
+    "success_accum_max": 980,
+    "success_histogram": [
+      [
+        980,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/103_stage0_a1_9f6734/standard_stage0_m1024_pac32_l34_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l34_ch5_b01/stage0_m1024_l34_t0_pac32_r1_rx.log",
+    "source_sha256": "73aa037b45f8a47e6e3e670fa24977cb9a7881cca903a40817a4fe8c410ca74f",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/103_stage0_a1_9f6734"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l9_ch5_b01",
+    "time_kst": "2026-09-14T12:46:58.419978+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 9,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 955.0,
+    "success_accum_min": 955,
+    "success_accum_max": 955,
+    "success_histogram": [
+      [
+        955,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/104_stage0_a1_a5bfc6/standard_stage0_m1024_pac32_l9_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l9_ch5_b01/stage0_m1024_l9_t0_pac32_r1_rx.log",
+    "source_sha256": "c4781e9ef8be6a2d8dd63d10f8d465c62584c4b7bc507a5a1de40387f3603f22",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/104_stage0_a1_a5bfc6"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l29_ch5_b01",
+    "time_kst": "2026-09-14T12:48:02.376148+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 29,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 975.0,
+    "success_accum_min": 975,
+    "success_accum_max": 975,
+    "success_histogram": [
+      [
+        975,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/105_stage0_a1_c60598/standard_stage0_m1024_pac32_l29_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l29_ch5_b01/stage0_m1024_l29_t0_pac32_r1_rx.log",
+    "source_sha256": "116f9de06dc40cc757bab72405bddf0b1a7cd8c0ff5fe43612d87a3b77079261",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/105_stage0_a1_c60598"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l19_ch5_b01",
+    "time_kst": "2026-09-14T12:49:06.185047+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 19,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 965.0,
+    "success_accum_min": 965,
+    "success_accum_max": 965,
+    "success_histogram": [
+      [
+        965,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/106_stage0_a1_ef34ae/standard_stage0_m1024_pac32_l19_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l19_ch5_b01/stage0_m1024_l19_t0_pac32_r1_rx.log",
+    "source_sha256": "e878f36721350a8fd8132fbbf047456ddc5470a61714750d85c293475d68c72c",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/106_stage0_a1_ef34ae"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l39_ch5_b01",
+    "time_kst": "2026-09-14T12:50:09.784384+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 39,
+    "offered": 2000,
+    "rx": 1999,
+    "per_percent": 0.05,
+    "pdr_percent": 99.95,
+    "success_accum_n": 1999,
+    "success_accum_mean": 953.064032016008,
+    "success_accum_min": 953,
+    "success_accum_max": 985,
+    "success_histogram": [
+      [
+        953,
+        1995
+      ],
+      [
+        985,
+        4
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 1,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        0,
+        1
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/107_stage0_a1_af689c/standard_stage0_m1024_pac32_l39_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l39_ch5_b01/stage0_m1024_l39_t0_pac32_r1_rx.log",
+    "source_sha256": "c54eeffc6c42afffd20d11a01daab628257c0f1e643cef61a04bea9291671d75",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/107_stage0_a1_af689c"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l1_ch5_b01",
+    "time_kst": "2026-09-14T12:51:13.972112+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 1,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 948.0,
+    "success_accum_min": 948,
+    "success_accum_max": 948,
+    "success_histogram": [
+      [
+        948,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/108_stage0_a1_7e8754/standard_stage0_m1024_pac32_l1_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l1_ch5_b01/stage0_m1024_l1_t0_pac32_r1_rx.log",
+    "source_sha256": "f5a4cc44464c146566c9ef3acf8ecd6e29a0fc41c7365bd48aedc466f4b00a74",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/108_stage0_a1_7e8754"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l21_ch5_b01",
+    "time_kst": "2026-09-14T12:52:18.383033+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 21,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 967.0,
+    "success_accum_min": 967,
+    "success_accum_max": 967,
+    "success_histogram": [
+      [
+        967,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/109_stage0_a1_991a5e/standard_stage0_m1024_pac32_l21_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l21_ch5_b01/stage0_m1024_l21_t0_pac32_r1_rx.log",
+    "source_sha256": "67ff3d6655bbd94bd0e58248f5f6bae33cf15e23ad8067eafc4c1d118b230439",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/109_stage0_a1_991a5e"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l11_ch5_b01",
+    "time_kst": "2026-09-14T12:53:22.170386+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 11,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 957.0,
+    "success_accum_min": 957,
+    "success_accum_max": 957,
+    "success_histogram": [
+      [
+        957,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/110_stage0_a1_1df759/standard_stage0_m1024_pac32_l11_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l11_ch5_b01/stage0_m1024_l11_t0_pac32_r1_rx.log",
+    "source_sha256": "e23a9488e9750f017739b9aff203893ca569c2a06cbe4bdb2870ec98bbf702fd",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/110_stage0_a1_1df759"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l31_ch5_b01",
+    "time_kst": "2026-09-14T12:54:25.909478+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 31,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 977.0,
+    "success_accum_min": 977,
+    "success_accum_max": 977,
+    "success_histogram": [
+      [
+        977,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/111_stage0_a1_66920a/standard_stage0_m1024_pac32_l31_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l31_ch5_b01/stage0_m1024_l31_t0_pac32_r1_rx.log",
+    "source_sha256": "5db7827c0823e47d5f37b22ace987f65b3112f64bc2a8b1696c6248d169c83b8",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/111_stage0_a1_66920a"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l6_ch5_b01",
+    "time_kst": "2026-09-14T12:55:29.967820+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 6,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 953.0,
+    "success_accum_min": 953,
+    "success_accum_max": 953,
+    "success_histogram": [
+      [
+        953,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/112_stage0_a1_ff7d14/standard_stage0_m1024_pac32_l6_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l6_ch5_b01/stage0_m1024_l6_t0_pac32_r1_rx.log",
+    "source_sha256": "242b023b27d107675bb5402f3e3ba3cca92c49c529d2b04df20b9e47b8adf559",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/112_stage0_a1_ff7d14"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l26_ch5_b01",
+    "time_kst": "2026-09-14T12:56:33.893466+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 26,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 972.0,
+    "success_accum_min": 972,
+    "success_accum_max": 972,
+    "success_histogram": [
+      [
+        972,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/113_stage0_a1_1eced1/standard_stage0_m1024_pac32_l26_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l26_ch5_b01/stage0_m1024_l26_t0_pac32_r1_rx.log",
+    "source_sha256": "b81d14f7f3701d4192889d507b82cd661afe33cab11f4af38cff47bf9e193b09",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/113_stage0_a1_1eced1"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l16_ch5_b01",
+    "time_kst": "2026-09-14T12:57:37.376289+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 16,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 962.0,
+    "success_accum_min": 962,
+    "success_accum_max": 962,
+    "success_histogram": [
+      [
+        962,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/114_stage0_a1_e10ee2/standard_stage0_m1024_pac32_l16_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l16_ch5_b01/stage0_m1024_l16_t0_pac32_r1_rx.log",
+    "source_sha256": "ecc8dcce2ad0f88d4b6e5cbeb3fe898fae076a316d191f26cb47628e72612e1c",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/114_stage0_a1_e10ee2"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l36_ch5_b01",
+    "time_kst": "2026-09-14T12:58:41.624976+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 36,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 982.0,
+    "success_accum_min": 982,
+    "success_accum_max": 982,
+    "success_histogram": [
+      [
+        982,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/115_stage0_a1_b36f3c/standard_stage0_m1024_pac32_l36_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l36_ch5_b01/stage0_m1024_l36_t0_pac32_r1_rx.log",
+    "source_sha256": "215d8711da66273f43dc9583c66252db6c2417ff23b09cf1e5d664bca03d460d",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/115_stage0_a1_b36f3c"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l3_ch5_b01",
+    "time_kst": "2026-09-14T12:59:45.387030+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 3,
+    "offered": 2000,
+    "rx": 1999,
+    "per_percent": 0.05,
+    "pdr_percent": 99.95,
+    "success_accum_n": 1999,
+    "success_accum_mean": 950.0,
+    "success_accum_min": 950,
+    "success_accum_max": 950,
+    "success_histogram": [
+      [
+        950,
+        1999
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 1,
+    "failed_invalid_raw_histogram": [
+      [
+        "fwto",
+        0,
+        1
+      ]
+    ],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/116_stage0_a1_30df07/standard_stage0_m1024_pac32_l3_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l3_ch5_b01/stage0_m1024_l3_t0_pac32_r1_rx.log",
+    "source_sha256": "7f28cbdaf4c76d3b8550b25b63c0c0820b9054f7aabae3c5449ee7991292f03e",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/116_stage0_a1_30df07"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l23_ch5_b01",
+    "time_kst": "2026-09-14T13:00:49.331081+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 23,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 969.0,
+    "success_accum_min": 969,
+    "success_accum_max": 969,
+    "success_histogram": [
+      [
+        969,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/117_stage0_a1_34efc4/standard_stage0_m1024_pac32_l23_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l23_ch5_b01/stage0_m1024_l23_t0_pac32_r1_rx.log",
+    "source_sha256": "f974c330b6ec0505f112e598fa7d57a129d96123a5727ea8df2f1274b0059e47",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/117_stage0_a1_34efc4"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l13_ch5_b01",
+    "time_kst": "2026-09-14T13:01:52.803634+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 13,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 959.0,
+    "success_accum_min": 959,
+    "success_accum_max": 959,
+    "success_histogram": [
+      [
+        959,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/118_stage0_a1_2e3776/standard_stage0_m1024_pac32_l13_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l13_ch5_b01/stage0_m1024_l13_t0_pac32_r1_rx.log",
+    "source_sha256": "bb904e94a8b5b6669a3b01967b1db68b0434a3599e3d14a9561491d6d13e720a",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/118_stage0_a1_2e3776"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l33_ch5_b01",
+    "time_kst": "2026-09-14T13:02:56.135061+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 33,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 979.0,
+    "success_accum_min": 979,
+    "success_accum_max": 979,
+    "success_histogram": [
+      [
+        979,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/119_stage0_a1_3a70c4/standard_stage0_m1024_pac32_l33_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l33_ch5_b01/stage0_m1024_l33_t0_pac32_r1_rx.log",
+    "source_sha256": "272dbf30156d73b88f95a025ad480b0472e0d70b03782f2075c934e25c41e63f",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/119_stage0_a1_3a70c4"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l8_ch5_b01",
+    "time_kst": "2026-09-14T13:03:59.625007+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 8,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 955.0,
+    "success_accum_min": 955,
+    "success_accum_max": 955,
+    "success_histogram": [
+      [
+        955,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/120_stage0_a1_20833a/standard_stage0_m1024_pac32_l8_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l8_ch5_b01/stage0_m1024_l8_t0_pac32_r1_rx.log",
+    "source_sha256": "ca90abb3314aad457bb6d48fd7b856955a941746a77ae607f9b98fc6e495a957",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/120_stage0_a1_20833a"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l28_ch5_b01",
+    "time_kst": "2026-09-14T13:05:03.804345+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 28,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 974.0,
+    "success_accum_min": 974,
+    "success_accum_max": 974,
+    "success_histogram": [
+      [
+        974,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/121_stage0_a1_376450/standard_stage0_m1024_pac32_l28_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l28_ch5_b01/stage0_m1024_l28_t0_pac32_r1_rx.log",
+    "source_sha256": "be0e856331e87a0483f3cc2d47e454e10a8310fda99a6d85b3dd67ef8df0e5ad",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/121_stage0_a1_376450"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l18_ch5_b01",
+    "time_kst": "2026-09-14T13:06:10.106337+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 18,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 964.0,
+    "success_accum_min": 964,
+    "success_accum_max": 964,
+    "success_histogram": [
+      [
+        964,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/122_stage0_a1_4c1fd2/standard_stage0_m1024_pac32_l18_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l18_ch5_b01/stage0_m1024_l18_t0_pac32_r1_rx.log",
+    "source_sha256": "1745d56eb6a7880881b88e475a8708979e4c8b05fac18c36f235d32a5a9825ac",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/122_stage0_a1_4c1fd2"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l38_ch5_b01",
+    "time_kst": "2026-09-14T13:07:13.373311+09:00",
+    "phase": "main",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 38,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 972.208,
+    "success_accum_min": 952,
+    "success_accum_max": 984,
+    "success_histogram": [
+      [
+        952,
+        737
+      ],
+      [
+        984,
+        1263
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/123_stage0_a1_5318e0/standard_stage0_m1024_pac32_l38_ch5_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l38_ch5_b01/stage0_m1024_l38_t0_pac32_r1_rx.log",
+    "source_sha256": "495573cbd6be8d2fce3364a86aa136a6ea3cf78f3fefca1c4bc89f7dd62f1dd3",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/123_stage0_a1_5318e0"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l21_ch5_confirmation_b01",
+    "time_kst": "2026-09-14T13:08:43.284471+09:00",
+    "phase": "confirmation",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/124_confirmation_a1_070a23/standard_stage0_m32_pac4_l21_ch5_confirmation_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l21_ch5_confirmation_b01/stage0_m32_l21_t0_pac4_r1_rx.log",
+    "source_sha256": "c295be85b68cb5f7d29695270341a34a68451e91d552590ea9c2318401d31d52",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/124_confirmation_a1_070a23"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l23_ch5_confirmation_b01",
+    "time_kst": "2026-09-14T13:09:51.656939+09:00",
+    "phase": "confirmation",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 17.0,
+    "success_accum_min": 17,
+    "success_accum_max": 17,
+    "success_histogram": [
+      [
+        17,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/125_confirmation_a1_6ae0ef/standard_stage0_m32_pac8_l23_ch5_confirmation_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l23_ch5_confirmation_b01/stage0_m32_l23_t0_pac8_r1_rx.log",
+    "source_sha256": "eac1a74375437a4bef8f49310194b1d4e65313dd39a1ee30f7cf77996885b624",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/125_confirmation_a1_6ae0ef"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l20_ch5_confirmation_b01",
+    "time_kst": "2026-09-14T13:11:02.721546+09:00",
+    "phase": "confirmation",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 20,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 966.0,
+    "success_accum_min": 966,
+    "success_accum_max": 966,
+    "success_histogram": [
+      [
+        966,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/126_confirmation_a1_2ed7a8/standard_stage0_m1024_pac32_l20_ch5_confirmation_b01/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l20_ch5_confirmation_b01/stage0_m1024_l20_t0_pac32_r1_rx.log",
+    "source_sha256": "e51c2976ebd874272a87600d5c18463635c80c2982ec1ceed5dd93ec5ae1a264",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/126_confirmation_a1_2ed7a8"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l21_ch5_confirmation_b02",
+    "time_kst": "2026-09-14T13:12:14.057383+09:00",
+    "phase": "confirmation",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/127_confirmation_a1_402c89/standard_stage0_m32_pac4_l21_ch5_confirmation_b02/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l21_ch5_confirmation_b02/stage0_m32_l21_t0_pac4_r2_rx.log",
+    "source_sha256": "a7fe5ef2cc79e2e6c9881325e2a8182318652f8af103edc717fd64d0dae429d8",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/127_confirmation_a1_402c89"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l20_ch5_confirmation_b02",
+    "time_kst": "2026-09-14T13:13:25.486983+09:00",
+    "phase": "confirmation",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 20,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 966.0,
+    "success_accum_min": 966,
+    "success_accum_max": 966,
+    "success_histogram": [
+      [
+        966,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/128_confirmation_a1_97f709/standard_stage0_m1024_pac32_l20_ch5_confirmation_b02/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l20_ch5_confirmation_b02/stage0_m1024_l20_t0_pac32_r2_rx.log",
+    "source_sha256": "eb8976b11081bc39633b7b270d2cd4d3d2627736bb436c4db557de1885b8bddd",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/128_confirmation_a1_97f709"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l23_ch5_confirmation_b02",
+    "time_kst": "2026-09-14T13:14:36.995740+09:00",
+    "phase": "confirmation",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 17.0,
+    "success_accum_min": 17,
+    "success_accum_max": 17,
+    "success_histogram": [
+      [
+        17,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/129_confirmation_a1_b580f3/standard_stage0_m32_pac8_l23_ch5_confirmation_b02/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l23_ch5_confirmation_b02/stage0_m32_l23_t0_pac8_r2_rx.log",
+    "source_sha256": "088f03447013cab501c4c5054659cf9390a2ec82eaff6041619442ea69dee6f1",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/129_confirmation_a1_b580f3"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l20_ch5_confirmation_b03",
+    "time_kst": "2026-09-14T13:15:48.317445+09:00",
+    "phase": "confirmation",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 20,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 966.0,
+    "success_accum_min": 966,
+    "success_accum_max": 966,
+    "success_histogram": [
+      [
+        966,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/130_confirmation_a1_85057e/standard_stage0_m1024_pac32_l20_ch5_confirmation_b03/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l20_ch5_confirmation_b03/stage0_m1024_l20_t0_pac32_r3_rx.log",
+    "source_sha256": "82d038508b8bbafe5be1a14016443510b69c724a87bbbd2badca463a7b4df11d",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/130_confirmation_a1_85057e"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l21_ch5_confirmation_b03",
+    "time_kst": "2026-09-14T13:17:00.922244+09:00",
+    "phase": "confirmation",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/131_confirmation_a1_e85cf1/standard_stage0_m32_pac4_l21_ch5_confirmation_b03/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l21_ch5_confirmation_b03/stage0_m32_l21_t0_pac4_r3_rx.log",
+    "source_sha256": "c445eebb694ca430a8861187ed03ef5a3760fc1707bacf967e684edeb3c2f2d8",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/131_confirmation_a1_e85cf1"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l23_ch5_confirmation_b03",
+    "time_kst": "2026-09-14T13:17:55.449402+09:00",
+    "phase": "confirmation",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 17.0,
+    "success_accum_min": 17,
+    "success_accum_max": 17,
+    "success_histogram": [
+      [
+        17,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/132_confirmation_a1_190f1f/standard_stage0_m32_pac8_l23_ch5_confirmation_b03/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l23_ch5_confirmation_b03/stage0_m32_l23_t0_pac8_r3_rx.log",
+    "source_sha256": "d3e6b470dad15a841782eec7b0d15a92b02fa2a4cd77d5a3872342a88f8f2fcd",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/132_confirmation_a1_190f1f"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l20_ch5_confirmation_b04",
+    "time_kst": "2026-09-14T13:19:03.581906+09:00",
+    "phase": "confirmation",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 20,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 966.0,
+    "success_accum_min": 966,
+    "success_accum_max": 966,
+    "success_histogram": [
+      [
+        966,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/133_confirmation_a1_d6f868/standard_stage0_m1024_pac32_l20_ch5_confirmation_b04/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l20_ch5_confirmation_b04/stage0_m1024_l20_t0_pac32_r4_rx.log",
+    "source_sha256": "1c471cd7b17be78a542bdf73f747fcaff6f355ba98ac80f2543410426bf489b9",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/133_confirmation_a1_d6f868"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l23_ch5_confirmation_b04",
+    "time_kst": "2026-09-14T13:20:16.545964+09:00",
+    "phase": "confirmation",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 17.0,
+    "success_accum_min": 17,
+    "success_accum_max": 17,
+    "success_histogram": [
+      [
+        17,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/134_confirmation_a1_5338e4/standard_stage0_m32_pac8_l23_ch5_confirmation_b04/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l23_ch5_confirmation_b04/stage0_m32_l23_t0_pac8_r4_rx.log",
+    "source_sha256": "6cd2a9209c2a5f9f6c2e8f4d3a5185b51f51da759865868675c88eb7d7469d5f",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/134_confirmation_a1_5338e4"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l21_ch5_confirmation_b04",
+    "time_kst": "2026-09-14T13:21:11.813071+09:00",
+    "phase": "confirmation",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/135_confirmation_a1_14936b/standard_stage0_m32_pac4_l21_ch5_confirmation_b04/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l21_ch5_confirmation_b04/stage0_m32_l21_t0_pac4_r4_rx.log",
+    "source_sha256": "5e2f6140109f0cf2d2c1c0f13352301474f9625a5c542c490730d947dcad67b9",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/135_confirmation_a1_14936b"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac8_l23_ch5_confirmation_b05",
+    "time_kst": "2026-09-14T13:22:03.174383+09:00",
+    "phase": "confirmation",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 17.0,
+    "success_accum_min": 17,
+    "success_accum_max": 17,
+    "success_histogram": [
+      [
+        17,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/136_confirmation_a1_2b9eee/standard_stage0_m32_pac8_l23_ch5_confirmation_b05/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac8_l23_ch5_confirmation_b05/stage0_m32_l23_t0_pac8_r5_rx.log",
+    "source_sha256": "36ddc81a91cbb8b4eff2e1794c375406497d7b4014cd2d6ff5a3d2d51faef939",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/136_confirmation_a1_2b9eee"
+  },
+  {
+    "case_id": "standard_stage0_m1024_pac32_l20_ch5_confirmation_b05",
+    "time_kst": "2026-09-14T13:23:12.866069+09:00",
+    "phase": "confirmation",
+    "preamble": 1024,
+    "pac": 32,
+    "lead_us": 20,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 966.0,
+    "success_accum_min": 966,
+    "success_accum_max": 966,
+    "success_histogram": [
+      [
+        966,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/137_confirmation_a1_26f9bd/standard_stage0_m1024_pac32_l20_ch5_confirmation_b05/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m1024_pac32_l20_ch5_confirmation_b05/stage0_m1024_l20_t0_pac32_r5_rx.log",
+    "source_sha256": "c4e63b55691e051a1258102f9c644240ca7c718eb9d115d9275fb13d5182024b",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/137_confirmation_a1_26f9bd"
+  },
+  {
+    "case_id": "standard_stage0_m32_pac4_l21_ch5_confirmation_b05",
+    "time_kst": "2026-09-14T13:24:24.257070+09:00",
+    "phase": "confirmation",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "offered": 2000,
+    "rx": 2000,
+    "per_percent": 0.0,
+    "pdr_percent": 100.0,
+    "success_accum_n": 2000,
+    "success_accum_mean": 19.0,
+    "success_accum_min": 19,
+    "success_accum_max": 19,
+    "success_histogram": [
+      [
+        19,
+        2000
+      ]
+    ],
+    "failed_valid_n": 0,
+    "failed_valid_mean": null,
+    "failed_valid_histogram": [],
+    "failed_invalid_raw_n": 0,
+    "failed_invalid_raw_histogram": [],
+    "source": "/Users/songchieon/Desktop/DWM3000/logs/ubuntu_controlled/standard_ch5_air_20260914_103508/138_confirmation_a1_66c8b8/standard_stage0_m32_pac4_l21_ch5_confirmation_b05/bundle/sdk/../logs/stage0_new_vehicle_ch5_air_recovery_103508_20260914/standard_stage0_m32_pac4_l21_ch5_confirmation_b05/stage0_m32_l21_t0_pac4_r5_rx.log",
+    "source_sha256": "f3d1a6d344d84b638aa1bf700ad3eef2391f34530c025205a3824cd9cac83edc",
+    "official": "PASS",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/138_confirmation_a1_66c8b8"
+  }
+]

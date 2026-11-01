@@ -1,0 +1,39 @@
+# BRRS Results figures — context snapshot (2026-11-01)
+
+This file records the state of the Results figures for transfer to a Windows workspace. It is a context record, not an instruction to perform another task. The Git branch containing this directory starts from `f61909c` (`research/beacon-recovery-20260930`). The working tree used for earlier edits was left untouched.
+
+## Artifact map
+
+- `BRRS_RESULTS_FIGURES_20261101.xlsx` is the latest assembled figure workbook. `논문그림` contains the seven publication preview images: Figures 1, 1c, and 2–6. The same exact embedded PNG bytes are in `figures/`; Figure 1c also has an SVG.
+- `그림데이터` contains the source-linked calculations and row-level campaign/derivation labels. The image gallery is **static**: editing source cells may update calculations but does **not** redraw the embedded PNGs. There are no native Excel chart objects on `논문그림`. Image output was explicitly allowed during the figure iteration.
+- `source/V2_BRRS_EXPERIMENT_RECORD_KR_FILLED_DRAFT_20261028.xlsx` is a copy of the pre-figure result workbook. Its original file was not modified.
+- `evidence/` contains compact records used by Figures 1, 1c, 2, and 4, plus the archived CH5 executed `brrs_init.c`. `reference/` contains the cited earlier timing and paper PDFs. Existing scheduling code remains at `Drivers/API/Src/examples/ex_35a_brrs_init/brrs_init.c` and `Drivers/API/brrs_suite_manifest.py` in this repository; its present revision must not be assumed identical to the archived CH5 execution.
+- `SHA256SUMS` records the bytes of this handoff package.
+
+The previously supplied personal report DOCX was used as a formal visual-style reference. It is not copied into this public repository; the final figure previews carry the resulting design. The paper preview and 7/8 timing PDF are included because their plotted historical values and timing argument are cited in the current workbook.
+
+## Figure status and provenance
+
+| Figure | Current evidence and cells | Interpretation boundary |
+| --- | --- | --- |
+| 1 — lead and ACCUM | Vehicle CH5 Stage0, `evidence/stage0_data.json` and `stage0_raw_air.json`; `Vehicle_Stage0_Measured` and `그림데이터`. One 2,000-packet RF run per lead. PAC4/PAC8 integer leads 0–40 µs and selected confirmations. | First observed full RX: PAC4 lead 2 µs; PAC8 lead 6 µs. PAC8 mean ACCUM has observed drops at 14→15, 24→25, 32→33 µs. Successful-packet ACCUM point means have **no between-run range** because each lead was run once. Within-run packet min/max are in `그림데이터!K:L`. Wilson 95% applies to packet PER only (`그림데이터!H:I`), not to ACCUM. The sampled onset is not a universal minimum lead. |
+| 1c — TX/PAC/RX alignment | Same vehicle CH5 Stage0 and archived executed source `evidence/vehicle_ch5_executed_brrs_init.c` (SHA256 `40c6eafb6e4bd4c54ebc2bfe9ee99ed5f33f2df95341809bc5e95c4656e30d8b`). `7_8.pdf` pp. 6 and 8 were conceptual references; their misalignments were not adopted as measurements. | Three bars per condition: transmitted preamble/SFD, receiver PAC8 grid, receiver frame budget. TX durations and RX command placement are calculated from the PHY and executed code. RX-ready delay ≈11.30 µs, PAC phase, detection widths, and L0 PAC discard are conditional models, not chip timestamps. Conditions: M32/PAC8 L0, L6, L10, L14 first/next-PAC split, L15, L20; M64/PAC8 L0 is a visibly unmeasured model-only control. Measured L12 (2,000/2,000 RX; ACCUM 14) remains in the data but is omitted from this explanatory timeline. PAC4 L2 is mentioned, not drawn on the PAC8 grid. |
+| 2 — preamble versus PER | Indoor: historical IoTJ Table III (five runs per M). Vehicle: `evidence/exp2_cases.json`, CH5/PAC8/lead23, two six-link blocks at M32 and M256. | M64/M128 vehicle marks are red hypothetical 0% placeholders, **not measured**. Point = mean of runs; dark capped bar = run min–max; pale band = pooled-packet Wilson 95% (asymmetric near zero). Red hypothetical marks have neither measured range nor CI. Vehicle M32 had 0/12,000 losses and M256 2/12,000; their intervals overlap. |
+| 3 — FP-SNR and gain | `reference/main_ko.pdf` §IV-C historical means: 16.71, 23.76, 27.32, 30.33 dB. `그림데이터`/`Exp2`. | Two model lines: nominal `10 log10(127M)` and effective `10 log10[127(M−23)]`, each anchored to M32 FP-SNR. Run-level FP-SNR min/max and empirical CI are unavailable. |
+| 4 — ideal frame reconstruction | Vehicle CH5 Exp3: `evidence/vehicle2_exp3/` and `그림데이터!C219:E221`, `C223`, `C5:C10`. One A/B/C RF run each; 1,000 EXTTXE captures per variant. | Current workbook uses EXTTXE means A=95.922009, B=104.135799, C=76.950920 µs. SFD8 = B−A, STD PHR = A−C plus modeled DTA PHR. Inferred removal =29.878 µs and ideal frame estimate =66.044 µs. These are measurement-based differences and counterfactual reconstruction, **not** a direct SFD/PHR-free RF result. Within-run EXTTXE min/max are recorded; no between-run CI for inferred savings. |
+| 5 — slot capacity | `Exp4!N236:P236` and repository scheduling constants/slot formula. | Analytical 10 ms profile with 1,700 µs first DATA RMARKER offset, 2,200 µs next-SYNC preparation reserve, 200 µs guard, and 55 µs PHR+PSDU after RMARKER. Current airtime inputs 97/325 µs give modeled capacities 20 slots (M32) and 12 (M256). These are not measured utilization. Draft Exp4 slot constants elsewhere differ from the current runtime values. |
+| 6 — goodput | `Exp4!H/I/AI`, `그림데이터` 24-point mean/min/max. Twelve synthetic rows per point; K1–5 use S=K, K6–24 use S6. | Values and whiskers are **synthetic/interpolated draft**, not measured repeats or empirical CI. The change of active-transmitter regime prevents an isolated node-count reading. |
+
+## Figure 1c timing details
+
+- Symbol duration used: 1.01763 µs. M32 preamble is 32.56 µs; 8-symbol SFD is 8.14 µs; PAC8 is 8.14104 µs.
+- The executed CH5 source computes `RX_EARLY = PREAMBLE_US + SFD_US + lead = 33 + 9 + lead` µs. Relative to transmitted preamble start, the scheduled RX command is calculated as `−(lead + 1.2948)` µs for M32. This is a code/PHY calculation, not a directly captured RX command or RX-ready timestamp.
+- M32/PAC8 L0: RX 0/2,000. L6: RX 2,000/2,000, ACCUM 8. L10: RX 2,000/2,000, ACCUM 12; modeled RX-ready approximately aligns with TX start. L14: RX 2,000/2,000, with ACCUM 16 for 1,957 packets and 8 for 43 packets in the **same run**. L15: ACCUM 9. L20: ACCUM 14.
+- The ~11.3 µs command-to-ready delay is a model estimate used to explain the pattern. The earlier 7/8 document used a pre-rounding command position near +0.7 µs at L0; the executed CH5 code calculation is near −1.3 µs. Neither is a directly measured RX-ready boundary. The L0 conditional PAC discard and approximate 20-symbol detection budget are illustrative.
+- The final companion graphic uses colored bars and black text, with no hatching. Gray areas denote unavailable/discarded intervals; a dashed vertical line marks the calculated end of the transmitted preamble. The M64 lead-0 row is red outlined and explicitly labeled unmeasured.
+
+## Statistical and visual conventions
+
+Observed run means and repeated-run min–max are different from packet-level Wilson 95% intervals. Wilson intervals are used for PER proportions and may be asymmetric around the observed mean, especially near 0%. A single RF run does not yield a between-run min–max bar. Synthetic values have no empirical CI. The workbook and figure labels distinguish vehicle measurement, indoor measurement, historical draft, profile calculation, interpolation, and synthetic draft. Red marks identify incomplete/hypothetical entries.
+
+This package is limited to the Results figure state. It contains no new RF measurement, firmware change, or rewritten paper body. The existing RF STOP state and qualification boundaries described in the repository's experiment records remain in force.

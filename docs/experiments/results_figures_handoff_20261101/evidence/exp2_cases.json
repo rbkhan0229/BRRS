@@ -1,0 +1,3047 @@
+[
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN2_b01",
+    "time_kst": "2026-09-14T13:25:51.791318+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/139_exp2_a1_b69e16",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N2",
+    "serial": "1050211584",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 996,
+    "rssi_invalid": 4,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19.0
+      },
+      "rssi_dbm": {
+        "n": 996,
+        "min": -81.04,
+        "max": -69.04,
+        "mean": -75.44143574297189,
+        "median": -75.04
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -83.37,
+        "max": -71.54,
+        "mean": -77.42942,
+        "median": -77.14
+      },
+      "rssi_fp_gap_db": {
+        "n": 996,
+        "min": -0.51,
+        "max": 3.8,
+        "mean": 1.9956927710843373,
+        "median": 2.27
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 184.999,
+        "max": 5561.705,
+        "mean": 1629.358553,
+        "median": 1448.4355
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 22.671693808589293,
+        "max": 37.452079496000856,
+        "mean": 31.533254174840604,
+        "median": 31.608991479884022
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N2",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N2"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN3_b01",
+    "time_kst": "2026-09-14T13:26:38.894514+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/140_exp2_a1_52d5a6",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N3",
+    "serial": "1050273888",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -81.04,
+        "max": -75.04,
+        "mean": -81.01848000000001,
+        "median": -81.04
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -86.55,
+        "max": -79.68,
+        "mean": -85.13018,
+        "median": -85.08
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 2.95,
+        "max": 5.63,
+        "mean": 4.1117,
+        "median": 4.04
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 473.93,
+        "max": 4534.621,
+        "mean": 1349.486718,
+        "median": 1260.711
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 26.75714200621922,
+        "max": 36.565409949271135,
+        "mean": 31.063367571570076,
+        "median": 31.0061553826974
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N3",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N3"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN4_b01",
+    "time_kst": "2026-09-14T13:27:21.701607+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/141_exp2_a1_a03b65",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N4",
+    "serial": "1050282818",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -84.05,
+        "max": -84.05,
+        "mean": -84.05,
+        "median": -84.05
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -99.53,
+        "max": -92.51,
+        "mean": -96.90007,
+        "median": -97.04
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 8.46,
+        "max": 15.48,
+        "mean": 12.85007,
+        "median": 12.99
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 23.545,
+        "max": 376.995,
+        "mean": 83.312677,
+        "median": 74.1405
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 13.718986947787412,
+        "max": 25.76335590293832,
+        "mean": 18.81017524227149,
+        "median": 18.700555077105385
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N4",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N4"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN5_b01",
+    "time_kst": "2026-09-14T13:28:03.940614+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/142_exp2_a1_702e3a",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N5",
+    "serial": "1050208509",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -81.04,
+        "max": -75.04,
+        "mean": -81.022,
+        "median": -81.04
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -96.2,
+        "max": -83.31,
+        "mean": -90.96685,
+        "median": -91.08
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 2.27,
+        "max": 15.16,
+        "mean": 9.94485,
+        "median": 10.06
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 58.645,
+        "max": 3269.162,
+        "mean": 442.769213,
+        "median": 360.051
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 17.682309906207653,
+        "max": 35.144364421352286,
+        "mean": 25.540072973709073,
+        "median": 25.563634022568536
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N5",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N5"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN6_b01",
+    "time_kst": "2026-09-14T13:28:49.164002+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/143_exp2_a1_8ba1e8",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N6",
+    "serial": "1050257038",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 330,
+    "rssi_invalid": 670,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19.0
+      },
+      "rssi_dbm": {
+        "n": 330,
+        "min": -84.05,
+        "max": -84.05,
+        "mean": -84.05,
+        "median": -84.05
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -100.4,
+        "max": -93.91,
+        "mean": -97.71518,
+        "median": -97.67
+      },
+      "rssi_fp_gap_db": {
+        "n": 330,
+        "min": 9.86,
+        "max": 16.35,
+        "mean": 13.658515151515152,
+        "median": 13.72
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 18.096,
+        "max": 204.108,
+        "mean": 57.259953,
+        "median": 52.454
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 12.5758258758138,
+        "max": 23.098600271941,
+        "mean": 17.257177465794292,
+        "median": 17.197786005488133
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N6",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N6"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN7_b01",
+    "time_kst": "2026-09-14T13:29:34.151713+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/144_exp2_a1_d1f91f",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N7",
+    "serial": "1050204212",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -84.05,
+        "max": -84.05,
+        "mean": -84.05,
+        "median": -84.05
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -90.07,
+        "max": -85.53,
+        "mean": -86.41896,
+        "median": -86.35
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 1.48,
+        "max": 6.02,
+        "mean": 2.36896,
+        "median": 2.3
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 244.142,
+        "max": 2043.514,
+        "mean": 695.79225,
+        "median": 643.6835000000001
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 23.8764249797186,
+        "max": 33.10377617384984,
+        "mean": 28.167140063285437,
+        "median": 28.086723228551442
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N7",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N7"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN2_b01",
+    "time_kst": "2026-09-14T13:30:26.211155+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/145_exp2_a1_77a2b7",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N2",
+    "serial": "1050211584",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 996,
+    "rssi_invalid": 4,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 17,
+        "max": 17,
+        "mean": 17,
+        "median": 17.0
+      },
+      "rssi_dbm": {
+        "n": 996,
+        "min": -80.08,
+        "max": -71.09,
+        "mean": -76.23526104417671,
+        "median": -77.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -83.55,
+        "max": -71.09,
+        "mean": -77.4023,
+        "median": -77.02
+      },
+      "rssi_fp_gap_db": {
+        "n": 996,
+        "min": -0.63,
+        "max": 3.83,
+        "mean": 1.1751204819277108,
+        "median": 1.34
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 187.853,
+        "max": 5620.341,
+        "mean": 1476.839307,
+        "median": 1274.5155
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 22.738181351089708,
+        "max": 37.49762666089632,
+        "mean": 31.134163527499602,
+        "median": 31.053450002214543
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N2",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N2"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN3_b01",
+    "time_kst": "2026-09-14T13:31:07.101104+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/146_exp2_a1_20d259",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N3",
+    "serial": "1050273888",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 17,
+        "max": 17,
+        "mean": 17,
+        "median": 17.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -83.09,
+        "max": -77.09,
+        "mean": -80.26973,
+        "median": -80.08
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -86.68,
+        "max": -79.53,
+        "mean": -85.13791,
+        "median": -85.08
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 1.67,
+        "max": 6.6,
+        "mean": 4.86818,
+        "median": 5.0
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 401.998,
+        "max": 2873.879,
+        "mean": 1154.718004,
+        "median": 1082.701
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 26.04223892410031,
+        "max": 34.584684789204914,
+        "mean": 30.394426938290508,
+        "median": 30.345084891509924
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N3",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N3"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN4_b01",
+    "time_kst": "2026-09-14T13:31:46.781282+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/147_exp2_a1_d19900",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N4",
+    "serial": "1050282818",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 17,
+        "max": 17,
+        "mean": 17,
+        "median": 17.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -83.09,
+        "max": -83.09,
+        "mean": -83.09,
+        "median": -83.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -99.97,
+        "max": -84.97,
+        "mean": -96.9334,
+        "median": -97.01
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 1.88,
+        "max": 16.88,
+        "mean": 13.8434,
+        "median": 13.92
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 19.338,
+        "max": 581.274,
+        "mean": 72.301187,
+        "median": 63.698499999999996
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 12.864115558959782,
+        "max": 27.643808976870613,
+        "mean": 18.130132943308297,
+        "median": 18.0412916791762
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N4",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N4"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN5_b01",
+    "time_kst": "2026-09-14T13:32:26.151639+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/148_exp2_a1_bb892b",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N5",
+    "serial": "1050208509",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 17,
+        "max": 17,
+        "mean": 17,
+        "median": 17.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -83.09,
+        "max": -74.08,
+        "mean": -81.78071,
+        "median": -83.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -96.25,
+        "max": -82.66,
+        "mean": -91.01079,
+        "median": -91.26
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 0.69,
+        "max": 16.17,
+        "mean": 9.23008,
+        "median": 9.38
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 61.926,
+        "max": 2106.746,
+        "mean": 406.73753,
+        "median": 316.40999999999997
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 17.918730284347067,
+        "max": 33.236121780153375,
+        "mean": 25.074734108252443,
+        "median": 25.002499365470577
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N5",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N5"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN6_b01",
+    "time_kst": "2026-09-14T13:33:04.814260+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/149_exp2_a1_ab18db",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N6",
+    "serial": "1050257038",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1,
+    "rssi_invalid": 999,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 9,
+        "max": 17,
+        "mean": 12.664,
+        "median": 9.0
+      },
+      "rssi_dbm": {
+        "n": 1,
+        "min": -83.09,
+        "max": -83.09,
+        "mean": -83.09,
+        "median": -83.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -101.01,
+        "max": -87.89,
+        "mean": -95.31439,
+        "median": -95.56
+      },
+      "rssi_fp_gap_db": {
+        "n": 1,
+        "min": 14.42,
+        "max": 14.42,
+        "mean": 14.42,
+        "median": 14.42
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 5.913,
+        "max": 161.954,
+        "mean": 38.773838,
+        "median": 33.584500000000006
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 7.718078789991056,
+        "max": 22.09391678844959,
+        "mean": 15.16345978588785,
+        "median": 15.261386709286285
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N6",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N6"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN7_b01",
+    "time_kst": "2026-09-14T13:33:42.787316+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/150_exp2_a1_cd3198",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N7",
+    "serial": "1050204212",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 777,
+    "rssi_invalid": 223,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 17,
+        "max": 17,
+        "mean": 17,
+        "median": 17.0
+      },
+      "rssi_dbm": {
+        "n": 777,
+        "min": -83.09,
+        "max": -83.09,
+        "mean": -83.09,
+        "median": -83.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -89.5,
+        "max": -85.58,
+        "mean": -86.45891,
+        "median": -86.42
+      },
+      "rssi_fp_gap_db": {
+        "n": 777,
+        "min": 2.49,
+        "max": 5.57,
+        "mean": 3.285212355212355,
+        "median": 3.22
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 172.234,
+        "max": 2246.102,
+        "mean": 612.746182,
+        "median": 566.4459999999999
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 22.361188878542222,
+        "max": 33.51429474557366,
+        "mean": 27.59773580370101,
+        "median": 27.531585143382152
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N7",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N7"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN2_b01",
+    "time_kst": "2026-09-14T13:34:34.369773+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/151_exp2_a1_43f61b",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N2",
+    "serial": "1050211584",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 241,
+        "max": 241,
+        "mean": 241,
+        "median": 241.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -79.38,
+        "max": -73.01,
+        "mean": -76.05921,
+        "median": -75.39
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -83.23,
+        "max": -75.35,
+        "mean": -78.82845,
+        "median": -78.06
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 2.23,
+        "max": 3.89,
+        "mean": 2.76924,
+        "median": 2.72
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 3415.617,
+        "max": 51457.323,
+        "mean": 14572.481502,
+        "median": 13461.5415
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 35.33469166433845,
+        "max": 47.11447188858994,
+        "mean": 41.3066766867385,
+        "median": 41.29094792483819
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N2",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N2"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN3_b01",
+    "time_kst": "2026-09-14T13:35:19.535833+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/152_exp2_a1_139118",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N3",
+    "serial": "1050273888",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 233,
+        "max": 241,
+        "mean": 240.408,
+        "median": 241.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -81.94,
+        "max": -77.46,
+        "mean": -80.12701,
+        "median": -80.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -86.52,
+        "max": -82.56,
+        "mean": -85.44059,
+        "median": -85.36
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 3.28,
+        "max": 6.21,
+        "mean": 5.31358,
+        "median": 5.29
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 4998.02,
+        "max": 44861.793,
+        "mean": 16332.557202,
+        "median": 15242.6245
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 36.98797989660031,
+        "max": 46.5187662712579,
+        "mean": 41.91877019426545,
+        "median": 41.830597499423504
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N3",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N3"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN4_b01",
+    "time_kst": "2026-09-14T13:35:58.171024+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/153_exp2_a1_ea3bfb",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N4",
+    "serial": "1050282818",
+    "block": 1,
+    "offered": 1000,
+    "rx": 999,
+    "per": 0.1,
+    "pdr": 99.9,
+    "quality_samples": 999,
+    "rssi_valid": 999,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 999,
+        "min": 233,
+        "max": 241,
+        "mean": 240.91991991991992,
+        "median": 241
+      },
+      "rssi_dbm": {
+        "n": 999,
+        "min": -84.45,
+        "max": -80.94,
+        "mean": -81.13618618618618,
+        "median": -81.16
+      },
+      "fp_dbm": {
+        "n": 999,
+        "min": -99.22,
+        "max": -95.6,
+        "mean": -97.61752752752753,
+        "median": -97.67
+      },
+      "rssi_fp_gap_db": {
+        "n": 999,
+        "min": 12.53,
+        "max": 18.06,
+        "mean": 16.48134134134134,
+        "median": 16.54
+      },
+      "fp_snr_ratio": {
+        "n": 999,
+        "min": 302.63,
+        "max": 3225.374,
+        "mean": 969.394928928929,
+        "median": 882.031
+      },
+      "fp_snr_db": {
+        "n": 999,
+        "min": 24.809119778466375,
+        "max": 35.08580080744546,
+        "mean": 29.566918937406186,
+        "median": 29.454838491821004
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N4",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N4"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN5_b01",
+    "time_kst": "2026-09-14T13:36:36.473477+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/154_exp2_a1_55c634",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N5",
+    "serial": "1050208509",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 233,
+        "max": 241,
+        "mean": 240.96,
+        "median": 241.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -81.87,
+        "max": -76.35,
+        "mean": -79.63074,
+        "median": -79.6
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -93.92,
+        "max": -87.96,
+        "mean": -91.24205,
+        "median": -91.37
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 8.12,
+        "max": 14.28,
+        "mean": 11.61131,
+        "median": 11.745000000000001
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 937.364,
+        "max": 15355.357,
+        "mean": 4209.17537,
+        "median": 3646.6234999999997
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 29.71908270176753,
+        "max": 41.86259917902351,
+        "mean": 35.67381865339624,
+        "median": 35.61890923821451
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N5",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N5"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN6_b01",
+    "time_kst": "2026-09-14T13:37:14.482345+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/155_exp2_a1_6dc9ac",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N6",
+    "serial": "1050257038",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 233,
+        "max": 241,
+        "mean": 235.76,
+        "median": 233.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -90.84,
+        "max": -83.08,
+        "mean": -83.39104,
+        "median": -83.28
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -113.87,
+        "max": -97.12,
+        "mean": -98.12382,
+        "median": -97.95
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 6.94,
+        "max": 30.31,
+        "mean": 14.73278,
+        "median": 14.66
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 23.094,
+        "max": 2298.666,
+        "mean": 785.976966,
+        "median": 717.721
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 13.634991614782345,
+        "max": 33.614758721414994,
+        "mean": 28.58936264677375,
+        "median": 28.559556349721547
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N6",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N6"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN7_b01",
+    "time_kst": "2026-09-14T13:37:52.711165+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/156_exp2_a1_38787c",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N7",
+    "serial": "1050204212",
+    "block": 1,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 233,
+        "max": 241,
+        "mean": 234.2,
+        "median": 233.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -85.9,
+        "max": -82.4,
+        "mean": -82.66534,
+        "median": -82.56
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -87.8,
+        "max": -86.07,
+        "mean": -86.60919,
+        "median": -86.47
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 0.39,
+        "max": 5.0,
+        "mean": 3.94385,
+        "median": 3.89
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 2850.303,
+        "max": 27771.1,
+        "mean": 8942.225471,
+        "median": 8208.0405
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 34.54891029914967,
+        "max": 44.43593082287843,
+        "mean": 39.151478662212426,
+        "median": 39.14239408676902
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 1,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N7",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N7"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN2_b02",
+    "time_kst": "2026-09-14T14:34:41.566569+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/189_exp2_a1_d40e44",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N2",
+    "serial": "1050211584",
+    "block": 2,
+    "offered": 1000,
+    "rx": 999,
+    "per": 0.1,
+    "pdr": 99.9,
+    "quality_samples": 999,
+    "rssi_valid": 997,
+    "rssi_invalid": 2,
+    "metrics": {
+      "accum": {
+        "n": 999,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19
+      },
+      "rssi_dbm": {
+        "n": 997,
+        "min": -81.04,
+        "max": -69.04,
+        "mean": -75.26801404212638,
+        "median": -75.04
+      },
+      "fp_dbm": {
+        "n": 999,
+        "min": -83.08,
+        "max": -71.48,
+        "mean": -77.26802802802803,
+        "median": -77.25
+      },
+      "rssi_fp_gap_db": {
+        "n": 997,
+        "min": -0.57,
+        "max": 4.22,
+        "mean": 2.0027482447342027,
+        "median": 2.3
+      },
+      "fp_snr_ratio": {
+        "n": 999,
+        "min": 229.585,
+        "max": 5263.612,
+        "mean": 1552.0087647647647,
+        "median": 1338.3
+      },
+      "fp_snr_db": {
+        "n": 999,
+        "min": 23.60943509901744,
+        "max": 37.21283868358667,
+        "mean": 31.301467416578966,
+        "median": 31.26553477961279
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N2",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N2"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN7_b02",
+    "time_kst": "2026-09-14T14:35:26.105122+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/190_exp2_a1_0c470f",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N7",
+    "serial": "1050204212",
+    "block": 2,
+    "offered": 1000,
+    "rx": 999,
+    "per": 0.1,
+    "pdr": 99.9,
+    "quality_samples": 999,
+    "rssi_valid": 999,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 999,
+        "min": 233,
+        "max": 241,
+        "mean": 234.0810810810811,
+        "median": 233
+      },
+      "rssi_dbm": {
+        "n": 999,
+        "min": -85.62,
+        "max": -82.4,
+        "mean": -82.66934934934935,
+        "median": -82.56
+      },
+      "fp_dbm": {
+        "n": 999,
+        "min": -87.98,
+        "max": -86.11,
+        "mean": -86.59306306306306,
+        "median": -86.47
+      },
+      "rssi_fp_gap_db": {
+        "n": 999,
+        "min": 0.69,
+        "max": 5.22,
+        "mean": 3.9237137137137137,
+        "median": 3.89
+      },
+      "fp_snr_ratio": {
+        "n": 999,
+        "min": 2965.804,
+        "max": 33506.187,
+        "mean": 9053.154056056055,
+        "median": 8168.501
+      },
+      "fp_snr_db": {
+        "n": 999,
+        "min": 34.72142446580733,
+        "max": 45.25125007988055,
+        "mean": 39.179498011860964,
+        "median": 39.121423665498156
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N7",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N7"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN6_b02",
+    "time_kst": "2026-09-14T14:36:09.027214+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/191_exp2_a1_bb2d56",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N6",
+    "serial": "1050257038",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 233,
+        "max": 241,
+        "mean": 235.792,
+        "median": 233.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -90.25,
+        "max": -83.08,
+        "mean": -83.46094,
+        "median": -83.36
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -114.44,
+        "max": -97.08,
+        "mean": -98.08658,
+        "median": -97.86
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 8.08,
+        "max": 31.23,
+        "mean": 14.62564,
+        "median": 14.49
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 15.698,
+        "max": 2145.033,
+        "mean": 806.310125,
+        "median": 741.779
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 11.958443247472818,
+        "max": 33.31433977922916,
+        "mean": 28.66737181313801,
+        "median": 28.70274526852041
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N6",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N6"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN5_b02",
+    "time_kst": "2026-09-14T14:36:47.947099+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/192_exp2_a1_c035bc",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N5",
+    "serial": "1050208509",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 233,
+        "max": 241,
+        "mean": 240.984,
+        "median": 241.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -82.01,
+        "max": -79.38,
+        "mean": -79.64528,
+        "median": -79.6
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -94.22,
+        "max": -88.41,
+        "mean": -91.31105,
+        "median": -91.46
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 8.22,
+        "max": 14.43,
+        "mean": 11.66577,
+        "median": 11.76
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 864.994,
+        "max": 24370.705,
+        "mean": 4180.939296,
+        "median": 3540.506
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 29.37013095007093,
+        "max": 43.86868092712879,
+        "mean": 35.60494235143608,
+        "median": 35.49065005104341
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N5",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N5"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN4_b02",
+    "time_kst": "2026-09-14T14:37:27.264786+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/193_exp2_a1_200aca",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N4",
+    "serial": "1050282818",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 233,
+        "max": 241,
+        "mean": 240.848,
+        "median": 241.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -86.47,
+        "max": -81.0,
+        "mean": -81.17299,
+        "median": -81.16
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -106.16,
+        "max": -95.6,
+        "mean": -97.69055,
+        "median": -97.75
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 11.69,
+        "max": 25.0,
+        "mean": 16.51756,
+        "median": 16.57
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 326.533,
+        "max": 6155.253,
+        "mean": 938.46587,
+        "median": 863.9955
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 25.139270783941985,
+        "max": 37.89245908485167,
+        "mean": 29.445270438956562,
+        "median": 29.36511477098126
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N4",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N4"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN3_b02",
+    "time_kst": "2026-09-14T14:38:05.400880+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/194_exp2_a1_694557",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N3",
+    "serial": "1050273888",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 233,
+        "max": 241,
+        "mean": 239.808,
+        "median": 241.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -82.39,
+        "max": -77.75,
+        "mean": -80.45605,
+        "median": -80.4
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -86.66,
+        "max": -82.64,
+        "mean": -85.51538000000001,
+        "median": -85.47
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 3.08,
+        "max": 5.92,
+        "mean": 5.05933,
+        "median": 5.06
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 3778.659,
+        "max": 48269.669,
+        "mean": 16280.874759,
+        "median": 15278.048999999999
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 35.77337701363847,
+        "max": 46.836743207377644,
+        "mean": 41.885400415994354,
+        "median": 41.84067871251516
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N3",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N3"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m256_pac8_l23_ch5_txN2_b02",
+    "time_kst": "2026-09-14T14:38:44.032468+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/195_exp2_a1_373262",
+    "phy": "M256/PAC8",
+    "preamble": 256,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N2",
+    "serial": "1050211584",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 241,
+        "max": 241,
+        "mean": 241,
+        "median": 241.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -79.38,
+        "max": -73.01,
+        "mean": -76.00315,
+        "median": -75.33
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -83.1,
+        "max": -75.35,
+        "mean": -78.75469,
+        "median": -78.06
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 2.26,
+        "max": 3.76,
+        "mean": 2.75154,
+        "median": 2.69
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 2577.508,
+        "max": 56895.691,
+        "mean": 14465.973925,
+        "median": 13322.496
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 34.11200021909177,
+        "max": 47.550793763109745,
+        "mean": 41.25327606770981,
+        "median": 41.24585590011112
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 256,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N2",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N2"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN7_b02",
+    "time_kst": "2026-09-14T14:39:35.755318+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/196_exp2_a1_f7605a",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N7",
+    "serial": "1050204212",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 784,
+    "rssi_invalid": 216,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 17,
+        "max": 17,
+        "mean": 17,
+        "median": 17.0
+      },
+      "rssi_dbm": {
+        "n": 784,
+        "min": -83.09,
+        "max": -83.09,
+        "mean": -83.09,
+        "median": -83.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -89.21,
+        "max": -85.53,
+        "mean": -86.47596,
+        "median": -86.38
+      },
+      "rssi_fp_gap_db": {
+        "n": 784,
+        "min": 2.44,
+        "max": 6.12,
+        "mean": 3.3106505102040815,
+        "median": 3.25
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 227.347,
+        "max": 2494.253,
+        "mean": 600.168908,
+        "median": 556.8544999999999
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 23.566892277646065,
+        "max": 33.96940503244838,
+        "mean": 27.521791235754524,
+        "median": 27.45741719370561
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N7",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N7"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN6_b02",
+    "time_kst": "2026-09-14T14:40:20.627103+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/197_exp2_a1_0e9f84",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N6",
+    "serial": "1050257038",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1,
+    "rssi_invalid": 999,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 9,
+        "max": 17,
+        "mean": 12.616,
+        "median": 9.0
+      },
+      "rssi_dbm": {
+        "n": 1,
+        "min": -83.09,
+        "max": -83.09,
+        "mean": -83.09,
+        "median": -83.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -100.46,
+        "max": -87.58,
+        "mean": -95.25113999999999,
+        "median": -95.47
+      },
+      "rssi_fp_gap_db": {
+        "n": 1,
+        "min": 12.21,
+        "max": 12.21,
+        "mean": 12.21,
+        "median": 12.21
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 6.354,
+        "max": 218.218,
+        "mean": 37.437418,
+        "median": 33.06
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 8.030472104911286,
+        "max": 23.388905710839232,
+        "mean": 15.075891669445697,
+        "median": 15.193020855178975
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N6",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N6"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN5_b02",
+    "time_kst": "2026-09-14T14:40:59.335785+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/198_exp2_a1_53ee02",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N5",
+    "serial": "1050208509",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 17,
+        "max": 17,
+        "mean": 17,
+        "median": 17.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -83.09,
+        "max": -74.08,
+        "mean": -81.65431,
+        "median": -83.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -96.16,
+        "max": -83.59,
+        "mean": -91.0109,
+        "median": -91.15
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 0.78,
+        "max": 15.75,
+        "mean": 9.35659,
+        "median": 9.42
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 65.509,
+        "max": 2111.917,
+        "mean": 398.082955,
+        "median": 323.119
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 18.163009699433633,
+        "max": 33.24676846082269,
+        "mean": 25.016383866368862,
+        "median": 25.09362478490494
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N5",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N5"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN4_b02",
+    "time_kst": "2026-09-14T14:41:37.249640+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/199_exp2_a1_adec2c",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N4",
+    "serial": "1050282818",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 17,
+        "max": 17,
+        "mean": 17,
+        "median": 17.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -83.09,
+        "max": -83.09,
+        "mean": -83.09,
+        "median": -83.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -99.62,
+        "max": -84.62,
+        "mean": -96.9824,
+        "median": -97.12
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 1.53,
+        "max": 16.53,
+        "mean": 13.8924,
+        "median": 14.03
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 21.25,
+        "max": 467.581,
+        "mean": 72.29281,
+        "median": 62.208
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 13.273589343863303,
+        "max": 26.69856855435046,
+        "mean": 18.070789878369993,
+        "median": 17.93846144584547
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N4",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N4"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN3_b02",
+    "time_kst": "2026-09-14T14:42:15.656194+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/200_exp2_a1_2f69e9",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N3",
+    "serial": "1050273888",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 17,
+        "max": 17,
+        "mean": 17,
+        "median": 17.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -83.09,
+        "max": -80.08,
+        "mean": -81.58199,
+        "median": -80.08
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -86.57,
+        "max": -84.03,
+        "mean": -85.22243,
+        "median": -85.18
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 1.34,
+        "max": 6.09,
+        "mean": 3.64044,
+        "median": 3.97
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 420.685,
+        "max": 3589.348,
+        "mean": 1098.219279,
+        "median": 1013.6265
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 26.239570270315756,
+        "max": 35.550155667625944,
+        "mean": 30.14974587529845,
+        "median": 30.058779517589734
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N3",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N3"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac8_l23_ch5_txN2_b02",
+    "time_kst": "2026-09-14T14:42:53.706522+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/201_exp2_a1_cfd988",
+    "phy": "M32/PAC8",
+    "preamble": 32,
+    "pac": 8,
+    "lead_us": 23,
+    "role": "N2",
+    "serial": "1050211584",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 996,
+    "rssi_invalid": 4,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 17,
+        "max": 17,
+        "mean": 17,
+        "median": 17.0
+      },
+      "rssi_dbm": {
+        "n": 996,
+        "min": -80.08,
+        "max": -71.09,
+        "mean": -76.35245983935744,
+        "median": -77.09
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -83.26,
+        "max": -71.02,
+        "mean": -77.59919,
+        "median": -77.12
+      },
+      "rssi_fp_gap_db": {
+        "n": 996,
+        "min": -0.69,
+        "max": 3.18,
+        "mean": 1.255281124497992,
+        "median": 1.48
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 217.532,
+        "max": 6339.821,
+        "mean": 1508.269578,
+        "median": 1345.0974999999999
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 23.375231527903434,
+        "max": 38.02076996082096,
+        "mean": 31.200755750605353,
+        "median": 31.287537467378748
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 8,
+      "lead_us": 23,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N2",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N2"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN7_b02",
+    "time_kst": "2026-09-14T14:43:45.324855+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/202_exp2_a1_ceec80",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N7",
+    "serial": "1050204212",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -84.05,
+        "max": -84.05,
+        "mean": -84.05,
+        "median": -84.05
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -88.64,
+        "max": -85.63,
+        "mean": -86.44231,
+        "median": -86.38
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 1.58,
+        "max": 4.59,
+        "mean": 2.39231,
+        "median": 2.33
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 239.598,
+        "max": 2011.747,
+        "mean": 693.553145,
+        "median": 655.187
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 23.794831885395237,
+        "max": 33.03573362361653,
+        "mean": 28.16573917696945,
+        "median": 28.163652703450445
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N7",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N7"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN6_b02",
+    "time_kst": "2026-09-14T14:44:26.252803+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/203_exp2_a1_4ed7fa",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N6",
+    "serial": "1050257038",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 368,
+    "rssi_invalid": 632,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19.0
+      },
+      "rssi_dbm": {
+        "n": 368,
+        "min": -84.05,
+        "max": -84.05,
+        "mean": -84.05,
+        "median": -84.05
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -100.4,
+        "max": -93.75,
+        "mean": -97.62539,
+        "median": -97.62
+      },
+      "rssi_fp_gap_db": {
+        "n": 368,
+        "min": 9.77,
+        "max": 16.35,
+        "mean": 13.597445652173914,
+        "median": 13.55
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 17.363,
+        "max": 201.868,
+        "mean": 57.557053,
+        "median": 53.0845
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 12.39624765246138,
+        "max": 23.05067480286539,
+        "mean": 17.276950913652886,
+        "median": 17.24967730943125
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N6",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N6"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN5_b02",
+    "time_kst": "2026-09-14T14:45:04.340579+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/204_exp2_a1_564447",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N5",
+    "serial": "1050208509",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -81.04,
+        "max": -75.04,
+        "mean": -81.028,
+        "median": -81.04
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -96.34,
+        "max": -83.5,
+        "mean": -90.99797,
+        "median": -91.1
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 2.56,
+        "max": 15.3,
+        "mean": 9.96997,
+        "median": 10.06
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 58.938,
+        "max": 2454.183,
+        "mean": 465.166693,
+        "median": 362.47950000000003
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 17.703953944304153,
+        "max": 33.899069434468096,
+        "mean": 25.652865265359964,
+        "median": 25.592834184087685
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N5",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N5"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  },
+  {
+    "case_id": "standard_exp2_m32_pac4_l21_ch5_txN4_b02",
+    "time_kst": "2026-09-14T14:45:42.442896+09:00",
+    "root": "/Users/songchieon/Desktop/DWM3000/logs/air_host_recovery_20260914_103508/standard_ch5_air_20260914_103508/205_exp2_a1_c6279f",
+    "phy": "M32/PAC4",
+    "preamble": 32,
+    "pac": 4,
+    "lead_us": 21,
+    "role": "N4",
+    "serial": "1050282818",
+    "block": 2,
+    "offered": 1000,
+    "rx": 1000,
+    "per": 0.0,
+    "pdr": 100.0,
+    "quality_samples": 1000,
+    "rssi_valid": 1000,
+    "rssi_invalid": 0,
+    "metrics": {
+      "accum": {
+        "n": 1000,
+        "min": 19,
+        "max": 19,
+        "mean": 19,
+        "median": 19.0
+      },
+      "rssi_dbm": {
+        "n": 1000,
+        "min": -84.05,
+        "max": -84.05,
+        "mean": -84.05,
+        "median": -84.05
+      },
+      "fp_dbm": {
+        "n": 1000,
+        "min": -99.73,
+        "max": -92.95,
+        "mean": -97.0179,
+        "median": -97.12
+      },
+      "rssi_fp_gap_db": {
+        "n": 1000,
+        "min": 8.9,
+        "max": 15.68,
+        "mean": 12.9679,
+        "median": 13.07
+      },
+      "fp_snr_ratio": {
+        "n": 1000,
+        "min": 18.263,
+        "max": 566.304,
+        "mean": 83.302263,
+        "median": 74.267
+      },
+      "fp_snr_db": {
+        "n": 1000,
+        "min": 12.615721191144775,
+        "max": 27.53049629208716,
+        "mean": 18.771989631705928,
+        "median": 18.707956825718014
+      }
+    },
+    "conditions": {
+      "stage": "exp2",
+      "preamble": 32,
+      "rx_pac": 4,
+      "lead_us": 21,
+      "tail_us": 0,
+      "cycles": 1000,
+      "variant": null,
+      "slot_owners": "2",
+      "run": 2,
+      "uwb_channel": 5,
+      "rf_config_schema_version": 1,
+      "quality_schema_version": 2,
+      "link_tx_role": "N4",
+      "link_mode": "sequential_single_tx",
+      "profile": "standard",
+      "rotation_index": 0,
+      "phase": "main",
+      "active_physical_roles": [
+        "N4"
+      ]
+    },
+    "quality_scope": "Successful DATA only; no values imputed for missing receptions or unavailable RSSI",
+    "official": "PASS"
+  }
+]

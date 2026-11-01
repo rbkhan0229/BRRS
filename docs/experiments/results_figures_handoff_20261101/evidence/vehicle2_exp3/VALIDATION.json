@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "cases": 3,
+  "captures": 3000,
+  "total_tx": 3000,
+  "total_rx": 3000,
+  "firmware_source_matches_all_cases": true,
+  "capacity_comparison_cases": 2,
+  "capacity_goodput_ratio": 1.6666666666666667,
+  "raw_logs_reparsed_this_analysis": false,
+  "source_hashes": {
+    "/home/chieon/DWM3000/analysis_records/vehicle_chronology_20260916/normalized_cases.json": "d5f4f65925e35a41176648734cf57cb59fbe940468219a4a3e4fd5cb07ba2b64",
+    "/home/chieon/DWM3000/logs/air_host_recovery_20260914_103508/controller/sdk/Drivers/API/Src/examples/ex_35b_brrs_normal/brrs_normal.c": "000ccf1c1d53617c68b0136482a7dca434f97bb50547f9b7137a47308a8816f3"
+  },
+  "output_hashes": {
+    "report.md": "4419e720ddf6c06602d17cc5fc4f2e6c74e920102235c855aacd9870c731920b",
+    "derivation.md": "42639e08c1a1d97232f6b38f742388e0c7a30cf09e3bd1d7943125691312f298",
+    "comparison.json": "f98ffd6c8e7e99cc46fe0beca0f2933172cfde26042658689ba0592955ab08d7"
+  }
+}
